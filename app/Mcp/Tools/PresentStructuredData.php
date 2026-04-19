@@ -34,6 +34,7 @@ class PresentStructuredData extends Tool
 
         $snapshot = $this->resolveSnapshot($request, $workbench);
 
+        // SnapshotVersioning::append() also updates current_version_id (REQ-M1-010).
         $version = SnapshotVersioning::append(
             snapshot: $snapshot,
             viewType: (string) $request->get('view_type'),
@@ -41,8 +42,6 @@ class PresentStructuredData extends Tool
             metadata: $request->get('metadata') ? (array) $request->get('metadata') : null,
             previewHtml: $this->stubPreviewHtml($snapshot),
         );
-
-        $snapshot->forceFill(['current_version_id' => $version->id])->save();
 
         $url = route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,

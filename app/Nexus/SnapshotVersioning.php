@@ -46,7 +46,7 @@ class SnapshotVersioning
                 ->where('snapshot_id', $snapshot->getKey())
                 ->max('revision') + 1;
 
-            return SnapshotVersion::query()->create([
+            $version = SnapshotVersion::query()->create([
                 'snapshot_id' => $snapshot->getKey(),
                 'revision' => $nextRevision,
                 'view_type' => $viewType,
@@ -54,6 +54,16 @@ class SnapshotVersioning
                 'metadata' => $metadata,
                 'preview_html' => $previewHtml,
             ]);
+
+            // REQ-M1-010: every append updates current_version_id to the
+            // newly-written row so readers always see the latest revision.
+            Snapshot::query()
+                ->whereKey($snapshot->getKey())
+                ->update(['current_version_id' => $version->id]);
+
+            $snapshot->forceFill(['current_version_id' => $version->id])->syncOriginalAttribute('current_version_id');
+
+            return $version;
         }));
     }
 
