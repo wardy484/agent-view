@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import LegalLayout from '@/layouts/legal-layout';
 
 export default function Terms() {
@@ -31,7 +31,7 @@ export default function Terms() {
                 <h2>3. Acceptable use</h2>
                 <p>
                     You agree to our{' '}
-                    <a href="/acceptable-use">Acceptable Use Policy</a>. In
+                    <Link href="/acceptable-use">Acceptable Use Policy</Link>. In
                     short: don&apos;t use the Service to break the law, harm
                     others, or abuse our infrastructure.
                 </p>
@@ -118,7 +118,7 @@ export default function Terms() {
                     <a href="mailto:legal@nexus-ui.example">
                         legal@nexus-ui.example
                     </a>{' '}
-                    or use our <a href="/contact">contact form</a>.
+                    or use our <Link href="/contact">contact form</Link>.
                 </p>
             </LegalLayout>
         </>

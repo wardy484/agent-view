@@ -11,7 +11,11 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.tsx'],
             refresh: true,
         }),
-        inertia(),
+        inertia({
+            ssr: {
+                entry: 'resources/js/ssr.tsx',
+            },
+        }),
         react({
             babel: {
                 plugins: ['babel-plugin-react-compiler'],
