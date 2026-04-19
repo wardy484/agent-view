@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { TableView, type TableViewPayload } from '@/components/nexus/table-view';
+import { VersionSwitcher, type SnapshotVersionSummary } from '@/components/nexus/version-switcher';
 
 type Workbench = {
     slug: string;
@@ -25,9 +26,10 @@ type Props = {
     workbench: Workbench;
     snapshot: Snapshot;
     version: Version;
+    versions: SnapshotVersionSummary[];
 };
 
-export default function SnapshotPage({ workbench, snapshot, version }: Props) {
+export default function SnapshotPage({ workbench, snapshot, version, versions }: Props) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
 
@@ -36,9 +38,16 @@ export default function SnapshotPage({ workbench, snapshot, version }: Props) {
             <Head title={`${heading} — ${workbench.name}`} />
 
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 p-6">
-                <header className="flex flex-col gap-1">
-                    <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
-                    <p className="text-sm text-muted-foreground">{subtitle}</p>
+                <header className="flex flex-col gap-2">
+                    <div className="flex flex-col gap-1">
+                        <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+                        <p className="text-sm text-muted-foreground">{subtitle}</p>
+                    </div>
+                    <VersionSwitcher
+                        workbenchSlug={workbench.slug}
+                        snapshotSlug={snapshot.slug}
+                        versions={versions}
+                    />
                 </header>
 
                 <main>{renderView(version)}</main>
