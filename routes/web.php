@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SnapshotController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -11,11 +12,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 });
 
-// Workbench snapshot page. The real Inertia page lands in REQ-M1-014; for
-// now we just need a named, addressable URL that the present_structured_data
-// MCP tool can hand back to its caller (REQ-M1-004).
-Route::get('/workbenches/{workbench:slug}/snapshots/{snapshot:slug}', function () {
-    return response('Workbench snapshot page (REQ-M1-014)', 200);
-})->name('workbench.snapshot.show');
+// Workbench snapshot page — renders the snapshot via the appropriate view
+// component (REQ-M1-005 wires the Table view; later milestones add Kanban,
+// Flowchart, SlideDeck). The page resolves data_payload from the snapshot's
+// current_version_id (REQ-M1-010) and the React component iterates rows.
+Route::get('/workbenches/{workbench:slug}/snapshots/{snapshot:slug}', [SnapshotController::class, 'show'])
+    ->name('workbench.snapshot.show');
 
 require __DIR__.'/settings.php';

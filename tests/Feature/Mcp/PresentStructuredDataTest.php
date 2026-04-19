@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 use App\Mcp\Servers\NexusServer;
 use App\Mcp\Tools\PresentStructuredData;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+
+uses(RefreshDatabase::class);
 
 it('REQ-M1-001: accepts the v1 input schema', function (): void {
     $arguments = [
