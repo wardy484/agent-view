@@ -51,14 +51,16 @@ it('REQ-M1-005: snapshot page hands every row in data_payload.rows to the table 
         );
 });
 
-it('REQ-M1-005: TableView component file iterates rows.map and columns.map', function (): void {
-    // Belt-and-braces: ensure the React renderer doesn't quietly slice/limit
-    // the rows array. The test asserts the source iterates payload.rows
-    // directly without an intermediate `.slice(...)`/`.filter(...)`.
+it('REQ-M1-005: TableView feeds every payload row into TanStack', function (): void {
+    // Belt-and-braces: ensure the React renderer hands the full `rows` array
+    // to TanStack (`data: rows`) — pagination/filtering then operate on the
+    // full set client-side per REQ-M1-006, but the input must be the entire
+    // payload, never a sliced/limited subset.
     $source = file_get_contents(resource_path('js/components/nexus/table-view.tsx'));
 
     expect($source)
-        ->toContain('rows.map(')
+        ->toContain('data: rows')
         ->toContain('columns.map(')
-        ->not->toContain('rows.slice(');
+        ->not->toContain('rows.slice(')
+        ->not->toContain('rows.filter(');
 });
