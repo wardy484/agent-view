@@ -1,0 +1,89 @@
+# Nexus-UI — Requirements Specification
+
+> This document is the source of truth for what Nexus-UI must do.
+> Every atomic requirement has a stable `REQ-*` ID.
+> IDs are **never reused and never renumbered** — traceability depends on it.
+>
+> Agents and humans close requirements by writing a Pest test whose
+> `it('REQ-XXX-NNN: …')` name references the ID. `php artisan spec:check`
+> enforces 1:1 correspondence in CI.
+>
+> See `AGENTS.md` for the 7-step delivery loop.
+> See `/Users/kim/.claude/plans/the-prompt-role-you-cozy-goblet.md` for the full
+> PRD, architecture, and rationale behind these requirements.
+
+---
+
+## Phase 0A — Walking Skeleton Deploy
+
+- **REQ-P0A-001** `.env.example` uses Postgres (not SQLite) as the default DB connection.
+- **REQ-P0A-002** `.env.example` uses Redis for session, cache, and queue drivers.
+- **REQ-P0A-003** `cloud.yaml` exists and defines build + deploy steps for Laravel Cloud.
+- **REQ-P0A-004** `.herd.yml` pins the PHP and Node versions the project expects locally.
+- **REQ-P0A-005** Laravel Cloud production environment deploys green from `main`.
+- **REQ-P0A-006** Laravel Cloud production environment runs `php artisan migrate --force` automatically.
+- **REQ-P0A-007** Laravel Cloud queue worker process is declared and running.
+- **REQ-P0A-008** No secrets are committed to the repository (`.env` is gitignored; secrets live in Cloud env config).
+
+## Phase 0B — Delivery Infrastructure
+
+- **REQ-P0B-001** `php artisan spec:check` exits non-zero when a REQ-ID in `docs/nexus-spec.md` has no matching Pest test.
+- **REQ-P0B-002** `php artisan spec:check` exits zero when every REQ-ID in `docs/nexus-spec.md` has a matching Pest test.
+- **REQ-P0B-003** `php artisan spec:check --next` prints the first unfulfilled REQ-ID (filtered by `--milestone=…` when supplied) and exits zero.
+- **REQ-P0B-004** `AGENTS.md` exists at repo root with the 7-step agent contract, directory map, command list, and worktree rule.
+- **REQ-P0B-005** `.github/pull_request_template.md` requires listing REQ-IDs, tests added, demo steps, and spec-change flag.
+- **REQ-P0B-006** GitHub Actions CI runs `spec:check`, `php artisan test`, `pint --test`, `pnpm lint`, and `pnpm type-check`; any failure blocks merge.
+- **REQ-P0B-007** `scripts/worktree-bootstrap.sh <branch>` creates a git worktree, provisions a per-branch Postgres DB, writes the worktree's `.env`, and installs deps idempotently.
+- **REQ-P0B-008** `scripts/worktree-destroy.sh <branch>` drops the per-branch Postgres DB, flushes the branch's Redis prefix, and removes the worktree.
+- **REQ-P0B-009** `scripts/create-issues.php` reads this spec and creates an issue per REQ-ID, idempotent (skips existing issues).
+- **REQ-P0B-010** `demo/common.sh` exposes reusable helpers (reset DB, mint token, call MCP) used by every `demo/m*.sh`.
+
+## M1 — Universal Table
+
+- **REQ-M1-001** MCP tool `present_structured_data` accepts the v1 input schema (workbench_slug, view_type, data_payload, optional snapshot_id, title, metadata).
+- **REQ-M1-002** All `/ai/*` routes require a valid Sanctum Bearer token; anonymous requests return 401.
+- **REQ-M1-003** `snapshot_versions.revision` is monotonic (1, 2, 3…) and unique per `snapshot_id`.
+- **REQ-M1-004** `present_structured_data` response contains `structuredContent`, a text content part with the workbench URL, and a `text/html` resource content part.
+- **REQ-M1-005** Table view component renders every row in `data_payload.rows` using columns from `data_payload.columns`.
+- **REQ-M1-006** TanStack Table performs filter, multi-column sort, and pagination client-side with zero network calls.
+- **REQ-M1-007** The version switcher lists every revision of a snapshot, newest first, and navigates to the selected revision.
+- **REQ-M1-008** `TableViewSchema::validate()` rejects payloads missing `columns` or `rows` with a clear error.
+- **REQ-M1-009** `SnapshotVersioning::append()` is the only writer to `snapshot_versions`; direct model writes are disallowed by a test.
+- **REQ-M1-010** A newly-created snapshot has `current_version_id` equal to its first version; appending a version updates `current_version_id`.
+- **REQ-M1-011** `TablePreviewRenderer` produces HTML ≤ 64 KB, truncates to 50 rows, and shows a "showing 50 of N" footer when truncation occurred.
+- **REQ-M1-012** `preview_html` is cached on the `snapshot_versions` row at write-time; repeated reads never re-render.
+- **REQ-M1-013** Users can mint a Sanctum personal access token in `/settings/tokens` scoped to a `workbench_slug`.
+- **REQ-M1-014** The workbench page URL returned by the tool resolves to a page that renders the table in the browser.
+
+## M2 — Multi-view + Search
+
+- **REQ-M2-001** MCP tool accepts `view_type: "kanban"` and validates `{columns, cards}` shape.
+- **REQ-M2-002** Kanban view renders columns and cards from `data_payload`.
+- **REQ-M2-003** `KanbanPreviewRenderer` produces static HTML within the 64 KB cap.
+- **REQ-M2-004** MCP tool accepts `view_type: "flowchart"` and validates `{mermaid_source}` shape.
+- **REQ-M2-005** Flowchart view renders Mermaid source via Mermaid.js in the browser.
+- **REQ-M2-006** `FlowchartPreviewRenderer` converts Mermaid source to SVG server-side for inline preview.
+- **REQ-M2-007** Table view fuzzy-search matches across all column values without a network call.
+- **REQ-M2-008** Table view supports multi-column sort (shift-click adds secondary/tertiary sort keys).
+- **REQ-M2-009** Table view column filters persist in the URL so views are shareable.
+
+## M3 — Full Workbench
+
+- **REQ-M3-001** MCP tool accepts `view_type: "slide_deck"` and validates `{slides: [{title, body_md}]}` shape.
+- **REQ-M3-002** Slide deck view supports keyboard navigation (←/→ arrows, Space).
+- **REQ-M3-003** MCP tool `get_follow_up_context` returns unconsumed `follow_up_contexts` rows for a workbench and marks them `consumed_at`.
+- **REQ-M3-004** Selecting rows/nodes in the UI and clicking "Send back to Agent" creates a `follow_up_contexts` row.
+- **REQ-M3-005** `get_follow_up_context` is idempotent: a consumed row is never returned twice.
+- **REQ-M3-006** Every MCP call writes a `mcp_call_logs` row with tool_name, duration_ms, status, payload_bytes.
+- **REQ-M3-007** The "Agent Activity" dashboard is a singleton snapshot per workbench rendered via `snapshot.tsx` — no bespoke page.
+- **REQ-M3-008** `present_structured_data` response includes a `ui://` resource with an iframe-embeddable URL for `mcp-ui`-aware clients.
+- **REQ-M3-009** `VersionDiff::between($a, $b)` returns added/removed/changed rows for any two versions of a table snapshot.
+
+---
+
+## Requirement ID Rules
+
+1. **Format**: `REQ-<scope>-<nnn>` where scope ∈ `{P0A, P0B, M1, M2, M3, …}` and `nnn` is a zero-padded 3-digit number.
+2. **Stability**: once issued, an ID's text may be refined but its number is frozen forever.
+3. **One test per ID**: any Pest `it(…)` name must match the regex `/REQ-[A-Z0-9]+-\d{3}/` to count.
+4. **Additions require a spec PR**: if a requirement is missing, add it here before writing code.

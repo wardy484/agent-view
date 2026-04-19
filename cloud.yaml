@@ -1,0 +1,28 @@
+# Laravel Cloud deployment manifest for Nexus-UI.
+# See docs: https://cloud.laravel.com/docs
+#
+# Production + staging environments are managed via the `cloud` CLI.
+# This file documents the expected build/deploy steps.
+# Resources (app, database, cache, domain) are created via
+# scripts/cloud-bootstrap.sh (interactive, one-time).
+
+php: "8.4"
+node: "22"
+
+build:
+  - composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+  - npm ci --audit false
+  - npm run build
+
+deploy:
+  - php artisan migrate --force
+  - php artisan optimize:clear
+  - php artisan config:cache
+  - php artisan route:cache
+  - php artisan event:cache
+
+processes:
+  web:
+    command: php artisan serve # replaced by Cloud's default web worker
+  worker:
+    command: php artisan queue:work --tries=3 --timeout=60

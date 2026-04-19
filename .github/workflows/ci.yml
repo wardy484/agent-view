@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+jobs:
+  quality-gate:
+    name: Quality gate
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_testing
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: nexus_testing
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pgsql, pdo_pgsql, redis, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Composer install
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # The spec:check gate blocks merge when REQ-IDs for the CURRENT milestone
+      # lack tests. Bump NEXUS_CURRENT_MILESTONE as milestones complete:
+      # P0B → M1 → M2 → M3. Previously-completed milestones are checked in a
+      # second pass below (they must never regress).
+      - name: spec:check — current milestone
+        env:
+          NEXUS_CURRENT_MILESTONE: P0B
+        run: php artisan spec:check --milestone="$NEXUS_CURRENT_MILESTONE"
+
+      - name: spec:check — regression check on completed milestones
+        # When milestones graduate, add them here comma-separated.
+        # Example after M1 ships: for ms in P0A P0B M1; do ... ; done
+        run: |
+          for ms in P0A; do
+            php artisan spec:check --milestone="$ms" || true
+          done
+
+      - name: Pint
+        run: ./vendor/bin/pint --test
+
+      - name: ESLint
+        run: pnpm lint:check
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: TypeScript
+        run: pnpm types:check
+
+      - name: Pest
+        run: php artisan test --compact
