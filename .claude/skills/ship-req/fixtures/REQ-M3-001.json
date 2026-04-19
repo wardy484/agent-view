@@ -1,0 +1,12 @@
+{
+    "workbench_slug": "nexus-ui-m3",
+    "view_type": "slide_deck",
+    "title": "REQ-M3-001 smoke test",
+    "data_payload": {
+        "slides": [
+            { "title": "Slide 1", "body_md": "Smoke test — `slide_deck` view_type accepted." },
+            { "title": "Slide 2", "body_md": "If you see this rendered, **REQ-M3-001** is live on the preview." }
+        ]
+    },
+    "metadata": { "generated_by": "ship-req skill", "req_id": "REQ-M3-001" }
+}
