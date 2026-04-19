@@ -2,6 +2,7 @@
 
 namespace App\Mcp\Servers;
 
+use App\Mcp\Tools\GetFollowUpContext;
 use App\Mcp\Tools\PresentStructuredData;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -15,6 +16,7 @@ class NexusServer extends Server
 {
     protected array $tools = [
         PresentStructuredData::class,
+        GetFollowUpContext::class,
     ];
 
     protected array $resources = [
