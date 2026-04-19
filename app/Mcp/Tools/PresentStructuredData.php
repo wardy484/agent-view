@@ -6,6 +6,7 @@ namespace App\Mcp\Tools;
 
 use App\Models\Snapshot;
 use App\Models\Workbench;
+use App\Nexus\Renderers\TablePreviewRenderer;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
@@ -34,13 +35,16 @@ class PresentStructuredData extends Tool
 
         $snapshot = $this->resolveSnapshot($request, $workbench);
 
+        $viewType = (string) $request->get('view_type');
+        $dataPayload = (array) $request->get('data_payload');
+
         // SnapshotVersioning::append() also updates current_version_id (REQ-M1-010).
         $version = SnapshotVersioning::append(
             snapshot: $snapshot,
-            viewType: (string) $request->get('view_type'),
-            dataPayload: (array) $request->get('data_payload'),
+            viewType: $viewType,
+            dataPayload: $dataPayload,
             metadata: $request->get('metadata') ? (array) $request->get('metadata') : null,
-            previewHtml: $this->stubPreviewHtml($snapshot),
+            previewHtml: $this->renderPreview($viewType, $dataPayload, $snapshot),
         );
 
         $url = route('workbench.snapshot.show', [
@@ -133,10 +137,18 @@ class PresentStructuredData extends Tool
         ]);
     }
 
-    private function stubPreviewHtml(Snapshot $snapshot): string
+    /**
+     * Build the cached preview HTML (REQ-M1-011 / REQ-M1-012). Falls back to
+     * a small marker for view types that don't yet ship a renderer.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function renderPreview(string $viewType, array $payload, Snapshot $snapshot): string
     {
-        // The real renderer arrives in REQ-M1-011; for now emit a small stub
-        // so the text/html resource part has a body.
-        return '<section data-snapshot="'.e($snapshot->slug).'"></section>';
+        if ($viewType === 'table') {
+            return TablePreviewRenderer::render($payload);
+        }
+
+        return '<section data-snapshot="'.e($snapshot->slug).'" data-view-type="'.e($viewType).'"></section>';
     }
 }
