@@ -1,4 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
+import type { ResolvedComponent } from '@inertiajs/react';
 import createServer from '@inertiajs/react/server';
 import ReactDOMServer from 'react-dom/server';
 import { Toaster } from '@/components/ui/sonner';
@@ -18,8 +19,11 @@ createServer((page) =>
         render: ReactDOMServer.renderToString,
         title: (title) => (title ? `${title} - ${appName}` : appName),
         resolve: (name) => {
-            const pages = import.meta.glob('./pages/**/*.tsx', { eager: false });
-            return pages[`./pages/${name}.tsx`]();
+            const pages = import.meta.glob<{ default: ResolvedComponent }>(
+                './pages/**/*.tsx',
+            );
+
+            return pages[`./pages/${name}.tsx`]().then((m) => m.default);
         },
         layout: (name) => {
             switch (true) {

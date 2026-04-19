@@ -8,6 +8,7 @@ import { cn, toUrl } from '@/lib/utils';
 import { edit as editAppearance } from '@/routes/appearance';
 import { edit } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
+import { edit as editTokens } from '@/routes/tokens';
 import type { NavItem } from '@/types';
 
 const sidebarNavItems: NavItem[] = [
@@ -19,6 +20,11 @@ const sidebarNavItems: NavItem[] = [
     {
         title: 'Security',
         href: editSecurity(),
+        icon: null,
+    },
+    {
+        title: 'API tokens',
+        href: editTokens(),
         icon: null,
     },
     {
