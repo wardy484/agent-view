@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\AgentActivityController;
+use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\SnapshotController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -27,5 +29,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // current_version_id (REQ-M1-010) and the React component iterates rows.
 Route::get('/workbenches/{workbench:slug}/snapshots/{snapshot:slug}', [SnapshotController::class, 'show'])
     ->name('workbench.snapshot.show');
+
+// REQ-M3-004: "Send back to Agent" creates a follow_up_contexts row.
+Route::middleware(['web', 'auth'])
+    ->post('/workbenches/{workbench:slug}/follow-ups', [FollowUpController::class, 'store'])
+    ->name('workbench.follow-ups.store');
+
+// REQ-M3-007: singleton "Agent Activity" dashboard — rendered by snapshot.tsx.
+Route::get('/workbenches/{workbench:slug}/agent-activity', [AgentActivityController::class, 'show'])
+    ->name('workbench.agent-activity');
 
 require __DIR__.'/settings.php';
