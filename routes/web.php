@@ -8,6 +8,15 @@ Route::inertia('/', 'welcome', [
     'canRegister' => Features::enabled(Features::registration()),
 ])->name('home');
 
+// Marketing & company pages
+Route::inertia('contact', 'contact')->name('contact');
+
+// Legal pages
+Route::inertia('terms', 'legal/terms')->name('legal.terms');
+Route::inertia('privacy', 'legal/privacy')->name('legal.privacy');
+Route::inertia('cookies', 'legal/cookies')->name('legal.cookies');
+Route::inertia('acceptable-use', 'legal/acceptable-use')->name('legal.acceptable-use');
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('dashboard', 'dashboard')->name('dashboard');
 });
