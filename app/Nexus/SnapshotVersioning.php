@@ -6,6 +6,7 @@ namespace App\Nexus;
 
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
+use App\Nexus\Renderers\TablePreviewRenderer;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -38,6 +39,9 @@ class SnapshotVersioning
         ?array $metadata = null,
         ?string $previewHtml = null,
     ): SnapshotVersion {
+        // REQ-M1-012: render the preview at write-time so reads never re-render.
+        $previewHtml ??= self::renderPreview($viewType, $dataPayload);
+
         return self::runAuthorised(fn (): SnapshotVersion => DB::transaction(function () use ($snapshot, $viewType, $dataPayload, $metadata, $previewHtml): SnapshotVersion {
             // Pessimistic lock — blocks any other append() against this snapshot.
             Snapshot::query()->whereKey($snapshot->getKey())->lockForUpdate()->first();
@@ -74,6 +78,20 @@ class SnapshotVersioning
     public static function isWriting(): bool
     {
         return self::$writing;
+    }
+
+    /**
+     * Render the cached preview HTML for a view type. Returns null when no
+     * renderer ships for that view (the caller may pass an explicit preview).
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private static function renderPreview(string $viewType, array $payload): ?string
+    {
+        return match ($viewType) {
+            'table' => TablePreviewRenderer::render($payload),
+            default => null,
+        };
     }
 
     /**

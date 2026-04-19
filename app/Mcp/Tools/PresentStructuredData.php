@@ -6,7 +6,6 @@ namespace App\Mcp\Tools;
 
 use App\Models\Snapshot;
 use App\Models\Workbench;
-use App\Nexus\Renderers\TablePreviewRenderer;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
@@ -38,13 +37,13 @@ class PresentStructuredData extends Tool
         $viewType = (string) $request->get('view_type');
         $dataPayload = (array) $request->get('data_payload');
 
-        // SnapshotVersioning::append() also updates current_version_id (REQ-M1-010).
+        // SnapshotVersioning::append() updates current_version_id (REQ-M1-010)
+        // and renders+caches preview_html at write-time (REQ-M1-012).
         $version = SnapshotVersioning::append(
             snapshot: $snapshot,
             viewType: $viewType,
             dataPayload: $dataPayload,
             metadata: $request->get('metadata') ? (array) $request->get('metadata') : null,
-            previewHtml: $this->renderPreview($viewType, $dataPayload, $snapshot),
         );
 
         $url = route('workbench.snapshot.show', [
@@ -135,20 +134,5 @@ class PresentStructuredData extends Tool
                 : (string) Str::ulid(),
             'title' => $title !== null ? (string) $title : null,
         ]);
-    }
-
-    /**
-     * Build the cached preview HTML (REQ-M1-011 / REQ-M1-012). Falls back to
-     * a small marker for view types that don't yet ship a renderer.
-     *
-     * @param  array<string, mixed>  $payload
-     */
-    private function renderPreview(string $viewType, array $payload, Snapshot $snapshot): string
-    {
-        if ($viewType === 'table') {
-            return TablePreviewRenderer::render($payload);
-        }
-
-        return '<section data-snapshot="'.e($snapshot->slug).'" data-view-type="'.e($viewType).'"></section>';
     }
 }
