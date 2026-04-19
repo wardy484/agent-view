@@ -18,10 +18,12 @@ const fs = require('node:fs');
 
 function parseArgs(argv) {
     const out = {};
+
     for (let i = 2; i < argv.length; i += 2) {
         const key = argv[i].replace(/^--/, '');
         out[key] = argv[i + 1];
     }
+
     return out;
 }
 
@@ -34,6 +36,7 @@ async function main() {
     }
 
     let token = args.token;
+
     if (!token && args['token-file']) {
         token = JSON.parse(fs.readFileSync(args['token-file'], 'utf8')).token;
     }
@@ -50,6 +53,7 @@ async function main() {
     };
 
     let response;
+
     try {
         response = await fetch(args.url, {
             method: 'POST',
@@ -67,7 +71,10 @@ async function main() {
 
     const text = await response.text();
     let parsed = null;
-    try { parsed = JSON.parse(text); } catch { /* non-JSON error body */ }
+
+    try {
+ parsed = JSON.parse(text); 
+} catch { /* non-JSON error body */ }
 
     const payload = {
         http_status: response.status,

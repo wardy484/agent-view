@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Menu, X } from 'lucide-react';
-import { useState, type PropsWithChildren } from 'react';
+import { useState  } from 'react';
+import type {PropsWithChildren} from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';

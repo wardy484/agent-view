@@ -6,6 +6,8 @@ namespace App\Nexus;
 
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
+use App\Nexus\Renderers\FlowchartPreviewRenderer;
+use App\Nexus\Renderers\KanbanPreviewRenderer;
 use App\Nexus\Renderers\SlideDeckPreviewRenderer;
 use App\Nexus\Renderers\TablePreviewRenderer;
 use Illuminate\Support\Facades\DB;
@@ -92,6 +94,8 @@ class SnapshotVersioning
         return match ($viewType) {
             'table' => TablePreviewRenderer::render($payload),
             'slide_deck' => SlideDeckPreviewRenderer::render($payload),
+            'kanban' => KanbanPreviewRenderer::render($payload),
+            'flowchart' => FlowchartPreviewRenderer::render($payload),
             default => null,
         };
     }

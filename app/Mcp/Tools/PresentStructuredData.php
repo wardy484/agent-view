@@ -7,6 +7,10 @@ namespace App\Mcp\Tools;
 use App\Mcp\Support\McpCallLogger;
 use App\Models\Snapshot;
 use App\Models\Workbench;
+use App\Nexus\Schemas\FlowchartViewSchema;
+use App\Nexus\Schemas\FlowchartViewSchemaException;
+use App\Nexus\Schemas\KanbanViewSchema;
+use App\Nexus\Schemas\KanbanViewSchemaException;
 use App\Nexus\Schemas\SlideDeckViewSchema;
 use App\Nexus\Schemas\SlideDeckViewSchemaException;
 use App\Nexus\Schemas\TableViewSchema;
@@ -46,7 +50,12 @@ class PresentStructuredData extends Tool
         // message as an MCP tool error.
         try {
             $dataPayload = $this->validateDataPayload($viewType, $dataPayload);
-        } catch (TableViewSchemaException|SlideDeckViewSchemaException $exception) {
+        } catch (
+            TableViewSchemaException
+            |SlideDeckViewSchemaException
+            |KanbanViewSchemaException
+            |FlowchartViewSchemaException $exception
+        ) {
             return Response::error($exception->getMessage());
         }
 
@@ -132,19 +141,23 @@ class PresentStructuredData extends Tool
 
     /**
      * Dispatch to the matching ViewSchema validator. View types without a
-     * registered schema (kanban, flowchart, slide_deck — not yet in M1) are
-     * passed through untouched.
+     * registered schema are passed through untouched.
      *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      *
      * @throws TableViewSchemaException
+     * @throws SlideDeckViewSchemaException
+     * @throws KanbanViewSchemaException
+     * @throws FlowchartViewSchemaException
      */
     private function validateDataPayload(string $viewType, array $payload): array
     {
         return match ($viewType) {
             'table' => TableViewSchema::validate($payload),
             'slide_deck' => SlideDeckViewSchema::validate($payload),
+            'kanban' => KanbanViewSchema::validate($payload),
+            'flowchart' => FlowchartViewSchema::validate($payload),
             default => $payload,
         };
     }

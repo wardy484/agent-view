@@ -1,7 +1,14 @@
 import { Head } from '@inertiajs/react';
-import { SlideDeckView, type SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
-import { TableView, type TableViewPayload } from '@/components/nexus/table-view';
-import { VersionSwitcher, type SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { FlowchartView  } from '@/components/nexus/flowchart-view';
+import type {FlowchartViewPayload} from '@/components/nexus/flowchart-view';
+import { KanbanView  } from '@/components/nexus/kanban-view';
+import type {KanbanViewPayload} from '@/components/nexus/kanban-view';
+import { SlideDeckView  } from '@/components/nexus/slide-deck-view';
+import type {SlideDeckViewPayload} from '@/components/nexus/slide-deck-view';
+import { TableView  } from '@/components/nexus/table-view';
+import type {TableViewPayload} from '@/components/nexus/table-view';
+import { VersionSwitcher  } from '@/components/nexus/version-switcher';
+import type {SnapshotVersionSummary} from '@/components/nexus/version-switcher';
 
 type Workbench = {
     slug: string;
@@ -64,6 +71,14 @@ function renderView(version: Version) {
 
     if (version.view_type === 'slide_deck') {
         return <SlideDeckView payload={version.data_payload as SlideDeckViewPayload} />;
+    }
+
+    if (version.view_type === 'kanban') {
+        return <KanbanView payload={version.data_payload as KanbanViewPayload} />;
+    }
+
+    if (version.view_type === 'flowchart') {
+        return <FlowchartView payload={version.data_payload as FlowchartViewPayload} />;
     }
 
     return (

@@ -117,6 +117,8 @@ export default [
             'resources/js/components/ui/*',
             'resources/js/routes/**',
             'resources/js/wayfinder/**',
+            // Claude Code skills are Node CLI scripts/tooling, not app code.
+            '.claude/**',
         ],
     },
     prettier, // Turn off all rules that might conflict with Prettier

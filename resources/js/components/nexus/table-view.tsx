@@ -1,16 +1,19 @@
-import { useMemo, useState } from 'react';
+import { rankItem } from '@tanstack/match-sorter-utils';
 import {
-    type ColumnDef,
-    type ColumnFiltersState,
-    type SortingState,
+    
+    
+    
+    
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
-    useReactTable,
+    useReactTable
 } from '@tanstack/react-table';
+import type {ColumnDef, ColumnFiltersState, FilterFn, SortingState} from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { cn } from '@/lib/utils';
 
@@ -36,18 +39,178 @@ type Props = {
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 /**
+ * REQ-M2-007: fuzzy-match across every column's stringified cell value.
+ *
+ * `@tanstack/match-sorter-utils.rankItem` scores each row by cell similarity;
+ * a row matches when any cell ranks above the threshold. No network calls,
+ * no server-side filtering.
+ */
+const fuzzyFilter: FilterFn<TableRow> = (row, _columnId, filterValue) => {
+    if (typeof filterValue !== 'string' || filterValue === '') {
+        return true;
+    }
+
+    // Score every visible column value; a row matches if ANY cell passes.
+    for (const cell of row.getAllCells()) {
+        const value = cell.getValue();
+        const stringified = cellToString(value);
+
+        if (rankItem(stringified, filterValue).passed) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+function cellToString(value: unknown): string {
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    if (typeof value === 'string') {
+        return value;
+    }
+
+    if (typeof value === 'number' || typeof value === 'boolean') {
+        return String(value);
+    }
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * REQ-M2-009: read/write the table's filter + sort state to the URL so views
+ * are shareable. We use the browser History API directly (no Inertia visit)
+ * to stay purely client-side — REQ-M2-007 and REQ-M2-008 both require "no
+ * network calls."
+ *
+ * Query keys:
+ *  - `q`       — global fuzzy filter
+ *  - `f.<key>` — per-column filter (e.g. `f.role=engineer`)
+ *  - `sort`    — comma-delimited `key:dir` pairs (e.g. `sort=role:asc,name:desc`)
+ */
+const URL_QUERY_KEY = 'q';
+const URL_COLUMN_FILTER_PREFIX = 'f.';
+const URL_SORT_KEY = 'sort';
+
+function readInitialStateFromUrl(): {
+    globalFilter: string;
+    columnFilters: ColumnFiltersState;
+    sorting: SortingState;
+} {
+    if (typeof window === 'undefined') {
+        return { globalFilter: '', columnFilters: [], sorting: [] };
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    const globalFilter = params.get(URL_QUERY_KEY) ?? '';
+
+    const columnFilters: ColumnFiltersState = [];
+
+    for (const [key, value] of params.entries()) {
+        if (key.startsWith(URL_COLUMN_FILTER_PREFIX) && value !== '') {
+            columnFilters.push({ id: key.slice(URL_COLUMN_FILTER_PREFIX.length), value });
+        }
+    }
+
+    const sorting: SortingState = [];
+    const sortParam = params.get(URL_SORT_KEY);
+
+    if (sortParam) {
+        for (const chunk of sortParam.split(',')) {
+            const [id, dir] = chunk.split(':');
+
+            if (id && (dir === 'asc' || dir === 'desc')) {
+                sorting.push({ id, desc: dir === 'desc' });
+            }
+        }
+    }
+
+    return { globalFilter, columnFilters, sorting };
+}
+
+function writeStateToUrl(
+    globalFilter: string,
+    columnFilters: ColumnFiltersState,
+    sorting: SortingState,
+): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+
+    // Clear any previous table-owned params before re-writing.
+    params.delete(URL_QUERY_KEY);
+    params.delete(URL_SORT_KEY);
+
+    for (const key of Array.from(params.keys())) {
+        if (key.startsWith(URL_COLUMN_FILTER_PREFIX)) {
+            params.delete(key);
+        }
+    }
+
+    if (globalFilter !== '') {
+        params.set(URL_QUERY_KEY, globalFilter);
+    }
+
+    for (const filter of columnFilters) {
+        if (typeof filter.value === 'string' && filter.value !== '') {
+            params.set(`${URL_COLUMN_FILTER_PREFIX}${filter.id}`, filter.value);
+        }
+    }
+
+    if (sorting.length > 0) {
+        params.set(
+            URL_SORT_KEY,
+            sorting.map((s) => `${s.id}:${s.desc ? 'desc' : 'asc'}`).join(','),
+        );
+    }
+
+    const query = params.toString();
+    const next = `${window.location.pathname}${query === '' ? '' : `?${query}`}${window.location.hash}`;
+    window.history.replaceState(window.history.state, '', next);
+}
+
+/**
  * REQ-M1-005: renders every row in `data_payload.rows` using columns from
  * `data_payload.columns`.
  *
  * REQ-M1-006: filter, multi-column sort, and pagination are powered entirely
  * by TanStack Table on the client — zero network calls.
+ *
+ * REQ-M2-007: global filter does fuzzy matching across every column.
+ * REQ-M2-008: shift-click on a column header stacks secondary/tertiary sorts.
+ * REQ-M2-009: filter + sort state is mirrored into the URL so the view is
+ *             shareable — refreshing or sharing the link restores the exact
+ *             filter/sort configuration.
  */
 export function TableView({ payload, className, initialPageSize = 25 }: Props) {
-    const columns = payload?.columns ?? [];
-    const rows = payload?.rows ?? [];
-    const [globalFilter, setGlobalFilter] = useState('');
-    const [sorting, setSorting] = useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
+    const rows = useMemo(() => payload?.rows ?? [], [payload?.rows]);
+
+    const initial = useMemo(() => readInitialStateFromUrl(), []);
+    const [globalFilter, setGlobalFilter] = useState<string>(initial.globalFilter);
+    const [sorting, setSorting] = useState<SortingState>(initial.sorting);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initial.columnFilters);
+
+    // Skip the first sync so we don't overwrite the URL we just read from.
+    const firstRenderRef = useRef(true);
+    useEffect(() => {
+        if (firstRenderRef.current) {
+            firstRenderRef.current = false;
+
+            return;
+        }
+
+        writeStateToUrl(globalFilter, columnFilters, sorting);
+    }, [globalFilter, columnFilters, sorting]);
 
     const tableColumns = useMemo<ColumnDef<TableRow>[]>(
         () =>
@@ -56,6 +219,7 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
                 accessorFn: (row) => row[column.key],
                 header: column.label ?? column.key,
                 cell: (info) => formatCell(info.getValue()),
+                filterFn: 'includesString',
             })),
         [columns],
     );
@@ -72,8 +236,10 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
         getSortedRowModel: getSortedRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
         enableMultiSort: true,
+        isMultiSortEvent: (event) => (event as unknown as { shiftKey?: boolean }).shiftKey === true,
         initialState: { pagination: { pageSize: initialPageSize } },
-        globalFilterFn: 'includesString',
+        globalFilterFn: fuzzyFilter,
+        filterFns: { fuzzy: fuzzyFilter },
     });
 
     const filteredCount = table.getFilteredRowModel().rows.length;
@@ -92,7 +258,7 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
                     type="search"
                     value={globalFilter}
                     onChange={(event) => setGlobalFilter(event.target.value)}
-                    placeholder="Filter rows…"
+                    placeholder="Fuzzy-search rows…"
                     className="w-64 rounded-md border border-border bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
                     data-testid="nexus-table-filter"
                 />
@@ -108,23 +274,42 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
                             <tr key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
                                     const sortDirection = header.column.getIsSorted();
+                                    const sortIndex = header.column.getSortIndex();
+
                                     return (
-                                        <th key={header.id} scope="col" className="px-4 py-2 font-medium">
-                                            <button
-                                                type="button"
-                                                onClick={(event) =>
-                                                    header.column.getToggleSortingHandler()?.({
-                                                        ...event,
-                                                        // Shift-click toggles multi-column sort in TanStack;
-                                                        // forward the modifier so the user can stack sorts.
-                                                        shiftKey: event.shiftKey,
-                                                    })
-                                                }
-                                                className="inline-flex items-center gap-1 hover:text-foreground"
-                                            >
-                                                {flexRender(header.column.columnDef.header, header.getContext())}
-                                                <SortIcon direction={sortDirection} />
-                                            </button>
+                                        <th key={header.id} scope="col" className="px-4 py-2 align-top font-medium">
+                                            <div className="flex flex-col gap-1">
+                                                <button
+                                                    type="button"
+                                                    onClick={(event) =>
+                                                        header.column.getToggleSortingHandler()?.({
+                                                            ...event,
+                                                            // REQ-M2-008: forward shiftKey so TanStack stacks sorts.
+                                                            shiftKey: event.shiftKey,
+                                                        })
+                                                    }
+                                                    title="Click to sort. Shift-click to add a secondary sort."
+                                                    className="inline-flex items-center gap-1 hover:text-foreground"
+                                                >
+                                                    {flexRender(header.column.columnDef.header, header.getContext())}
+                                                    <SortIcon direction={sortDirection} />
+                                                    {sortDirection && sorting.length > 1 ? (
+                                                        <span className="ml-1 rounded bg-muted px-1 text-[9px] font-semibold text-muted-foreground">
+                                                            {sortIndex + 1}
+                                                        </span>
+                                                    ) : null}
+                                                </button>
+                                                <input
+                                                    type="search"
+                                                    value={(header.column.getFilterValue() as string | undefined) ?? ''}
+                                                    onChange={(event) =>
+                                                        header.column.setFilterValue(event.target.value || undefined)
+                                                    }
+                                                    placeholder="Filter…"
+                                                    data-testid={`nexus-table-column-filter-${header.column.id}`}
+                                                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs normal-case tracking-normal text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                                />
+                                            </div>
                                         </th>
                                     );
                                 })}
