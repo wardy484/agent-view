@@ -6,6 +6,8 @@ namespace App\Mcp\Tools;
 
 use App\Models\Snapshot;
 use App\Models\Workbench;
+use App\Nexus\Schemas\TableViewSchema;
+use App\Nexus\Schemas\TableViewSchemaException;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Str;
@@ -25,17 +27,27 @@ class PresentStructuredData extends Tool
     /**
      * Handle the tool request.
      */
-    public function handle(Request $request): ResponseFactory
+    public function handle(Request $request): ResponseFactory|Response
     {
+        $viewType = (string) $request->get('view_type');
+        $dataPayload = (array) $request->get('data_payload');
+
+        // REQ-M1-008: run the view-specific schema validator BEFORE any
+        // workbench/snapshot rows are created so invalid payloads never
+        // leak side effects. Surfaces the validator's dot-path error
+        // message as an MCP tool error.
+        try {
+            $dataPayload = $this->validateDataPayload($viewType, $dataPayload);
+        } catch (TableViewSchemaException $exception) {
+            return Response::error($exception->getMessage());
+        }
+
         $workbench = Workbench::query()->firstOrCreate(
             ['slug' => $request->get('workbench_slug')],
             ['name' => Str::headline((string) $request->get('workbench_slug'))],
         );
 
         $snapshot = $this->resolveSnapshot($request, $workbench);
-
-        $viewType = (string) $request->get('view_type');
-        $dataPayload = (array) $request->get('data_payload');
 
         // SnapshotVersioning::append() updates current_version_id (REQ-M1-010)
         // and renders+caches preview_html at write-time (REQ-M1-012).
@@ -99,6 +111,24 @@ class PresentStructuredData extends Tool
             'metadata' => $schema->object()
                 ->description('Free-form metadata persisted alongside the snapshot version.'),
         ];
+    }
+
+    /**
+     * Dispatch to the matching ViewSchema validator. View types without a
+     * registered schema (kanban, flowchart, slide_deck — not yet in M1) are
+     * passed through untouched.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     *
+     * @throws TableViewSchemaException
+     */
+    private function validateDataPayload(string $viewType, array $payload): array
+    {
+        return match ($viewType) {
+            'table' => TableViewSchema::validate($payload),
+            default => $payload,
+        };
     }
 
     private function resolveSnapshot(Request $request, Workbench $workbench): Snapshot

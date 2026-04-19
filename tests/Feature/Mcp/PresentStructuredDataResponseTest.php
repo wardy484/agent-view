@@ -50,7 +50,10 @@ it('REQ-M1-004: emits a text/html resource content part alongside the text part'
     $arguments = [
         'workbench_slug' => 'team-bravo',
         'view_type' => 'table',
-        'data_payload' => ['columns' => [], 'rows' => []],
+        'data_payload' => [
+            'columns' => [['key' => 'id', 'label' => 'ID']],
+            'rows' => [['id' => 1]],
+        ],
     ];
 
     $tool = new PresentStructuredData;
