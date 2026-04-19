@@ -27,3 +27,4 @@ yarn-error.log
 /.vscode
 /.zed
 storage/skill-ship-req/
+.pnpm-debug.log
