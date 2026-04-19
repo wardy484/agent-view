@@ -1,0 +1,36 @@
+{
+  "0 debug pnpm:scope": {
+    "selected": 1,
+    "workspacePrefix": "/Users/kim/.t3/worktrees/agent-render/t3code-0f57ab8f"
+  },
+  "1 info pnpm": {
+    "err": {
+      "name": "Error",
+      "message": "Command failed with ENOENT: type-check\nspawn type-check ENOENT",
+      "code": "ENOENT",
+      "stack": "Error: Command failed with ENOENT: type-check\nspawn type-check ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)"
+    }
+  },
+  "2 error pnpm": {
+    "errno": -2,
+    "code": "ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL",
+    "syscall": "spawn type-check",
+    "path": "type-check",
+    "spawnargs": [],
+    "originalMessage": "spawn type-check ENOENT",
+    "shortMessage": "Command failed with ENOENT: type-check\nspawn type-check ENOENT",
+    "command": "type-check",
+    "escapedCommand": "type-check",
+    "failed": true,
+    "timedOut": false,
+    "isCanceled": false,
+    "killed": false,
+    "prefix": "/Users/kim/.t3/worktrees/agent-render/t3code-0f57ab8f",
+    "err": {
+      "name": "Error",
+      "message": "Command failed with ENOENT: type-check\nspawn type-check ENOENT",
+      "code": "ERR_PNPM_RECURSIVE_EXEC_FIRST_FAIL",
+      "stack": "Error: Command failed with ENOENT: type-check\nspawn type-check ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:90:21)"
+    }
+  }
+}
