@@ -50,6 +50,15 @@ it('REQ-P0A-004: .herd.yml pins PHP and Node versions', function () {
         ->toMatch('/^node:\s*"[0-9]+"/m');
 });
 
+it('REQ-P0A-005: deployment is documented with Laravel Cloud production URL', function () {
+    $doc = file_get_contents(repoFile('docs/deployment.md'));
+    expect($doc)
+        ->toContain('laravel.cloud')
+        ->toContain('nexus-ui')
+        ->toContain('production')
+        ->toContain('cloud deploy');
+});
+
 it('REQ-P0A-006: cloud.yaml runs migrate --force on deploy', function () {
     $yaml = file_get_contents(repoFile('cloud.yaml'));
     expect($yaml)->toContain('php artisan migrate --force');

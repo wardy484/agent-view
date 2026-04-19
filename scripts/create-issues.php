@@ -66,11 +66,15 @@ foreach ($requirements as $req) {
         continue;
     }
 
+    preg_match('/REQ-([A-Z0-9]+)-/', $req['id'], $m);
+    $milestoneLabel = 'milestone-'.($m[1] ?? 'unknown');
+
     $cmd = sprintf(
-        'gh issue create --title %s --body %s --label %s 2>&1',
+        'gh issue create --title %s --body %s --label %s --label %s 2>&1',
         escapeshellarg($title),
         escapeshellarg($body),
         escapeshellarg('spec'),
+        escapeshellarg($milestoneLabel),
     );
     exec($cmd, $output, $exit);
     if ($exit !== 0) {
