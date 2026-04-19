@@ -7,15 +7,20 @@ namespace App\Nexus;
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Sole authorised writer for `snapshot_versions`.
  *
  * REQ-M1-003: revisions are monotonic (1, 2, 3, …) and unique per snapshot.
- * REQ-M1-009 (forthcoming) will pin this class as the only legal writer.
+ * REQ-M1-009: this class is the *only* legal writer. The SnapshotVersion
+ * model's `saving` hook (registered in AppServiceProvider) consults
+ * {@see self::isWriting()} and throws when called from anywhere else.
  */
 class SnapshotVersioning
 {
+    private static bool $writing = false;
+
     /**
      * Append a new revision to a snapshot.
      *
@@ -33,7 +38,7 @@ class SnapshotVersioning
         ?array $metadata = null,
         ?string $previewHtml = null,
     ): SnapshotVersion {
-        return DB::transaction(function () use ($snapshot, $viewType, $dataPayload, $metadata, $previewHtml): SnapshotVersion {
+        return self::runAuthorised(fn (): SnapshotVersion => DB::transaction(function () use ($snapshot, $viewType, $dataPayload, $metadata, $previewHtml): SnapshotVersion {
             // Pessimistic lock — blocks any other append() against this snapshot.
             Snapshot::query()->whereKey($snapshot->getKey())->lockForUpdate()->first();
 
@@ -49,6 +54,35 @@ class SnapshotVersioning
                 'metadata' => $metadata,
                 'preview_html' => $previewHtml,
             ]);
-        });
+        }));
+    }
+
+    /**
+     * Returns true while a SnapshotVersioning method is mid-write. The model
+     * guard reads this flag.
+     */
+    public static function isWriting(): bool
+    {
+        return self::$writing;
+    }
+
+    /**
+     * @template TResult
+     *
+     * @param  callable(): TResult  $callback
+     * @return TResult
+     */
+    private static function runAuthorised(callable $callback): mixed
+    {
+        $previous = self::$writing;
+        self::$writing = true;
+
+        try {
+            return $callback();
+        } catch (Throwable $exception) {
+            throw $exception;
+        } finally {
+            self::$writing = $previous;
+        }
     }
 }

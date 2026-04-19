@@ -7,6 +7,7 @@ use App\Models\SnapshotVersion;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -43,10 +44,15 @@ it('REQ-M1-003: rejects duplicate (snapshot_id, revision) at the database level'
     $payload = ['columns' => [['key' => 'id']], 'rows' => []];
     SnapshotVersioning::append($snapshot, 'table', $payload);
 
-    expect(fn () => SnapshotVersion::query()->create([
+    // Bypass the SnapshotVersioning guard (REQ-M1-009) by writing through the
+    // query builder so that the DB-level UNIQUE(snapshot_id, revision) is the
+    // assertion under test.
+    expect(fn () => DB::table('snapshot_versions')->insert([
         'snapshot_id' => $snapshot->id,
         'revision' => 1,
         'view_type' => 'table',
-        'data_payload' => $payload,
+        'data_payload' => json_encode($payload),
+        'created_at' => now(),
+        'updated_at' => now(),
     ]))->toThrow(QueryException::class);
 });
