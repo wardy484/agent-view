@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace App\Mcp\Tools;
 
+use App\Mcp\Support\McpCallLogger;
 use App\Models\Snapshot;
 use App\Models\Workbench;
+use App\Nexus\Schemas\SlideDeckViewSchema;
+use App\Nexus\Schemas\SlideDeckViewSchemaException;
 use App\Nexus\Schemas\TableViewSchema;
 use App\Nexus\Schemas\TableViewSchemaException;
 use App\Nexus\SnapshotVersioning;
@@ -29,6 +32,11 @@ class PresentStructuredData extends Tool
      */
     public function handle(Request $request): ResponseFactory|Response
     {
+        return McpCallLogger::record('present_structured_data', $request, fn () => $this->execute($request));
+    }
+
+    private function execute(Request $request): ResponseFactory|Response
+    {
         $viewType = (string) $request->get('view_type');
         $dataPayload = (array) $request->get('data_payload');
 
@@ -38,7 +46,7 @@ class PresentStructuredData extends Tool
         // message as an MCP tool error.
         try {
             $dataPayload = $this->validateDataPayload($viewType, $dataPayload);
-        } catch (TableViewSchemaException $exception) {
+        } catch (TableViewSchemaException|SlideDeckViewSchemaException $exception) {
             return Response::error($exception->getMessage());
         }
 
@@ -63,12 +71,21 @@ class PresentStructuredData extends Tool
             'snapshot' => $snapshot->slug,
         ]);
 
+        // REQ-M3-008: mcp-ui-aware clients consume a `ui://` resource whose
+        // text body is the iframe-embeddable workbench URL. We emit the URL
+        // as text/uri-list so the client can just load it in an iframe.
+        $uiUri = 'ui://workbench/'.$workbench->slug.'/'.$snapshot->slug;
+
         return Response::make([
             // Text content part: the workbench URL (REQ-M1-004).
             Response::text($url),
 
             // text/html resource content part (REQ-M1-004).
             Response::embeddedResource($url, 'text/html', (string) $version->preview_html),
+
+            // REQ-M3-008: ui:// resource for mcp-ui-aware clients. The body is
+            // the iframe URL; the uri scheme signals "render this in an iframe".
+            Response::embeddedResource($uiUri, 'text/uri-list', $url),
         ])->withStructuredContent([
             'workbench_slug' => $workbench->slug,
             'snapshot_id' => $snapshot->getKey(),
@@ -127,6 +144,7 @@ class PresentStructuredData extends Tool
     {
         return match ($viewType) {
             'table' => TableViewSchema::validate($payload),
+            'slide_deck' => SlideDeckViewSchema::validate($payload),
             default => $payload,
         };
     }

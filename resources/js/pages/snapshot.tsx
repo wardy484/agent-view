@@ -1,4 +1,5 @@
 import { Head } from '@inertiajs/react';
+import { SlideDeckView, type SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { TableView, type TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher, type SnapshotVersionSummary } from '@/components/nexus/version-switcher';
 
@@ -59,6 +60,10 @@ export default function SnapshotPage({ workbench, snapshot, version, versions }:
 function renderView(version: Version) {
     if (version.view_type === 'table') {
         return <TableView payload={version.data_payload as TableViewPayload} />;
+    }
+
+    if (version.view_type === 'slide_deck') {
+        return <SlideDeckView payload={version.data_payload as SlideDeckViewPayload} />;
     }
 
     return (
