@@ -1,0 +1,27 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Database\Factories;
+
+use App\Models\Snapshot;
+use App\Models\Workbench;
+use Illuminate\Database\Eloquent\Factories\Factory;
+
+/**
+ * @extends Factory<Snapshot>
+ */
+class SnapshotFactory extends Factory
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function definition(): array
+    {
+        return [
+            'workbench_id' => Workbench::factory(),
+            'slug' => fake()->unique()->slug(3),
+            'title' => fake()->sentence(3),
+        ];
+    }
+}
