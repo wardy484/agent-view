@@ -50,13 +50,25 @@ git push -u origin "$(git branch --show-current)"
 
 ### 3. Open the PR
 
-Use `scripts/open-req-pr.sh <REQ-ID>`. It:
+Two modes — pick one:
 
-- Reads the REQ paragraph from `docs/nexus-spec.md`.
-- Fills `.github/pull_request_template.md` fields: REQ-ID, test name, demo
-  steps, spec-change checkbox.
-- Runs `gh pr create --title "[REQ-ID] …" --body-file <tmp>`.
-- Prints the PR URL and PR number to stdout (JSON).
+```bash
+# REQ-shaped work (closes a REQ-ID in docs/nexus-spec.md)
+scripts/open-req-pr.sh <REQ-ID>
+
+# Tooling / chore work (branding, CI, scripts, .claude/**, etc.)
+scripts/open-req-pr.sh --tooling --title "chore(ui): nexus branding"
+```
+
+The REQ mode reads the matching paragraph from `docs/nexus-spec.md` and
+generates a template-filled body with closes-tag, demo steps, and checklist.
+
+The tooling mode skips REQ validation and uses a minimal body template —
+use this for anything that isn't product-shaped (skill updates, branding,
+infra, docs). The preview-gate step still runs, but the preview-side
+filtered pest is skipped (nothing to filter on).
+
+Both modes emit `{"pr_number": …, "pr_url": "…", "mode": "req|tooling"}` on stdout.
 
 **Never edit the PR body to claim gates pass that didn't.** If the local
 gate in step 1 had known skipped items (e.g. "M2 backlog"), surface that
