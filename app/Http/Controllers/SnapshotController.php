@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\SnapshotVisibility;
 use App\Models\Snapshot;
+use App\Models\SnapshotShare;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
 use App\Policies\SnapshotPolicy;
@@ -95,6 +97,25 @@ class SnapshotController extends Controller
             // mutation affordance (rename/delete/re-share) from non-owners.
             'is_owner' => $isOwner,
             'is_public_link' => false,
+            // REQ-M4-010: owner-only props that power the Share dialog. Empty
+            // for non-owners so we never leak the guest list or the token.
+            'visibility' => $snapshot->visibility?->value ?? SnapshotVisibility::Private->value,
+            'share_url' => $isOwner && $snapshot->visibility === SnapshotVisibility::Link && $snapshot->share_token
+                ? route('snapshot.public', ['token' => $snapshot->share_token])
+                : null,
+            'shares' => $isOwner
+                ? $snapshot->shares()
+                    ->orderBy('email')
+                    ->get()
+                    ->map(fn (SnapshotShare $share): array => [
+                        'id' => $share->id,
+                        'email' => $share->email,
+                        'accepted' => $share->user_id !== null,
+                        'created_at' => $share->created_at?->toIso8601String(),
+                    ])
+                    ->values()
+                    ->all()
+                : [],
         ]);
     }
 

@@ -95,6 +95,7 @@
 - **REQ-M4-007** Signed-in users see a dedicated **Shared with me** sidebar section listing every snapshot where they hold an unrevoked `snapshot_shares` row (resolved by `user_id` or email). Owner sidebars display a share-count badge on snapshots with active shares or an active `share_token`.
 - **REQ-M4-008** MCP writes (`present_structured_data`) remain owner-only regardless of share state; shares grant read access only. `get_follow_up_context` is scoped to the caller's Sanctum token, so each viewer's selections are visible only to that viewer's agent — never to the owner or other viewers.
 - **REQ-M4-009** `Snapshot::shareToken()` rotation and `snapshot_shares` revocation both invalidate any cached access decisions within one request cycle (no stale policy cache).
+- **REQ-M4-010** Owner-facing **Share** control on the snapshot page header. Rendered only when `is_owner && !is_public_link`. Opens a dialog that surfaces three visibility modes (Private / Anyone with link / Specific people), the current `/s/{token}` URL with a copy button when link mode is active, and an email input plus revoke-able list of current shares when shared mode is active. All four mutation endpoints (`PATCH .../visibility`, `POST .../share-token/rotate`, `POST .../shares`, `DELETE .../shares/{share}`) live under the authenticated snapshot route prefix and reject any non-owner caller with 403. The dialog reads the current state from `shares` and `share_url` props included on the snapshot show payload (owners only).
 
 ---
 
