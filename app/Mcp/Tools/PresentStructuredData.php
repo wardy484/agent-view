@@ -17,6 +17,7 @@ use App\Nexus\Schemas\TableViewSchema;
 use App\Nexus\Schemas\TableViewSchemaException;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -59,9 +60,17 @@ class PresentStructuredData extends Tool
             return Response::error($exception->getMessage());
         }
 
+        // REQ-M4-000: capture the authenticated Sanctum user as the owner on
+        // first workbench creation. Unauthenticated callers (local stdio) leave
+        // owner_user_id null — such workbenches are system-owned and never
+        // shareable (REQ-M4-005). Ownership is set once on create and is never
+        // reassigned by this tool on subsequent calls.
         $workbench = Workbench::query()->firstOrCreate(
             ['slug' => $request->get('workbench_slug')],
-            ['name' => Str::headline((string) $request->get('workbench_slug'))],
+            [
+                'name' => Str::headline((string) $request->get('workbench_slug')),
+                'owner_user_id' => Auth::id(),
+            ],
         );
 
         $snapshot = $this->resolveSnapshot($request, $workbench);
