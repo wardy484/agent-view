@@ -27,6 +27,19 @@ type RecentSnapshot = {
     created_human: string | null;
 };
 
+type ViewTypeSample = {
+    workbench_slug: string;
+    snapshot_slug: string;
+    snapshot_title: string | null;
+} | null;
+
+type ViewTypeSamples = {
+    slide_deck: ViewTypeSample;
+    table: ViewTypeSample;
+    kanban: ViewTypeSample;
+    flowchart: ViewTypeSample;
+};
+
 type DashboardProps = {
     kpis: {
         workbenches: number;
@@ -35,33 +48,39 @@ type DashboardProps = {
         mcp_calls_today: number;
     };
     recentSnapshots: RecentSnapshot[];
+    viewTypeSamples: ViewTypeSamples;
 };
 
 const viewTypes: {
+    key: keyof ViewTypeSamples;
     zone: Zone;
     title: string;
     subtitle: string;
     icon: React.ReactNode;
 }[] = [
     {
+        key: 'slide_deck',
         zone: 'deck',
         title: 'Slide deck',
         subtitle: '16:9 narrative — lede, bullets, timeline',
         icon: <Presentation size={16} />,
     },
     {
+        key: 'table',
         zone: 'table',
         title: 'Table',
         subtitle: 'tabular rows · filter · select · send-back',
         icon: <LayoutList size={16} />,
     },
     {
+        key: 'kanban',
         zone: 'kanban',
         title: 'Kanban',
         subtitle: 'status columns · drag · lane totals',
         icon: <Columns3 size={16} />,
     },
     {
+        key: 'flowchart',
         zone: 'flow',
         title: 'Flowchart',
         subtitle: 'nodes · edges · highlights',
@@ -93,6 +112,7 @@ const formatNumber = (n: number): string => {
 export default function Dashboard({
     kpis,
     recentSnapshots,
+    viewTypeSamples,
 }: DashboardProps) {
     const kpiCards = [
         {
@@ -182,33 +202,71 @@ export default function Dashboard({
                         </span>
                     </div>
                     <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        {viewTypes.map((v) => (
-                            <div
-                                key={v.zone}
-                                className="nx-card group relative flex flex-col gap-3 p-4"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <span
-                                        className="nx-view-chip"
-                                        data-zone={v.zone}
+                        {viewTypes.map((v) => {
+                            const sample = viewTypeSamples[v.key];
+                            const cardInner = (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <span
+                                            className="nx-view-chip"
+                                            data-zone={v.zone}
+                                        >
+                                            <span className="sq" />
+                                            {v.zone}
+                                        </span>
+                                        <span className="text-[color:var(--fg-3)] transition-colors group-hover:text-[color:var(--fg-0)]">
+                                            {v.icon}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <div className="text-[14px] font-semibold text-[color:var(--fg-0)]">
+                                            {v.title}
+                                        </div>
+                                        <div className="mt-0.5 font-mono text-[11.5px] leading-snug text-[color:var(--fg-2)]">
+                                            {v.subtitle}
+                                        </div>
+                                    </div>
+                                    <div className="font-mono text-[11px] text-[color:var(--fg-3)]">
+                                        {sample ? (
+                                            <span className="inline-flex items-center gap-1 text-[color:var(--fg-2)]">
+                                                open sample
+                                                <ArrowRight size={11} />
+                                            </span>
+                                        ) : (
+                                            <span>no samples yet</span>
+                                        )}
+                                    </div>
+                                </>
+                            );
+
+                            if (sample) {
+                                return (
+                                    <Link
+                                        key={v.key}
+                                        href={
+                                            showSnapshot({
+                                                workbench:
+                                                    sample.workbench_slug,
+                                                snapshot: sample.snapshot_slug,
+                                            }).url
+                                        }
+                                        prefetch
+                                        className="nx-card group relative flex flex-col gap-3 p-4 hover:border-[color:var(--fg-3)]"
                                     >
-                                        <span className="sq" />
-                                        {v.zone}
-                                    </span>
-                                    <span className="text-[color:var(--fg-3)] transition-colors group-hover:text-[color:var(--fg-0)]">
-                                        {v.icon}
-                                    </span>
+                                        {cardInner}
+                                    </Link>
+                                );
+                            }
+
+                            return (
+                                <div
+                                    key={v.key}
+                                    className="nx-card group relative flex flex-col gap-3 p-4 opacity-75"
+                                >
+                                    {cardInner}
                                 </div>
-                                <div>
-                                    <div className="text-[14px] font-semibold text-[color:var(--fg-0)]">
-                                        {v.title}
-                                    </div>
-                                    <div className="mt-0.5 font-mono text-[11.5px] leading-snug text-[color:var(--fg-2)]">
-                                        {v.subtitle}
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
 
                     <div className="mt-8 grid grid-cols-1 gap-3 lg:grid-cols-3">

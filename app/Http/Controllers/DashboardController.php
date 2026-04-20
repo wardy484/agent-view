@@ -41,6 +41,8 @@ class DashboardController extends Controller
             ])
             ->all();
 
+        $viewTypeSamples = $this->latestPerViewType();
+
         return Inertia::render('dashboard', [
             'kpis' => [
                 'workbenches' => $workbenchCount,
@@ -49,6 +51,42 @@ class DashboardController extends Controller
                 'mcp_calls_today' => $mcpCallsToday,
             ],
             'recentSnapshots' => $recentVersions,
+            'viewTypeSamples' => $viewTypeSamples,
         ]);
+    }
+
+    /**
+     * Latest snapshot per view_type. Powers the dashboard view-type cards so
+     * each card links to a real example when one exists.
+     *
+     * @return array<string, array{workbench_slug: string, snapshot_slug: string, snapshot_title: string|null}|null>
+     */
+    private function latestPerViewType(): array
+    {
+        $viewTypes = ['slide_deck', 'table', 'kanban', 'flowchart'];
+        $samples = array_fill_keys($viewTypes, null);
+
+        $latest = SnapshotVersion::query()
+            ->with(['snapshot.workbench'])
+            ->whereIn('view_type', $viewTypes)
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('view_type');
+
+        foreach ($viewTypes as $viewType) {
+            $version = $latest->get($viewType)?->first();
+
+            if ($version === null) {
+                continue;
+            }
+
+            $samples[$viewType] = [
+                'workbench_slug' => $version->snapshot->workbench->slug,
+                'snapshot_slug' => $version->snapshot->slug,
+                'snapshot_title' => $version->snapshot->title,
+            ];
+        }
+
+        return $samples;
     }
 }

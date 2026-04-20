@@ -7,7 +7,7 @@ import AuthLayout from '@/layouts/auth-layout';
 import MarketingLayout from '@/layouts/marketing-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const marketingPages = new Set(['welcome', 'contact']);
+const marketingPages = new Set(['contact']);
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
