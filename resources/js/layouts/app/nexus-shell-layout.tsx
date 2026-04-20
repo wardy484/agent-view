@@ -2,12 +2,17 @@ import { Link, usePage } from '@inertiajs/react';
 import { Copy, KeyRound, LayoutGrid, Settings } from 'lucide-react';
 import { type PropsWithChildren } from 'react';
 import {
+    Avatar,
+    AvatarFallback,
+    AvatarImage,
+} from '@/components/ui/avatar';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
+import { useInitials } from '@/hooks/use-initials';
 import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
 import { show as showSnapshot } from '@/routes/workbench/snapshot';
@@ -20,6 +25,7 @@ export default function NexusShellLayout({
     const { url, props } = usePage();
     const user = props.auth?.user;
     const workbenches = (props.workbenches ?? []) as SharedWorkbench[];
+    const getInitials = useInitials();
 
     const isActive = (href: string) => href !== '#' && url.startsWith(href);
 
@@ -105,11 +111,21 @@ export default function NexusShellLayout({
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="nx-icon-btn"
+                                    className="nx-icon-btn flex items-center gap-2 !w-auto !h-7 !px-1.5"
                                     title={user.name}
-                                    style={{ width: 'auto', padding: '0 6px' }}
                                 >
-                                    <UserInfo user={user} />
+                                    <Avatar className="size-5 rounded-full">
+                                        <AvatarImage
+                                            src={user.avatar}
+                                            alt={user.name}
+                                        />
+                                        <AvatarFallback className="rounded-full bg-[color:var(--bg-2)] text-[10px] font-medium text-[color:var(--fg-1)]">
+                                            {getInitials(user.name)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="max-w-[140px] truncate text-[12px] font-medium text-[color:var(--fg-1)]">
+                                        {user.name}
+                                    </span>
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
