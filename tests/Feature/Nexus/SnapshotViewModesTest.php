@@ -91,9 +91,14 @@ it('REQ-M3-012: snapshot page wires preview-mode chrome via the PreviewHomeButto
 
     expect($homeButton)
         ->toContain("from '@inertiajs/react'")
-        // Auth-aware target: workbenches index for users, marketing home for guests.
-        ->toContain("'/workbenches'")
-        ->toContain("'/'");
+        // Auth-aware target: dashboard for users, marketing home for guests.
+        ->toContain("'/dashboard'")
+        ->toContain("'/'")
+        // Positioned top-right so it doesn't overlap top-left chrome (e.g. the
+        // table view's fuzzy-search input) and z-[60] so it floats above full-
+        // bleed presentation views (slide deck uses z-50 on fixed inset-0).
+        ->toContain('right-3')
+        ->toContain('z-[60]');
 });
 
 it('REQ-M3-013: snapshot page exposes the in-app fullscreen toggle gated on mode=app', function (): void {
