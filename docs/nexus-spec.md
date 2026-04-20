@@ -83,11 +83,24 @@
 - **REQ-M3-012** The `snapshot` page renders inside the app sidebar layout when `mode === "app"` and renders bare (no sidebar, no workbench header) with a subtle floating home link when `mode === "preview"`.
 - **REQ-M3-013** In-app mode shows a fullscreen toggle button in the snapshot header; activating it hides the workbench header and surfaces the same floating home link, and the Escape key restores the chrome.
 
+## M4 — Sharing
+
+- **REQ-M4-000** `workbenches` gains a nullable `owner_user_id` foreign key to `users` (`nullOnDelete`). When `PresentStructuredData` runs under Sanctum web auth (`auth()->user()` present), it sets `owner_user_id` on workbench creation. When it runs under the unauthenticated local stdio server, `owner_user_id` stays null and the workbench is treated as system-owned (never shareable). A one-shot data migration back-fills existing rows from the earliest `mcp_call_logs` entry whose `user_id` is non-null. Sharing policies (REQ-M4-005) reject every workbench whose owner is null. Once set to a non-null user, `owner_user_id` never changes except via an explicit transfer action (out of scope for M4).
+- **REQ-M4-001** Snapshots carry a `visibility` enum with values `private` (default), `link`, and `shared`. Visibility is stored on the `snapshots` row, not the workbench. A viewer always sees the snapshot's **latest** revision (resolved via `current_version_id` at request time); earlier revisions remain hidden to non-owners.
+- **REQ-M4-002** When `visibility = link`, the snapshot has a 32-byte URL-safe random `share_token` (unique, indexed). Route `GET /s/{token}` resolves to the read-only snapshot view without authentication. Flipping visibility to `private` clears the token; re-enabling `link` mints a fresh token. The route is rate-limited and every hit writes a `snapshot_share_accesses` audit row.
+- **REQ-M4-003** Table `snapshot_shares` with columns `id`, `snapshot_id`, `email` (lowercased, indexed), `user_id` nullable, `granted_by_user_id`, `created_at`, `revoked_at` nullable. Unique `(snapshot_id, email)` where `revoked_at IS NULL`.
+- **REQ-M4-004** Sharing a snapshot by email: if a `User` with that email exists, `user_id` is populated immediately and a `SnapshotSharedNotification` is queued. If no user exists, the row is created with `user_id = null` and an invite email with a signup link is sent; Fortify's `CreateNewUser` back-fills `user_id` on any matching `snapshot_shares` rows during registration.
+- **REQ-M4-005** `SnapshotPolicy@view` grants read access when any of the following is true: the user owns the workbench; `visibility = link` and the request presents the valid `share_token`; `visibility = shared` and an unrevoked `snapshot_shares` row matches the authenticated user's id or email. Revoking sets `revoked_at` (soft — never hard-deleted).
+- **REQ-M4-006** The shared snapshot view is strictly read-only: version switcher is hidden (latest-only per REQ-M4-001), the "Send back to Agent" control is hidden for public-link viewers, and all mutation affordances (rename, delete, re-share) are gated by ownership.
+- **REQ-M4-007** Signed-in users see a dedicated **Shared with me** sidebar section listing every snapshot where they hold an unrevoked `snapshot_shares` row (resolved by `user_id` or email). Owner sidebars display a share-count badge on snapshots with active shares or an active `share_token`.
+- **REQ-M4-008** MCP writes (`present_structured_data`) remain owner-only regardless of share state; shares grant read access only. `get_follow_up_context` is scoped to the caller's Sanctum token, so each viewer's selections are visible only to that viewer's agent — never to the owner or other viewers.
+- **REQ-M4-009** `Snapshot::shareToken()` rotation and `snapshot_shares` revocation both invalidate any cached access decisions within one request cycle (no stale policy cache).
+
 ---
 
 ## Requirement ID Rules
 
-1. **Format**: `REQ-<scope>-<nnn>` where scope ∈ `{P0A, P0B, M1, M2, M3, …}` and `nnn` is a zero-padded 3-digit number.
+1. **Format**: `REQ-<scope>-<nnn>` where scope ∈ `{P0A, P0B, M1, M2, M3, M4, …}` and `nnn` is a zero-padded 3-digit number.
 2. **Stability**: once issued, an ID's text may be refined but its number is frozen forever.
 3. **One test per ID**: any Pest `it(…)` name must match the regex `/REQ-[A-Z0-9]+-\d{3}/` to count.
 4. **Additions require a spec PR**: if a requirement is missing, add it here before writing code.
