@@ -8,6 +8,7 @@ use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Nexus\Renderers\FlowchartPreviewRenderer;
 use App\Nexus\Renderers\KanbanPreviewRenderer;
+use App\Nexus\Renderers\ReportPreviewRenderer;
 use App\Nexus\Renderers\SlideDeckPreviewRenderer;
 use App\Nexus\Renderers\TablePreviewRenderer;
 use Carbon\CarbonImmutable;
@@ -163,6 +164,7 @@ class SnapshotVersioning
             'slide_deck' => SlideDeckPreviewRenderer::render($payload),
             'kanban' => KanbanPreviewRenderer::render($payload),
             'flowchart' => FlowchartPreviewRenderer::render($payload),
+            'report' => ReportPreviewRenderer::render($payload),
             default => null,
         };
     }
