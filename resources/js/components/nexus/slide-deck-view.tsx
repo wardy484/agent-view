@@ -14,6 +14,8 @@ export type SlideDeckViewPayload = {
 type Props = {
     payload: SlideDeckViewPayload;
     className?: string;
+    /** When true, the deck fills the available viewport (preview / fullscreen mode). */
+    fullBleed?: boolean;
 };
 
 /**
@@ -22,7 +24,7 @@ type Props = {
  *  - ArrowRight: next slide
  *  - Space: next slide (preventDefault to avoid page scroll)
  */
-export function SlideDeckView({ payload, className }: Props) {
+export function SlideDeckView({ payload, className, fullBleed = false }: Props) {
     const slides = payload?.slides ?? [];
     const [index, setIndex] = useState(0);
 
@@ -63,15 +65,37 @@ export function SlideDeckView({ payload, className }: Props) {
             data-testid="nexus-slide-deck-view"
             data-slide-index={index}
             data-slide-count={slides.length}
+            data-full-bleed={fullBleed}
             tabIndex={0}
-            className={cn('flex w-full flex-col gap-3', className)}
+            className={cn(
+                'flex w-full flex-col gap-3',
+                fullBleed && 'h-screen min-h-screen gap-0',
+                className,
+            )}
         >
-            <section className="rounded-lg border border-border bg-background p-6">
-                <h2 className="mb-3 text-xl font-semibold">{current.title}</h2>
-                <pre className="whitespace-pre-wrap font-sans text-sm text-foreground">{current.body_md}</pre>
+            <section
+                className={cn(
+                    'rounded-lg border border-border bg-background p-6',
+                    fullBleed && 'flex flex-1 flex-col justify-center rounded-none border-0 px-12 py-16',
+                )}
+            >
+                <h2 className={cn('mb-3 text-xl font-semibold', fullBleed && 'text-4xl')}>{current.title}</h2>
+                <pre
+                    className={cn(
+                        'whitespace-pre-wrap font-sans text-sm text-foreground',
+                        fullBleed && 'text-xl leading-relaxed',
+                    )}
+                >
+                    {current.body_md}
+                </pre>
             </section>
 
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <div
+                className={cn(
+                    'flex items-center justify-between text-xs text-muted-foreground',
+                    fullBleed && 'border-t border-border bg-background/80 px-6 py-3 backdrop-blur',
+                )}
+            >
                 <span>
                     Slide {index + 1} of {slides.length}
                 </span>

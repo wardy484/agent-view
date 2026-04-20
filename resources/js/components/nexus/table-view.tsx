@@ -34,6 +34,8 @@ type Props = {
     className?: string;
     /** Initial page size; user can change this via the page-size select. */
     initialPageSize?: number;
+    /** When true, the table fills the available viewport (preview / fullscreen mode). */
+    fullBleed?: boolean;
 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -191,7 +193,7 @@ function writeStateToUrl(
  *             shareable — refreshing or sharing the link restores the exact
  *             filter/sort configuration.
  */
-export function TableView({ payload, className, initialPageSize = 25 }: Props) {
+export function TableView({ payload, className, initialPageSize = 25, fullBleed = false }: Props) {
     const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
     const rows = useMemo(() => payload?.rows ?? [], [payload?.rows]);
 
@@ -251,7 +253,12 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
         <div
             data-testid="nexus-table-view"
             data-row-count={rows.length}
-            className={cn('flex w-full flex-col gap-3', className)}
+            data-full-bleed={fullBleed}
+            className={cn(
+                'flex w-full flex-col gap-3',
+                fullBleed && 'h-screen min-h-screen gap-2 px-4 py-3',
+                className,
+            )}
         >
             <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -267,7 +274,12 @@ export function TableView({ payload, className, initialPageSize = 25 }: Props) {
                 </span>
             </div>
 
-            <div className="w-full overflow-auto rounded-lg border border-border">
+            <div
+                className={cn(
+                    'w-full overflow-auto rounded-lg border border-border',
+                    fullBleed && 'flex-1',
+                )}
+            >
                 <table className="w-full text-left text-sm">
                     <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                         {table.getHeaderGroups().map((headerGroup) => (

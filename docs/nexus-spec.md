@@ -78,6 +78,10 @@
 - **REQ-M3-007** The "Agent Activity" dashboard is a singleton snapshot per workbench rendered via `snapshot.tsx` — no bespoke page.
 - **REQ-M3-008** `present_structured_data` response includes a `ui://` resource with an iframe-embeddable URL for `mcp-ui`-aware clients.
 - **REQ-M3-009** `VersionDiff::between($a, $b)` returns added/removed/changed rows for any two versions of a table snapshot.
+- **REQ-M3-010** `SnapshotController` exposes a `mode` Inertia prop equal to `"preview"` when the request has `?mode=preview` or no authenticated user, and `"app"` otherwise; an `isAuthenticated` boolean prop reflects the auth state.
+- **REQ-M3-011** The `ui://` resource emitted by `present_structured_data` carries `?mode=preview` on the iframe-embeddable URL so mcp-ui clients render snapshots without the app shell.
+- **REQ-M3-012** The `snapshot` page renders inside the app sidebar layout when `mode === "app"` and renders bare (no sidebar, no workbench header) with a subtle floating home link when `mode === "preview"`.
+- **REQ-M3-013** In-app mode shows a fullscreen toggle button in the snapshot header; activating it hides the workbench header and surfaces the same floating home link, and the Escape key restores the chrome.
 
 ---
 

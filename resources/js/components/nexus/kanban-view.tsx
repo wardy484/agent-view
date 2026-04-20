@@ -22,6 +22,8 @@ export type KanbanViewPayload = {
 type Props = {
     payload: KanbanViewPayload;
     className?: string;
+    /** When true, the board fills the available viewport (preview / fullscreen mode). */
+    fullBleed?: boolean;
 };
 
 /**
@@ -30,7 +32,7 @@ type Props = {
  * Pure presentational component — receives the validated payload and renders
  * one column per `columns[]` entry, bucketing cards by `column_key`.
  */
-export function KanbanView({ payload, className }: Props) {
+export function KanbanView({ payload, className, fullBleed = false }: Props) {
     const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
     const cards = useMemo(() => payload?.cards ?? [], [payload?.cards]);
 
@@ -64,7 +66,12 @@ export function KanbanView({ payload, className }: Props) {
             data-testid="nexus-kanban-view"
             data-column-count={columns.length}
             data-card-count={cards.length}
-            className={cn('flex w-full gap-3 overflow-x-auto pb-2', className)}
+            data-full-bleed={fullBleed}
+            className={cn(
+                'flex w-full gap-3 overflow-x-auto pb-2',
+                fullBleed && 'h-screen min-h-screen items-stretch p-4',
+                className,
+            )}
         >
             {columns.map((column) => {
                 const columnCards = cardsByColumn[column.key] ?? [];
