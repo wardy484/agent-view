@@ -1516,5 +1516,3 @@ export default function Welcome(_props: WelcomeProps) {
         </div>
     );
 }
-
-Welcome.layout = (page: React.ReactNode) => page;
