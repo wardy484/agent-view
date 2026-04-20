@@ -15,8 +15,8 @@ type Props = {
  * guests land on the marketing home.
  */
 export function PreviewHomeButton({ isAuthenticated, className }: Props) {
-    const href = isAuthenticated ? '/workbenches' : '/';
-    const label = isAuthenticated ? 'Back to your workbenches' : 'Nexus-UI home';
+    const href = isAuthenticated ? '/dashboard' : '/';
+    const label = isAuthenticated ? 'Back to your dashboard' : 'Nexus-UI home';
 
     return (
         <Link
@@ -25,7 +25,7 @@ export function PreviewHomeButton({ isAuthenticated, className }: Props) {
             aria-label={label}
             title={label}
             className={cn(
-                'fixed left-3 top-3 z-50 flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-muted-foreground opacity-50 shadow-sm backdrop-blur transition hover:opacity-100 hover:text-foreground',
+                'fixed right-3 top-3 z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-muted-foreground opacity-50 shadow-sm backdrop-blur transition hover:opacity-100 hover:text-foreground',
                 className,
             )}
         >
