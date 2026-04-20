@@ -41,7 +41,15 @@ class SnapshotController extends Controller
             abort(404);
         }
 
-        $version = $this->resolveActiveVersion($request, $snapshot, $versions);
+        // REQ-M4-006: only the workbench owner may browse the full revision
+        // history or jump to an arbitrary revision. Shared-with viewers always
+        // see the latest revision and no version switcher.
+        $isOwner = $request->user() !== null
+            && (int) $request->user()->id === (int) $workbench->owner_user_id;
+
+        $version = $isOwner
+            ? $this->resolveActiveVersion($request, $snapshot, $versions)
+            : $this->latestVersion($snapshot, $versions);
 
         $isAuthenticated = $request->user() !== null;
 
@@ -69,16 +77,32 @@ class SnapshotController extends Controller
                 'data_payload' => $version->data_payload,
                 'metadata' => $version->metadata,
             ],
-            'versions' => $versions->map(fn (SnapshotVersion $candidate): array => [
-                'id' => $candidate->id,
-                'revision' => $candidate->revision,
-                'view_type' => $candidate->view_type,
-                'created_at' => $candidate->created_at?->toIso8601String(),
-                'is_current' => $candidate->id === $version->id,
-            ])->values()->all(),
+            // REQ-M4-006: non-owners never see the full revision history — the
+            // React switcher is hidden, and we don't leak sibling revisions.
+            'versions' => $isOwner
+                ? $versions->map(fn (SnapshotVersion $candidate): array => [
+                    'id' => $candidate->id,
+                    'revision' => $candidate->revision,
+                    'view_type' => $candidate->view_type,
+                    'created_at' => $candidate->created_at?->toIso8601String(),
+                    'is_current' => $candidate->id === $version->id,
+                ])->values()->all()
+                : [],
             'mode' => $mode,
             'isAuthenticated' => $isAuthenticated,
+            // REQ-M4-006: the page component reads these flags to hide the
+            // version switcher, the "Send back to Agent" control, and every
+            // mutation affordance (rename/delete/re-share) from non-owners.
+            'is_owner' => $isOwner,
+            'is_public_link' => false,
         ]);
+    }
+
+    private function latestVersion(Snapshot $snapshot, $versions): SnapshotVersion
+    {
+        $activeId = $snapshot->current_version_id ?? $versions->first()->id;
+
+        return $snapshot->versions()->whereKey($activeId)->firstOrFail();
     }
 
     /**

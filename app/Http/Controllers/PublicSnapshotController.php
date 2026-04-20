@@ -73,9 +73,11 @@ class PublicSnapshotController extends Controller
                 'data_payload' => $version->data_payload,
                 'metadata' => $version->metadata,
             ],
-            // REQ-M4-006 will consume this flag to hide mutation affordances,
-            // the version switcher, and the "Send back to Agent" button.
+            // REQ-M4-006: the page component consumes these flags to hide all
+            // mutation affordances, the version switcher, and the "Send back
+            // to Agent" button. A public-link viewer is never the owner.
             'versions' => [],
+            'is_owner' => false,
             'is_public_link' => true,
         ]);
     }

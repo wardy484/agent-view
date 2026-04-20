@@ -45,6 +45,10 @@ type Props = {
     versions: SnapshotVersionSummary[];
     mode: Mode;
     isAuthenticated: boolean;
+    // REQ-M4-006: ownership / viewer-mode flags. Absent on pre-M4 payloads,
+    // so we default to the most permissive shape for backwards compatibility.
+    is_owner?: boolean;
+    is_public_link?: boolean;
 };
 
 /**
@@ -55,9 +59,13 @@ type Props = {
  *    floating home link in the corner.
  *  - In-app fullscreen toggle hides the workbench header in place; ESC or a
  *    second click restores it.
+ *
+ * REQ-M4-006: strict read-only viewer mode. Non-owners (shared-with viewers
+ * and public-link viewers) never see the version switcher or any mutation
+ * affordance — we gate those on `is_owner && !is_public_link`.
  */
 export default function SnapshotPage(props: Props) {
-    const { mode, isAuthenticated } = props;
+    const { mode, isAuthenticated, is_owner = true, is_public_link = false } = props;
     const isPreview = mode === 'preview';
     const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -96,6 +104,8 @@ export default function SnapshotPage(props: Props) {
             isFullscreen={isFullscreen}
             onToggleFullscreen={() => setIsFullscreen((current) => !current)}
             fullBleed={fullBleed}
+            isOwner={is_owner}
+            isPublicLink={is_public_link}
         />
     );
 
@@ -121,6 +131,8 @@ type BodyProps = {
     isFullscreen: boolean;
     onToggleFullscreen: () => void;
     fullBleed: boolean;
+    isOwner: boolean;
+    isPublicLink: boolean;
 };
 
 function SnapshotBody({
@@ -132,9 +144,15 @@ function SnapshotBody({
     isFullscreen,
     onToggleFullscreen,
     fullBleed,
+    isOwner,
+    isPublicLink,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
+
+    // REQ-M4-006: the version switcher is an owner-only affordance. Shared-with
+    // viewers and public-link viewers always see the latest revision.
+    const showVersionSwitcher = isOwner && !isPublicLink && versions.length > 0;
 
     if (!showWorkbenchHeader) {
         // Preview / fullscreen: render the view edge-to-edge with no chrome.
@@ -165,11 +183,13 @@ function SnapshotBody({
                         <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
                     </button>
                 </div>
-                <VersionSwitcher
-                    workbenchSlug={workbench.slug}
-                    snapshotSlug={snapshot.slug}
-                    versions={versions}
-                />
+                {showVersionSwitcher ? (
+                    <VersionSwitcher
+                        workbenchSlug={workbench.slug}
+                        snapshotSlug={snapshot.slug}
+                        versions={versions}
+                    />
+                ) : null}
             </header>
 
             <main data-testid="nexus-snapshot-body">{renderView(version, fullBleed)}</main>
