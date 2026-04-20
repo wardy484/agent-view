@@ -41,6 +41,20 @@ export default function SnapshotPage({ workbench, snapshot, version, versions }:
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
 
+    // Slide decks present full-bleed: no dashboard header, no sidebar chrome visible.
+    // SlideDeckView renders `fixed inset-0` in presentation mode and covers AppLayout.
+    if (version.view_type === 'slide_deck') {
+        return (
+            <>
+                <Head title={`${heading} — ${workbench.name}`} />
+                <SlideDeckView
+                    payload={version.data_payload as SlideDeckViewPayload}
+                    mode="presentation"
+                />
+            </>
+        );
+    }
+
     return (
         <>
             <Head title={`${heading} — ${workbench.name}`} />
@@ -67,10 +81,6 @@ export default function SnapshotPage({ workbench, snapshot, version, versions }:
 function renderView(version: Version) {
     if (version.view_type === 'table') {
         return <TableView payload={version.data_payload as TableViewPayload} />;
-    }
-
-    if (version.view_type === 'slide_deck') {
-        return <SlideDeckView payload={version.data_payload as SlideDeckViewPayload} />;
     }
 
     if (version.view_type === 'kanban') {
