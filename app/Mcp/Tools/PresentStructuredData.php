@@ -65,13 +65,32 @@ class PresentStructuredData extends Tool
         // owner_user_id null — such workbenches are system-owned and never
         // shareable (REQ-M4-005). Ownership is set once on create and is never
         // reassigned by this tool on subsequent calls.
-        $workbench = Workbench::query()->firstOrCreate(
-            ['slug' => $request->get('workbench_slug')],
-            [
-                'name' => Str::headline((string) $request->get('workbench_slug')),
-                'owner_user_id' => Auth::id(),
-            ],
-        );
+        //
+        // REQ-M4-008: writes are owner-only. An existing workbench can only be
+        // written to by its owner (or, for system-owned workbenches, by local
+        // stdio — i.e. unauthenticated — callers). Shares grant read access
+        // only; they never grant write access.
+        $slug = (string) $request->get('workbench_slug');
+        $existing = Workbench::query()->where('slug', $slug)->first();
+        $callerId = Auth::id();
+
+        if ($existing !== null) {
+            if ($existing->owner_user_id !== null && (int) $existing->owner_user_id !== (int) $callerId) {
+                return Response::error('This workbench is owned by another user; MCP writes are owner-only.');
+            }
+
+            if ($existing->owner_user_id === null && $callerId !== null) {
+                return Response::error('This workbench is system-owned (local stdio) and cannot be written to by authenticated users.');
+            }
+
+            $workbench = $existing;
+        } else {
+            $workbench = Workbench::query()->create([
+                'slug' => $slug,
+                'name' => Str::headline($slug),
+                'owner_user_id' => $callerId,
+            ]);
+        }
 
         $snapshot = $this->resolveSnapshot($request, $workbench);
 

@@ -7,6 +7,7 @@ use App\Mcp\Tools\PresentStructuredData;
 use App\Models\McpCallLog;
 use App\Models\User;
 use App\Models\Workbench;
+use App\Nexus\WorkbenchOwnerBackfill;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 
@@ -67,6 +68,9 @@ it('REQ-M4-000: PresentStructuredData leaves owner_user_id null when no user is 
 });
 
 it('REQ-M4-000: PresentStructuredData does not reassign owner on subsequent calls', function (): void {
+    // Under REQ-M4-008 a non-owner cannot write at all — but the property
+    // guarded here is that the owner is *not* reassigned by any subsequent
+    // call (success or failure), which remains true.
     $originalOwner = User::factory()->create();
     $someoneElse = User::factory()->create();
 
@@ -88,7 +92,7 @@ it('REQ-M4-000: PresentStructuredData does not reassign owner on subsequent call
             'columns' => [['key' => 'id', 'label' => 'ID']],
             'rows' => [['id' => 2]],
         ],
-    ])->assertOk();
+    ]); // REQ-M4-008: rejected; owner must not change regardless.
 
     $workbench = Workbench::query()->where('slug', 'locked-bench')->first();
 
@@ -133,7 +137,7 @@ it('REQ-M4-000: backfill migration assigns owner from earliest non-null mcp_call
         'updated_at' => now()->subDays(1),
     ]);
 
-    \App\Nexus\WorkbenchOwnerBackfill::run();
+    WorkbenchOwnerBackfill::run();
 
     expect($workbench->fresh()->owner_user_id)->toBe($earlyUser->id);
 });
@@ -150,7 +154,7 @@ it('REQ-M4-000: backfill leaves owner null when no mcp_call_logs row has a user'
         'workbench_id' => $workbench->id,
     ]);
 
-    \App\Nexus\WorkbenchOwnerBackfill::run();
+    WorkbenchOwnerBackfill::run();
 
     expect($workbench->fresh()->owner_user_id)->toBeNull();
 });
