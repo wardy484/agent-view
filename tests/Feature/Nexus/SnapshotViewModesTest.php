@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\SnapshotVisibility;
 use App\Models\Snapshot;
-use App\Models\User;
 use App\Models\Workbench;
 use App\Nexus\SnapshotVersioning;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -28,7 +28,10 @@ function makeSnapshotForViewModes(): array
 it('REQ-M3-010: authenticated request without ?mode resolves to mode=app and isAuthenticated=true', function (): void {
     [$workbench, $snapshot] = makeSnapshotForViewModes();
 
-    $this->actingAs(User::factory()->create())
+    // REQ-M4-005: the authenticated route is now gated on ownership / share.
+    // Act as the workbench owner so the policy passes and we can assert the
+    // M3-010 chrome-mode resolution.
+    $this->actingAs($workbench->owner)
         ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
@@ -45,7 +48,7 @@ it('REQ-M3-010: authenticated request without ?mode resolves to mode=app and isA
 it('REQ-M3-010: ?mode=preview forces mode=preview even when authenticated', function (): void {
     [$workbench, $snapshot] = makeSnapshotForViewModes();
 
-    $this->actingAs(User::factory()->create())
+    $this->actingAs($workbench->owner)
         ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
@@ -59,18 +62,22 @@ it('REQ-M3-010: ?mode=preview forces mode=preview even when authenticated', func
         );
 });
 
-it('REQ-M3-010: guest request resolves to mode=preview and isAuthenticated=false', function (): void {
+it('REQ-M3-010: guest public-link viewer receives preview chrome and read-only flags', function (): void {
+    // REQ-M4-005 blocks guests from the authenticated route. The M3-010 guest
+    // scenario is now the public-link path `/s/{token}`, which produces the
+    // same bare/preview chrome.
     [$workbench, $snapshot] = makeSnapshotForViewModes();
 
+    $snapshot->setVisibility(SnapshotVisibility::Link);
+    $snapshot->refresh();
+
     $this->withoutVite()
-        ->get(route('workbench.snapshot.show', [
-            'workbench' => $workbench->slug,
-            'snapshot' => $snapshot->slug,
-        ]))
+        ->get(route('snapshot.public', ['token' => $snapshot->share_token]))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('mode', 'preview')
-            ->where('isAuthenticated', false)
+            ->component('snapshot')
+            ->where('is_public_link', true)
+            ->where('is_owner', false)
         );
 });
 
