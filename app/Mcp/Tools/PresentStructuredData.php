@@ -47,12 +47,22 @@ class PresentStructuredData extends Tool
         $viewType = (string) $request->get('view_type');
         $dataPayload = (array) $request->get('data_payload');
 
+        // REQ-M5-002: look up the workbench by slug BEFORE validating so the
+        // report schema can cross-reference embed targets against the active
+        // workbench_id. For brand-new workbenches $existing is null and any
+        // embed is rejected as cross-workbench (a fresh workbench has no
+        // snapshots to embed yet). No workbench row is created until after
+        // the validation gate — so validation failures leave no side effects.
+        $slug = (string) $request->get('workbench_slug');
+        $existing = Workbench::query()->where('slug', $slug)->first();
+        $callerId = Auth::id();
+
         // REQ-M1-008: run the view-specific schema validator BEFORE any
         // workbench/snapshot rows are created so invalid payloads never
         // leak side effects. Surfaces the validator's dot-path error
         // message as an MCP tool error.
         try {
-            $dataPayload = $this->validateDataPayload($viewType, $dataPayload);
+            $dataPayload = $this->validateDataPayload($viewType, $dataPayload, $existing?->id);
         } catch (
             TableViewSchemaException
             |SlideDeckViewSchemaException
@@ -73,9 +83,6 @@ class PresentStructuredData extends Tool
         // written to by its owner (or, for system-owned workbenches, by local
         // stdio — i.e. unauthenticated — callers). Shares grant read access
         // only; they never grant write access.
-        $slug = (string) $request->get('workbench_slug');
-        $existing = Workbench::query()->where('slug', $slug)->first();
-        $callerId = Auth::id();
 
         if ($existing !== null) {
             if ($existing->owner_user_id !== null && (int) $existing->owner_user_id !== (int) $callerId) {
@@ -188,14 +195,14 @@ class PresentStructuredData extends Tool
      * @throws FlowchartViewSchemaException
      * @throws ReportViewSchemaException
      */
-    private function validateDataPayload(string $viewType, array $payload): array
+    private function validateDataPayload(string $viewType, array $payload, ?int $workbenchId = null): array
     {
         return match ($viewType) {
             'table' => TableViewSchema::validate($payload),
             'slide_deck' => SlideDeckViewSchema::validate($payload),
             'kanban' => KanbanViewSchema::validate($payload),
             'flowchart' => FlowchartViewSchema::validate($payload),
-            'report' => ReportViewSchema::validate($payload),
+            'report' => ReportViewSchema::validate($payload, $workbenchId),
             default => $payload,
         };
     }

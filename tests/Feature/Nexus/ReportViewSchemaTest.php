@@ -4,9 +4,12 @@ declare(strict_types=1);
 
 use App\Mcp\Servers\NexusServer;
 use App\Mcp\Tools\PresentStructuredData;
+use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
+use App\Models\Workbench;
 use App\Nexus\Schemas\ReportViewSchema;
 use App\Nexus\Schemas\ReportViewSchemaException;
+use App\Nexus\SnapshotVersioning;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -23,15 +26,29 @@ it('REQ-M5-001: validate() accepts a markdown-only report payload', function ():
 });
 
 it('REQ-M5-001: validate() accepts mixed markdown and embed blocks', function (): void {
+    // The embed block targets a real same-workbench snapshot — REQ-M5-002
+    // wires DB-backed embed checks into validate(), so a "structural"
+    // acceptance test still has to satisfy them.
+    $workbench = Workbench::query()->create(['slug' => 'mixed-wb', 'name' => 'Mixed']);
+    $target = Snapshot::query()->create([
+        'workbench_id' => $workbench->id,
+        'slug' => 'target',
+    ]);
+    SnapshotVersioning::append(
+        snapshot: $target,
+        viewType: 'table',
+        dataPayload: ['columns' => [['key' => 'a', 'label' => 'A']], 'rows' => []],
+    );
+
     $payload = [
         'blocks' => [
             ['type' => 'markdown', 'body' => '## Intro'],
-            ['type' => 'embed', 'snapshot_id' => 42],
+            ['type' => 'embed', 'snapshot_id' => $target->id],
             ['type' => 'markdown', 'body' => '## Outro'],
         ],
     ];
 
-    expect(ReportViewSchema::validate($payload))->toBe($payload);
+    expect(ReportViewSchema::validate($payload, $workbench->id))->toBe($payload);
 });
 
 it('REQ-M5-001: validate() rejects a payload missing blocks', function (): void {
