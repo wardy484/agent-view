@@ -82,7 +82,11 @@ export default function SnapshotPage(props: Props) {
         shares = [],
     } = props;
     const isPreview = mode === 'preview';
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    // Shared content (public links or shared-with viewers) defaults to
+    // fullscreen so the snapshot takes the whole viewport without the
+    // workbench chrome. Owners still start in the normal app shell.
+    const isSharedView = is_public_link || !is_owner;
+    const [isFullscreen, setIsFullscreen] = useState(isSharedView);
 
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
