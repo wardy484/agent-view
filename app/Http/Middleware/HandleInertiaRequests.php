@@ -3,11 +3,14 @@
 namespace App\Http\Middleware;
 
 use App\Models\Workbench;
+use App\Nexus\SidebarSharingData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(private readonly SidebarSharingData $sharingData) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -46,6 +49,10 @@ class HandleInertiaRequests extends Middleware
             'workbenches' => fn () => $request->user()
                 ? $this->workbenchNav()
                 : [],
+            // REQ-M4-007: sidebar data — "Shared with me" entries for the
+            // signed-in user and share-count / link badges for every snapshot
+            // they own. Guests receive empty arrays.
+            'sharing' => $this->sharingData->for($request->user()),
         ];
     }
 
