@@ -11,6 +11,8 @@ use App\Nexus\Schemas\FlowchartViewSchema;
 use App\Nexus\Schemas\FlowchartViewSchemaException;
 use App\Nexus\Schemas\KanbanViewSchema;
 use App\Nexus\Schemas\KanbanViewSchemaException;
+use App\Nexus\Schemas\ReportViewSchema;
+use App\Nexus\Schemas\ReportViewSchemaException;
 use App\Nexus\Schemas\SlideDeckViewSchema;
 use App\Nexus\Schemas\SlideDeckViewSchemaException;
 use App\Nexus\Schemas\TableViewSchema;
@@ -55,7 +57,8 @@ class PresentStructuredData extends Tool
             TableViewSchemaException
             |SlideDeckViewSchemaException
             |KanbanViewSchemaException
-            |FlowchartViewSchemaException $exception
+            |FlowchartViewSchemaException
+            |ReportViewSchemaException $exception
         ) {
             return Response::error($exception->getMessage());
         }
@@ -183,6 +186,7 @@ class PresentStructuredData extends Tool
      * @throws SlideDeckViewSchemaException
      * @throws KanbanViewSchemaException
      * @throws FlowchartViewSchemaException
+     * @throws ReportViewSchemaException
      */
     private function validateDataPayload(string $viewType, array $payload): array
     {
@@ -191,6 +195,7 @@ class PresentStructuredData extends Tool
             'slide_deck' => SlideDeckViewSchema::validate($payload),
             'kanban' => KanbanViewSchema::validate($payload),
             'flowchart' => FlowchartViewSchema::validate($payload),
+            'report' => ReportViewSchema::validate($payload),
             default => $payload,
         };
     }
