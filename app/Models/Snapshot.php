@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\SnapshotVisibility;
 use Database\Factories\SnapshotFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,11 +12,33 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['workbench_id', 'slug', 'title', 'current_version_id'])]
+#[Fillable(['workbench_id', 'slug', 'title', 'current_version_id', 'visibility'])]
 class Snapshot extends Model
 {
     /** @use HasFactory<SnapshotFactory> */
     use HasFactory;
+
+    /**
+     * REQ-M4-001: default visibility is 'private' so new models mirror the
+     * DB-level default without needing a fresh() round-trip.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'visibility' => 'private',
+    ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            // REQ-M4-001: visibility is an enum cast so reads/writes always
+            // round-trip through {@see SnapshotVisibility}.
+            'visibility' => SnapshotVisibility::class,
+        ];
+    }
 
     /**
      * @return BelongsTo<Workbench, $this>
