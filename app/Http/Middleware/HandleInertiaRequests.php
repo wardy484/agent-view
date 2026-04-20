@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Workbench;
 use App\Nexus\SidebarSharingData;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -39,20 +40,24 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+        $emptySharing = ['shared_with_me' => [], 'owned_badges' => []];
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
-                'user' => $request->user(),
+                'user' => $user,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            'workbenches' => fn () => $request->user()
-                ? $this->workbenchNav()
-                : [],
+            // Defer the sidebar/nav queries so the page shell ships immediately
+            // and the chrome hydrates via a follow-up request. Guests pay
+            // nothing — the closures short-circuit to empty arrays.
+            'workbenches' => Inertia::defer(fn (): array => $user ? $this->workbenchNav() : []),
             // REQ-M4-007: sidebar data — "Shared with me" entries for the
             // signed-in user and share-count / link badges for every snapshot
             // they own. Guests receive empty arrays.
-            'sharing' => $this->sharingData->for($request->user()),
+            'sharing' => Inertia::defer(fn () => $user ? $this->sharingData->for($user) : $emptySharing),
         ];
     }
 

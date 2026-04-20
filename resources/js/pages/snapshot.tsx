@@ -9,6 +9,8 @@ import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
 import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
 import { ReportView } from '@/components/nexus/report-view';
 import type { ReportViewPayload } from '@/components/nexus/report-view';
+import { ShareDialog } from '@/components/nexus/share-dialog';
+import type { SnapshotShareSummary, SnapshotVisibility } from '@/components/nexus/share-dialog';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { TableView } from '@/components/nexus/table-view';
@@ -54,6 +56,11 @@ type Props = {
     // so we default to the most permissive shape for backwards compatibility.
     is_owner?: boolean;
     is_public_link?: boolean;
+    // REQ-M4-010: Share-dialog props. Owners always receive these; non-owners
+    // get safe defaults (visibility=private, empty shares, no URL).
+    visibility?: SnapshotVisibility;
+    share_url?: string | null;
+    shares?: SnapshotShareSummary[];
 };
 
 /**
@@ -70,9 +77,21 @@ type Props = {
  * affordance — we gate those on `is_owner && !is_public_link`.
  */
 export default function SnapshotPage(props: Props) {
-    const { mode, isAuthenticated, is_owner = true, is_public_link = false } = props;
+    const {
+        mode,
+        isAuthenticated,
+        is_owner = true,
+        is_public_link = false,
+        visibility = 'private',
+        share_url = null,
+        shares = [],
+    } = props;
     const isPreview = mode === 'preview';
-    const [isFullscreen, setIsFullscreen] = useState(false);
+    // Shared content (public links or shared-with viewers) defaults to
+    // fullscreen so the snapshot takes the whole viewport without the
+    // workbench chrome. Owners still start in the normal app shell.
+    const isSharedView = is_public_link || !is_owner;
+    const [isFullscreen, setIsFullscreen] = useState(isSharedView);
 
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
@@ -111,6 +130,9 @@ export default function SnapshotPage(props: Props) {
             fullBleed={fullBleed}
             isOwner={is_owner}
             isPublicLink={is_public_link}
+            visibility={visibility}
+            shareUrl={share_url}
+            shares={shares}
         />
     );
 
@@ -138,6 +160,9 @@ type BodyProps = {
     fullBleed: boolean;
     isOwner: boolean;
     isPublicLink: boolean;
+    visibility: SnapshotVisibility;
+    shareUrl: string | null;
+    shares: SnapshotShareSummary[];
 };
 
 function SnapshotBody({
@@ -151,6 +176,9 @@ function SnapshotBody({
     fullBleed,
     isOwner,
     isPublicLink,
+    visibility,
+    shareUrl,
+    shares,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
@@ -172,21 +200,34 @@ function SnapshotBody({
                         <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
                         <p className="text-sm text-muted-foreground">{subtitle}</p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={onToggleFullscreen}
-                        data-testid="nexus-fullscreen-toggle"
-                        aria-pressed={isFullscreen}
-                        title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-                        className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm hover:text-foreground"
-                    >
-                        {isFullscreen ? (
-                            <Minimize2 className="size-4" aria-hidden />
-                        ) : (
-                            <Maximize2 className="size-4" aria-hidden />
-                        )}
-                        <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        {/* REQ-M4-010: owner-only Share control. Non-owners and
+                            public-link viewers never see this button. */}
+                        {isOwner && !isPublicLink ? (
+                            <ShareDialog
+                                workbenchSlug={workbench.slug}
+                                snapshotSlug={snapshot.slug}
+                                visibility={visibility}
+                                shareUrl={shareUrl}
+                                shares={shares}
+                            />
+                        ) : null}
+                        <button
+                            type="button"
+                            onClick={onToggleFullscreen}
+                            data-testid="nexus-fullscreen-toggle"
+                            aria-pressed={isFullscreen}
+                            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
+                            className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm hover:text-foreground"
+                        >
+                            {isFullscreen ? (
+                                <Minimize2 className="size-4" aria-hidden />
+                            ) : (
+                                <Maximize2 className="size-4" aria-hidden />
+                            )}
+                            <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
+                        </button>
+                    </div>
                 </div>
                 {showVersionSwitcher ? (
                     <VersionSwitcher

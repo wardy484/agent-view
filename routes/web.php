@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
+use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -48,5 +49,18 @@ Route::get('/s/{token}', [PublicSnapshotController::class, 'show'])
     ->middleware('throttle:share-link')
     ->where('token', '[A-Za-z0-9_-]+')
     ->name('snapshot.public');
+
+// REQ-M4-010: owner-only mutation endpoints backing the Share dialog. Every
+// action re-asserts ownership in the controller (see authorizeOwner) — the
+// `auth` middleware only proves there's a session, not who owns the workbench.
+Route::middleware(['web', 'auth'])
+    ->prefix('/workbenches/{workbench:slug}/snapshots/{snapshot:slug}')
+    ->name('workbench.snapshot.')
+    ->group(function (): void {
+        Route::patch('/visibility', [SnapshotShareController::class, 'updateVisibility'])->name('visibility.update');
+        Route::post('/share-token/rotate', [SnapshotShareController::class, 'rotateToken'])->name('share-token.rotate');
+        Route::post('/shares', [SnapshotShareController::class, 'storeShare'])->name('shares.store');
+        Route::delete('/shares/{share}', [SnapshotShareController::class, 'destroyShare'])->name('shares.destroy');
+    });
 
 require __DIR__.'/settings.php';

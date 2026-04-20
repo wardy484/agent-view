@@ -27,6 +27,7 @@ class PublicSnapshotController extends Controller
     public function show(Request $request, string $token): Response|HttpResponse
     {
         $snapshot = Snapshot::query()
+            ->with(['workbench', 'currentVersion'])
             ->where('share_token', $token)
             ->where('visibility', SnapshotVisibility::Link->value)
             ->first();

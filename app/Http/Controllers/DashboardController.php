@@ -70,15 +70,23 @@ class DashboardController extends Controller
         $viewTypes = ['slide_deck', 'table', 'kanban', 'flowchart', 'report'];
         $samples = array_fill_keys($viewTypes, null);
 
+        // One row per view_type via correlated subquery instead of hydrating
+        // every matching SnapshotVersion in the table. At most 4 rows are
+        // returned regardless of revision history size.
+        $latestIds = SnapshotVersion::query()
+            ->selectRaw('max(id) as id, view_type')
+            ->whereIn('view_type', $viewTypes)
+            ->groupBy('view_type')
+            ->pluck('id');
+
         $latest = SnapshotVersion::query()
             ->with(['snapshot.workbench'])
-            ->whereIn('view_type', $viewTypes)
-            ->orderByDesc('created_at')
+            ->whereIn('id', $latestIds)
             ->get()
-            ->groupBy('view_type');
+            ->keyBy('view_type');
 
         foreach ($viewTypes as $viewType) {
-            $version = $latest->get($viewType)?->first();
+            $version = $latest->get($viewType);
 
             if ($version === null) {
                 continue;

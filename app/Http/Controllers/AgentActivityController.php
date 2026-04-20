@@ -22,6 +22,10 @@ class AgentActivityController extends Controller
     {
         $version = AgentActivityDashboard::refresh($workbench);
 
+        // preventLazyLoading is on outside production; eager-load the parent
+        // snapshot so accessing $version->snapshot is never a second query.
+        $version->loadMissing('snapshot');
+
         $snapshot = $version->snapshot;
 
         $versions = $snapshot->versions()

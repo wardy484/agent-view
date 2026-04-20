@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\SnapshotVisibility;
 use App\Models\Snapshot;
+use App\Models\SnapshotShare;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
 use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -48,9 +51,13 @@ class SnapshotController extends Controller
         $isOwner = $request->user() !== null
             && (int) $request->user()->id === (int) $workbench->owner_user_id;
 
-        $version = $isOwner
-            ? $this->resolveActiveVersion($request, $snapshot, $versions)
-            : $this->latestVersion($snapshot, $versions);
+        $activeVersionId = $isOwner
+            ? $this->resolveActiveVersionId($request, $snapshot, $versions)
+            : ($snapshot->current_version_id ?? $versions->first()->id);
+
+        // Fetch the full row (with data_payload + metadata) for the active
+        // version only — the listing collection is kept lean for the switcher.
+        $version = $snapshot->versions()->whereKey($activeVersionId)->firstOrFail();
 
         $isAuthenticated = $request->user() !== null;
 
@@ -105,6 +112,25 @@ class SnapshotController extends Controller
             // mutation affordance (rename/delete/re-share) from non-owners.
             'is_owner' => $isOwner,
             'is_public_link' => false,
+            // REQ-M4-010: owner-only props that power the Share dialog. Empty
+            // for non-owners so we never leak the guest list or the token.
+            'visibility' => $snapshot->visibility?->value ?? SnapshotVisibility::Private->value,
+            'share_url' => $isOwner && $snapshot->visibility === SnapshotVisibility::Link && $snapshot->share_token
+                ? route('snapshot.public', ['token' => $snapshot->share_token])
+                : null,
+            'shares' => $isOwner
+                ? $snapshot->shares()
+                    ->orderBy('email')
+                    ->get()
+                    ->map(fn (SnapshotShare $share): array => [
+                        'id' => $share->id,
+                        'email' => $share->email,
+                        'accepted' => $share->user_id !== null,
+                        'created_at' => $share->created_at?->toIso8601String(),
+                    ])
+                    ->values()
+                    ->all()
+                : [],
         ]);
     }
 
@@ -212,18 +238,15 @@ class SnapshotController extends Controller
         return $resolved;
     }
 
-    private function latestVersion(Snapshot $snapshot, $versions): SnapshotVersion
-    {
-        $activeId = $snapshot->current_version_id ?? $versions->first()->id;
-
-        return $snapshot->versions()->whereKey($activeId)->firstOrFail();
-    }
-
     /**
-     * Resolve the active version: an explicit `?revision=` wins, otherwise
-     * fall back to `current_version_id`, then to the latest revision.
+     * Resolve the active version id: an explicit `?revision=` wins, otherwise
+     * fall back to `current_version_id`, then to the latest revision. The
+     * caller fetches the full row once — this avoids the extra query the
+     * previous pair of helpers ran for every owner request.
+     *
+     * @param  Collection<int, SnapshotVersion>  $versions
      */
-    private function resolveActiveVersion(Request $request, Snapshot $snapshot, $versions): SnapshotVersion
+    private function resolveActiveVersionId(Request $request, Snapshot $snapshot, $versions): int
     {
         $requestedRevision = $request->query('revision');
 
@@ -234,11 +257,9 @@ class SnapshotController extends Controller
                 abort(404);
             }
 
-            return $snapshot->versions()->whereKey($match->id)->firstOrFail();
+            return (int) $match->id;
         }
 
-        $activeId = $snapshot->current_version_id ?? $versions->first()->id;
-
-        return $snapshot->versions()->whereKey($activeId)->firstOrFail();
+        return (int) ($snapshot->current_version_id ?? $versions->first()->id);
     }
 }
