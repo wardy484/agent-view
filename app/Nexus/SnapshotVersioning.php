@@ -8,8 +8,10 @@ use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Nexus\Renderers\FlowchartPreviewRenderer;
 use App\Nexus\Renderers\KanbanPreviewRenderer;
+use App\Nexus\Renderers\ReportPreviewRenderer;
 use App\Nexus\Renderers\SlideDeckPreviewRenderer;
 use App\Nexus\Renderers\TablePreviewRenderer;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -70,8 +72,74 @@ class SnapshotVersioning
 
             $snapshot->forceFill(['current_version_id' => $version->id])->syncOriginalAttribute('current_version_id');
 
+            // REQ-M5-003: pin every embed in a report payload to the
+            // embedded snapshot's current_version_id at write-time. Pins are
+            // immutable for this revision; the next report revision re-pins.
+            if ($viewType === 'report') {
+                self::pinEmbeds($version, $dataPayload);
+            }
+
             return $version;
         }));
+    }
+
+    /**
+     * REQ-M5-003: materialise one `snapshot_embeds` row per embed block.
+     *
+     * Reads each embedded snapshot's current_version_id INSIDE the same
+     * transaction (and after the report version's own row is written) so a
+     * concurrent append on the embedded snapshot cannot leave the pin
+     * pointing at a half-written version.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private static function pinEmbeds(SnapshotVersion $reportVersion, array $payload): void
+    {
+        $blocks = $payload['blocks'] ?? [];
+
+        if (! is_array($blocks) || $blocks === []) {
+            return;
+        }
+
+        $rows = [];
+        $now = CarbonImmutable::now();
+
+        foreach (array_values($blocks) as $index => $block) {
+            if (! is_array($block) || ($block['type'] ?? null) !== 'embed') {
+                continue;
+            }
+
+            $embeddedSnapshotId = $block['snapshot_id'] ?? null;
+
+            if (! is_int($embeddedSnapshotId)) {
+                continue;
+            }
+
+            // ReportViewSchema::validate() has already proven the snapshot
+            // exists and lives in the same workbench, so this lookup is
+            // load-only — never throws.
+            $embedded = Snapshot::query()
+                ->whereKey($embeddedSnapshotId)
+                ->lockForUpdate()
+                ->first(['id', 'current_version_id']);
+
+            if ($embedded === null || $embedded->current_version_id === null) {
+                continue;
+            }
+
+            $rows[] = [
+                'report_snapshot_id' => $reportVersion->snapshot_id,
+                'report_version_id' => $reportVersion->id,
+                'embedded_snapshot_id' => (int) $embedded->id,
+                'embedded_version_id' => (int) $embedded->current_version_id,
+                'block_index' => $index,
+                'created_at' => $now,
+            ];
+        }
+
+        if ($rows !== []) {
+            DB::table('snapshot_embeds')->insert($rows);
+        }
     }
 
     /**
@@ -96,6 +164,7 @@ class SnapshotVersioning
             'slide_deck' => SlideDeckPreviewRenderer::render($payload),
             'kanban' => KanbanPreviewRenderer::render($payload),
             'flowchart' => FlowchartPreviewRenderer::render($payload),
+            'report' => ReportPreviewRenderer::render($payload),
             default => null,
         };
     }

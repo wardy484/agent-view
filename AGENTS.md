@@ -98,14 +98,13 @@ database/migrations/                 # 5 Nexus migrations (workbenches → mcp_c
 docs/nexus-spec.md                   # source of truth for REQ-IDs — edit with care
 demo/                                # m1.sh, m2.sh, m3.sh — end-to-end demo scripts
 resources/js/
-├── components/views/                # table-view.tsx, kanban-view.tsx, ...
-├── components/version-switcher.tsx
-├── components/selection-bar.tsx
-├── hooks/use-snapshot-selection.ts
+├── components/nexus/                # table-view.tsx, kanban-view.tsx, report-view.tsx, ...
+├── components/nexus/version-switcher.tsx
+├── hooks/                           # use-snapshot-selection.ts, etc.
 └── pages/
-    ├── workbench/                   # index.tsx, snapshot.tsx (view dispatcher)
-    ├── settings/tokens.tsx
-    └── activity/index.tsx
+    ├── snapshot.tsx                 # view dispatcher (routes view_type → component)
+    ├── dashboard.tsx                # workbench picker + sample launcher
+    └── settings/                    # tokens.tsx, ...
 routes/ai.php                        # MCP tool registration (Sanctum-guarded)
 scripts/worktree-bootstrap.sh        # creates worktree + DB + env
 scripts/worktree-destroy.sh          # teardown
@@ -118,11 +117,12 @@ cloud.yaml                           # Laravel Cloud deploy manifest
 ## How to Add a New `view_type`
 
 1. Add the value to the `snapshot_view_type` enum migration (or PHP enum).
-2. Create `app/Nexus/ViewSchemas/<Name>ViewSchema.php` implementing
-   `validate(array $payload): void`.
-3. Create `resources/js/components/views/<name>-view.tsx`; register it in
-   the `snapshot.tsx` dispatcher.
-4. Create `app/Nexus/Preview/<Name>PreviewRenderer.php` for inline previews.
+2. Create `app/Nexus/Schemas/<Name>ViewSchema.php` implementing
+   `validate(array $payload): array` (returns the normalised payload and
+   throws a dedicated `*ViewSchemaException` on error).
+3. Create `resources/js/components/nexus/<name>-view.tsx`; register it in
+   the `resources/js/pages/snapshot.tsx` dispatcher.
+4. Create `app/Nexus/Renderers/<Name>PreviewRenderer.php` for inline previews.
 5. Add new REQ-IDs to `docs/nexus-spec.md` and write the Pest tests.
 6. Run the 7-step loop to green.
 

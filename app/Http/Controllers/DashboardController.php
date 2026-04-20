@@ -63,7 +63,11 @@ class DashboardController extends Controller
      */
     private function latestPerViewType(): array
     {
-        $viewTypes = ['slide_deck', 'table', 'kanban', 'flowchart'];
+        // REQ-M5-000: `report` is a narrative view_type that bundles other
+        // snapshots inline; the dashboard surfaces it alongside the four
+        // structured zones so users can find a sample report the same way
+        // they find a table or slide deck.
+        $viewTypes = ['slide_deck', 'table', 'kanban', 'flowchart', 'report'];
         $samples = array_fill_keys($viewTypes, null);
 
         // One row per view_type via correlated subquery instead of hydrating

@@ -13,6 +13,7 @@ use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,6 +67,21 @@ class SnapshotController extends Controller
             ? 'preview'
             : 'app';
 
+        // REQ-M5-007: report view_types resolve their embed blocks server-side
+        // so the React renderer doesn't fan out N HTTP calls. Each embed is
+        // gated through SnapshotPolicy@view (REQ-M5-004 transitive read).
+        $versionPayload = [
+            'id' => $version->id,
+            'revision' => $version->revision,
+            'view_type' => $version->view_type,
+            'data_payload' => $version->data_payload,
+            'metadata' => $version->metadata,
+        ];
+
+        if ($version->view_type === 'report') {
+            $versionPayload['resolved_blocks'] = $this->resolveReportBlocks($request, $version);
+        }
+
         return Inertia::render('snapshot', [
             'workbench' => [
                 'slug' => $workbench->slug,
@@ -77,13 +93,7 @@ class SnapshotController extends Controller
                 'title' => $snapshot->title,
                 'current_version_id' => $snapshot->current_version_id,
             ],
-            'version' => [
-                'id' => $version->id,
-                'revision' => $version->revision,
-                'view_type' => $version->view_type,
-                'data_payload' => $version->data_payload,
-                'metadata' => $version->metadata,
-            ],
+            'version' => $versionPayload,
             // REQ-M4-006: non-owners never see the full revision history — the
             // React switcher is hidden, and we don't leak sibling revisions.
             'versions' => $isOwner
@@ -122,6 +132,110 @@ class SnapshotController extends Controller
                     ->all()
                 : [],
         ]);
+    }
+
+    /**
+     * REQ-M5-007: walk the report's blocks[] in order and inline each
+     * one for the React renderer. Markdown blocks pass through; embed
+     * blocks load the pinned snapshot version (from snapshot_embeds for
+     * THIS report version) and inline the embedded view's payload.
+     *
+     * Each embed is checked against the snapshot policy — REQ-M5-004 grants
+     * transitive read to the caller, but if it ever returns false the embed
+     * collapses to `{restricted: true}` so the page still renders.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function resolveReportBlocks(Request $request, SnapshotVersion $version): array
+    {
+        $payload = $version->data_payload ?? [];
+        $blocks = is_array($payload['blocks'] ?? null) ? array_values($payload['blocks']) : [];
+
+        if ($blocks === []) {
+            return [];
+        }
+
+        // Pull every pinned embed for this report revision in one query so
+        // we can index by block_index without N+1 lookups.
+        $pins = DB::table('snapshot_embeds')
+            ->where('report_version_id', $version->id)
+            ->get(['block_index', 'embedded_snapshot_id', 'embedded_version_id'])
+            ->keyBy('block_index');
+
+        $embeddedVersionIds = $pins->pluck('embedded_version_id')->all();
+
+        $pinnedVersions = $embeddedVersionIds === []
+            ? collect()
+            : SnapshotVersion::query()
+                ->whereIn('id', $embeddedVersionIds)
+                ->with(['snapshot.workbench', 'snapshot.currentVersion:id,revision'])
+                ->get()
+                ->keyBy('id');
+
+        $resolved = [];
+
+        foreach ($blocks as $index => $block) {
+            $type = is_string($block['type'] ?? null) ? $block['type'] : '';
+
+            if ($type === 'markdown') {
+                $resolved[] = [
+                    'type' => 'markdown',
+                    'body' => is_string($block['body'] ?? null) ? $block['body'] : '',
+                ];
+
+                continue;
+            }
+
+            if ($type !== 'embed') {
+                continue;
+            }
+
+            $snapshotId = is_int($block['snapshot_id'] ?? null) ? (int) $block['snapshot_id'] : null;
+            $pin = $pins->get($index);
+            $pinnedVersion = $pin === null ? null : $pinnedVersions->get($pin->embedded_version_id);
+            $pinnedSnapshot = $pinnedVersion?->snapshot;
+
+            if ($pinnedSnapshot === null || $pinnedVersion === null) {
+                $resolved[] = [
+                    'type' => 'embed',
+                    'snapshot_id' => $snapshotId,
+                    'restricted' => true,
+                ];
+
+                continue;
+            }
+
+            // REQ-M5-005: even though the report owner could embed it,
+            // re-check the policy for the current viewer in case future
+            // policy changes diverge ownership and embed visibility.
+            if (! $this->policy->view($request->user(), $pinnedSnapshot)) {
+                $resolved[] = [
+                    'type' => 'embed',
+                    'snapshot_id' => (int) $pinnedSnapshot->id,
+                    'restricted' => true,
+                ];
+
+                continue;
+            }
+
+            $currentRevision = $pinnedSnapshot->currentVersion?->revision ?? $pinnedVersion->revision;
+
+            $resolved[] = [
+                'type' => 'embed',
+                'snapshot_id' => (int) $pinnedSnapshot->id,
+                'snapshot_slug' => $pinnedSnapshot->slug,
+                'workbench_slug' => $pinnedSnapshot->workbench?->slug,
+                'title' => $pinnedSnapshot->title ?? $pinnedSnapshot->slug,
+                'view_type' => $pinnedVersion->view_type,
+                'pinned_version_id' => (int) $pinnedVersion->id,
+                'pinned_revision' => (int) $pinnedVersion->revision,
+                'current_revision' => (int) $currentRevision,
+                'is_stale' => (int) $currentRevision !== (int) $pinnedVersion->revision,
+                'data_payload' => $pinnedVersion->data_payload,
+            ];
+        }
+
+        return $resolved;
     }
 
     /**

@@ -3,6 +3,7 @@ import {
     Activity,
     ArrowRight,
     Columns3,
+    FileText,
     KeyRound,
     LayoutList,
     Network,
@@ -12,9 +13,9 @@ import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
 import { show as showSnapshot } from '@/routes/workbench/snapshot';
 
-type Zone = 'deck' | 'table' | 'kanban' | 'flow';
+type Zone = 'deck' | 'table' | 'kanban' | 'flow' | 'narrative';
 
-type ViewType = 'slide_deck' | 'table' | 'kanban' | 'flowchart' | string;
+type ViewType = 'slide_deck' | 'table' | 'kanban' | 'flowchart' | 'report' | string;
 
 type RecentSnapshot = {
     workbench_slug: string;
@@ -38,6 +39,8 @@ type ViewTypeSamples = {
     table: ViewTypeSample;
     kanban: ViewTypeSample;
     flowchart: ViewTypeSample;
+    // REQ-M5-000: narrative view_type that embeds other snapshots inline.
+    report: ViewTypeSample;
 };
 
 type DashboardProps = {
@@ -86,6 +89,14 @@ const viewTypes: {
         subtitle: 'nodes · edges · highlights',
         icon: <Network size={16} />,
     },
+    {
+        // REQ-M5-000: narrative bundle of markdown prose + embedded snapshots.
+        key: 'report',
+        zone: 'narrative',
+        title: 'Report',
+        subtitle: 'markdown prose · embedded snapshots · pinned revisions',
+        icon: <FileText size={16} />,
+    },
 ];
 
 const zoneForView = (view: ViewType): Zone => {
@@ -96,6 +107,8 @@ const zoneForView = (view: ViewType): Zone => {
             return 'kanban';
         case 'flowchart':
             return 'flow';
+        case 'report':
+            return 'narrative';
         case 'table':
         default:
             return 'table';
@@ -106,6 +119,7 @@ const formatNumber = (n: number): string => {
     if (n >= 1000) {
         return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
     }
+
     return n.toString();
 };
 
@@ -301,6 +315,7 @@ export default function Dashboard({
                                             workbench: s.workbench_slug,
                                             snapshot: s.snapshot_slug,
                                         }).url;
+
                                         return (
                                             <li
                                                 key={`${s.workbench_slug}/${s.snapshot_slug}/${s.revision}`}
