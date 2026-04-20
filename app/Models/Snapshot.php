@@ -63,4 +63,23 @@ class Snapshot extends Model
     {
         return $this->belongsTo(SnapshotVersion::class, 'current_version_id');
     }
+
+    /**
+     * REQ-M4-003: active (non-revoked) shares.  For the full audit trail
+     * including revoked rows, use {@see self::allShares()}.
+     *
+     * @return HasMany<SnapshotShare, $this>
+     */
+    public function shares(): HasMany
+    {
+        return $this->hasMany(SnapshotShare::class)->whereNull('revoked_at');
+    }
+
+    /**
+     * @return HasMany<SnapshotShare, $this>
+     */
+    public function allShares(): HasMany
+    {
+        return $this->hasMany(SnapshotShare::class);
+    }
 }
