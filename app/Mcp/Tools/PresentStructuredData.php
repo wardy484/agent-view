@@ -29,7 +29,7 @@ use Laravel\Mcp\Server\Tool;
 
 #[Name('present_structured_data')]
 #[Title('Present Structured Data')]
-#[Description('Render structured data (table, kanban, flowchart, slide deck) in a Nexus-UI workbench and return a shareable URL.')]
+#[Description('Render structured data (table, kanban, flowchart, slide deck, report) in a Nexus-UI workbench and return a shareable URL.')]
 class PresentStructuredData extends Tool
 {
     /**
@@ -154,7 +154,7 @@ class PresentStructuredData extends Tool
                 ->required(),
 
             'view_type' => $schema->string()
-                ->description('Renderer to use for the payload (table, kanban, flowchart, slide_deck).')
+                ->description('Renderer to use for the payload (table, kanban, flowchart, slide_deck, report).')
                 ->required(),
 
             'data_payload' => $schema->object()
