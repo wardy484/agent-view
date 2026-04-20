@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Workbench;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -42,6 +43,28 @@ class HandleInertiaRequests extends Middleware
                 'user' => $request->user(),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'workbenches' => fn () => $request->user()
+                ? $this->workbenchNav()
+                : [],
         ];
+    }
+
+    /**
+     * @return list<array{slug: string, name: string, snapshot_count: int, latest_snapshot_slug: ?string}>
+     */
+    private function workbenchNav(): array
+    {
+        return Workbench::query()
+            ->withCount('snapshots')
+            ->with(['snapshots' => fn ($q) => $q->latest('updated_at')->limit(1)])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Workbench $w) => [
+                'slug' => $w->slug,
+                'name' => $w->name,
+                'snapshot_count' => (int) $w->snapshots_count,
+                'latest_snapshot_slug' => $w->snapshots->first()?->slug,
+            ])
+            ->all();
     }
 }

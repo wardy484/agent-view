@@ -7,7 +7,10 @@ import AuthLayout from '@/layouts/auth-layout';
 import MarketingLayout from '@/layouts/marketing-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const marketingPages = new Set(['welcome', 'contact']);
+const marketingPages = new Set(['contact']);
+
+// Pages that render their own chrome and must bypass every global layout.
+const standalonePages = new Set(['welcome']);
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -15,6 +18,8 @@ createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
+            case standalonePages.has(name):
+                return null;
             case marketingPages.has(name):
             case name.startsWith('legal/'):
                 return MarketingLayout;

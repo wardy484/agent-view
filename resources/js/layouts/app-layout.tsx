@@ -1,4 +1,4 @@
-import AppLayoutTemplate from '@/layouts/app/app-sidebar-layout';
+import AppLayoutTemplate from '@/layouts/app/nexus-shell-layout';
 import type { BreadcrumbItem } from '@/types';
 
 export default function AppLayout({

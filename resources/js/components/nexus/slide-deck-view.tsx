@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ComponentPropsWithoutRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '@/lib/utils';
@@ -211,7 +211,7 @@ function SlideDots({
  * Uses react-markdown + remark-gfm so pipe-tables render as <table>.
  */
 function SlideMarkdown({ body, presentation }: { body: string; presentation: boolean }) {
-    const components = useMemo<ComponentsMap>(
+    const components = useMemo<Components>(
         () => buildMarkdownComponents(presentation),
         [presentation],
     );
@@ -230,38 +230,42 @@ function SlideMarkdown({ body, presentation }: { body: string; presentation: boo
     );
 }
 
-type ComponentsMap = NonNullable<ComponentPropsWithoutRef<typeof ReactMarkdown>['components']>;
+type MdProps = {
+    children?: React.ReactNode;
+    className?: string;
+    href?: string;
+};
 
-function buildMarkdownComponents(presentation: boolean): ComponentsMap {
+function buildMarkdownComponents(presentation: boolean): Components {
     const h = presentation ? 'font-medium tracking-tight' : 'font-semibold';
 
     return {
-        h1: ({ children }) => (
+        h1: ({ children }: MdProps) => (
             <h3 className={cn('mb-4 text-3xl', h)}>{children}</h3>
         ),
-        h2: ({ children }) => (
+        h2: ({ children }: MdProps) => (
             <h4 className={cn('mb-3 text-2xl', h)}>{children}</h4>
         ),
-        h3: ({ children }) => (
+        h3: ({ children }: MdProps) => (
             <h5 className={cn('mb-2 text-xl', h)}>{children}</h5>
         ),
-        p: ({ children }) => <p className="mb-4 last:mb-0">{children}</p>,
-        ul: ({ children }) => (
+        p: ({ children }: MdProps) => <p className="mb-4 last:mb-0">{children}</p>,
+        ul: ({ children }: MdProps) => (
             <ul className="mb-4 list-disc space-y-1 pl-6 marker:text-neutral-400 last:mb-0">
                 {children}
             </ul>
         ),
-        ol: ({ children }) => (
+        ol: ({ children }: MdProps) => (
             <ol className="mb-4 list-decimal space-y-1 pl-6 marker:text-neutral-400 last:mb-0">
                 {children}
             </ol>
         ),
-        li: ({ children }) => <li className="pl-1">{children}</li>,
-        strong: ({ children }) => (
+        li: ({ children }: MdProps) => <li className="pl-1">{children}</li>,
+        strong: ({ children }: MdProps) => (
             <strong className="font-semibold text-neutral-900 dark:text-neutral-50">{children}</strong>
         ),
-        em: ({ children }) => <em className="italic">{children}</em>,
-        a: ({ children, href }) => (
+        em: ({ children }: MdProps) => <em className="italic">{children}</em>,
+        a: ({ children, href }: MdProps) => (
             <a
                 href={href}
                 target="_blank"
@@ -271,13 +275,13 @@ function buildMarkdownComponents(presentation: boolean): ComponentsMap {
                 {children}
             </a>
         ),
-        blockquote: ({ children }) => (
+        blockquote: ({ children }: MdProps) => (
             <blockquote className="my-4 border-l-2 border-neutral-400 pl-4 italic text-neutral-700 dark:text-neutral-300">
                 {children}
             </blockquote>
         ),
         hr: () => <hr className="my-6 border-neutral-300 dark:border-neutral-700" />,
-        code: ({ className, children, ...rest }) => {
+        code: ({ className, children, ...rest }: MdProps) => {
             const isBlock = /language-/.test(className ?? '');
             if (isBlock) {
                 return (
@@ -301,33 +305,33 @@ function buildMarkdownComponents(presentation: boolean): ComponentsMap {
                 </code>
             );
         },
-        pre: ({ children }) => (
+        pre: ({ children }: MdProps) => (
             <pre className="mb-4 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900">
                 {children}
             </pre>
         ),
-        table: ({ children }) => (
+        table: ({ children }: MdProps) => (
             <div className="mb-4 overflow-x-auto rounded-lg border border-neutral-200 bg-white/60 shadow-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900/40">
                 <table className="w-full border-collapse text-left text-base">{children}</table>
             </div>
         ),
-        thead: ({ children }) => (
+        thead: ({ children }: MdProps) => (
             <thead className="border-b border-neutral-200 bg-neutral-50/80 dark:border-neutral-800 dark:bg-neutral-900/60">
                 {children}
             </thead>
         ),
-        tbody: ({ children }) => <tbody>{children}</tbody>,
-        tr: ({ children }) => (
+        tbody: ({ children }: MdProps) => <tbody>{children}</tbody>,
+        tr: ({ children }: MdProps) => (
             <tr className="border-b border-neutral-100 last:border-0 dark:border-neutral-800/60">
                 {children}
             </tr>
         ),
-        th: ({ children }) => (
+        th: ({ children }: MdProps) => (
             <th className="px-4 py-2.5 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                 {children}
             </th>
         ),
-        td: ({ children }) => (
+        td: ({ children }: MdProps) => (
             <td className="px-4 py-2.5 text-base text-neutral-800 dark:text-neutral-200">
                 {children}
             </td>
