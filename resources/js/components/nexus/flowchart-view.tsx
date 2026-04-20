@@ -9,6 +9,8 @@ export type FlowchartViewPayload = {
 type Props = {
     payload: FlowchartViewPayload;
     className?: string;
+    /** When true, the diagram fills the available viewport (preview / fullscreen mode). */
+    fullBleed?: boolean;
 };
 
 /**
@@ -19,7 +21,7 @@ type Props = {
  * never opens a flowchart snapshot. On SSR/pre-hydration the component
  * falls back to a monospaced preview of the source.
  */
-export function FlowchartView({ payload, className }: Props) {
+export function FlowchartView({ payload, className, fullBleed = false }: Props) {
     const source = payload?.mermaid_source ?? '';
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [svg, setSvg] = useState<string | null>(null);
@@ -78,11 +80,19 @@ export function FlowchartView({ payload, className }: Props) {
         <div
             data-testid="nexus-flowchart-view"
             data-mermaid-rendered={svg !== null}
-            className={cn('flex w-full flex-col gap-3', className)}
+            data-full-bleed={fullBleed}
+            className={cn(
+                'flex w-full flex-col gap-3',
+                fullBleed && 'h-screen min-h-screen p-4',
+                className,
+            )}
         >
             <div
                 ref={containerRef}
-                className="rounded-lg border border-border bg-background p-4"
+                className={cn(
+                    'rounded-lg border border-border bg-background p-4',
+                    fullBleed && 'flex flex-1 items-center justify-center rounded-none border-0',
+                )}
                 // Mermaid produces trusted SVG (securityLevel=strict sanitises user input).
                 dangerouslySetInnerHTML={svg !== null ? { __html: svg } : undefined}
             >

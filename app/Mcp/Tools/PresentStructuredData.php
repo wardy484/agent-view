@@ -80,6 +80,11 @@ class PresentStructuredData extends Tool
             'snapshot' => $snapshot->slug,
         ]);
 
+        // REQ-M3-011: the iframe-embeddable URL handed to mcp-ui clients
+        // carries ?mode=preview so the snapshot renders bare (no app shell)
+        // when loaded inside an iframe.
+        $iframeUrl = $url.(str_contains($url, '?') ? '&' : '?').'mode=preview';
+
         // REQ-M3-008: mcp-ui-aware clients consume a `ui://` resource whose
         // text body is the iframe-embeddable workbench URL. We emit the URL
         // as text/uri-list so the client can just load it in an iframe.
@@ -94,7 +99,7 @@ class PresentStructuredData extends Tool
 
             // REQ-M3-008: ui:// resource for mcp-ui-aware clients. The body is
             // the iframe URL; the uri scheme signals "render this in an iframe".
-            Response::embeddedResource($uiUri, 'text/uri-list', $url),
+            Response::embeddedResource($uiUri, 'text/uri-list', $iframeUrl),
         ])->withStructuredContent([
             'workbench_slug' => $workbench->slug,
             'snapshot_id' => $snapshot->getKey(),

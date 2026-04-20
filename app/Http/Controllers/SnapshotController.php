@@ -32,6 +32,14 @@ class SnapshotController extends Controller
 
         $version = $this->resolveActiveVersion($request, $snapshot, $versions);
 
+        $isAuthenticated = $request->user() !== null;
+
+        // REQ-M3-010: ?mode=preview forces bare rendering; guests always get
+        // preview mode so shared links look polished without an account.
+        $mode = $request->query('mode') === 'preview' || ! $isAuthenticated
+            ? 'preview'
+            : 'app';
+
         return Inertia::render('snapshot', [
             'workbench' => [
                 'slug' => $workbench->slug,
@@ -57,6 +65,8 @@ class SnapshotController extends Controller
                 'created_at' => $candidate->created_at?->toIso8601String(),
                 'is_current' => $candidate->id === $version->id,
             ])->values()->all(),
+            'mode' => $mode,
+            'isAuthenticated' => $isAuthenticated,
         ]);
     }
 
