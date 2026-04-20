@@ -1,12 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import {
-    Activity as ActivityIcon,
-    Copy,
-    KeyRound,
-    Keyboard,
-    LayoutGrid,
-    Settings,
-} from 'lucide-react';
+import { Copy, KeyRound, LayoutGrid, Settings } from 'lucide-react';
 import { type PropsWithChildren } from 'react';
 import {
     DropdownMenu,
@@ -17,21 +10,8 @@ import { UserInfo } from '@/components/user-info';
 import { UserMenuContent } from '@/components/user-menu-content';
 import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
-import type { BreadcrumbItem } from '@/types';
-
-type NavEntry = {
-    title: string;
-    href: string;
-    count?: number;
-    active?: (path: string) => boolean;
-};
-
-const workbenches: NavEntry[] = [
-    { title: 'incidents', href: '#', count: 12 },
-    { title: 'release-gate', href: '#', count: 4 },
-    { title: 'cost-audit', href: '#', count: 31 },
-    { title: 'support-triage', href: '#', count: 8 },
-];
+import { show as showSnapshot } from '@/routes/workbench/snapshot';
+import type { BreadcrumbItem, SharedWorkbench } from '@/types';
 
 export default function NexusShellLayout({
     children,
@@ -39,27 +19,27 @@ export default function NexusShellLayout({
 }: PropsWithChildren<{ breadcrumbs?: BreadcrumbItem[] }>) {
     const { url, props } = usePage();
     const user = props.auth?.user;
+    const workbenches = (props.workbenches ?? []) as SharedWorkbench[];
 
-    const navItem = (
-        entry: NavEntry,
-        opts: { dot?: boolean; icon?: React.ReactNode } = {},
-    ) => {
-        const isActive = entry.href !== '#' && url.startsWith(entry.href);
-        return (
-            <Link
-                key={entry.title + entry.href}
-                href={entry.href}
-                prefetch={entry.href !== '#' ? true : undefined}
-                className={`nx-nav-item${isActive ? ' active' : ''}`}
-            >
-                {opts.icon ?? (opts.dot !== false && <span className="dot" />)}
-                <span>{entry.title}</span>
-                {entry.count !== undefined && (
-                    <span className="count">{entry.count}</span>
-                )}
-            </Link>
-        );
-    };
+    const isActive = (href: string) => href !== '#' && url.startsWith(href);
+
+    const systemItems = [
+        {
+            title: 'dashboard',
+            href: dashboard().url,
+            icon: <LayoutGrid size={12} />,
+        },
+        {
+            title: 'api tokens',
+            href: editTokens().url,
+            icon: <KeyRound size={12} />,
+        },
+        {
+            title: 'settings',
+            href: '/settings/profile',
+            icon: <Settings size={12} />,
+        },
+    ];
 
     return (
         <div className="nx-app">
@@ -103,7 +83,7 @@ export default function NexusShellLayout({
                     )}
                 </nav>
                 <div className="nx-topbar-right">
-                    <span className="nx-pill live">live · mcp</span>
+                    <span className="nx-pill live">mcp ready</span>
                     <span
                         aria-hidden
                         className="mx-1 h-4 w-px bg-[color:var(--line)]"
@@ -113,17 +93,12 @@ export default function NexusShellLayout({
                         className="nx-icon-btn"
                         title="Copy permalink"
                         onClick={() =>
-                            navigator.clipboard?.writeText(window.location.href)
+                            navigator.clipboard?.writeText(
+                                window.location.href,
+                            )
                         }
                     >
                         <Copy size={13} />
-                    </button>
-                    <button
-                        type="button"
-                        className="nx-icon-btn"
-                        title="Shortcuts"
-                    >
-                        <Keyboard size={13} />
                     </button>
                     {user && (
                         <DropdownMenu>
@@ -151,7 +126,53 @@ export default function NexusShellLayout({
             {/* LEFT NAV */}
             <aside className="nx-nav" aria-label="Primary">
                 <div className="nx-nav-section">workbenches</div>
-                {workbenches.map((w) => navItem(w))}
+                {workbenches.length === 0 ? (
+                    <div className="nx-nav-empty">
+                        No workbenches yet. Agents create them on first
+                        snapshot.
+                    </div>
+                ) : (
+                    workbenches.map((w) => {
+                        const href = w.latest_snapshot_slug
+                            ? showSnapshot({
+                                  workbench: w.slug,
+                                  snapshot: w.latest_snapshot_slug,
+                              }).url
+                            : '#';
+                        const active = isActive(
+                            `/workbenches/${w.slug}/`,
+                        );
+                        if (href === '#') {
+                            return (
+                                <span
+                                    key={w.slug}
+                                    className={`nx-nav-item${active ? ' active' : ''}`}
+                                    title={`${w.name} · no snapshots yet`}
+                                >
+                                    <span className="dot" />
+                                    <span>{w.name}</span>
+                                    <span className="count">
+                                        {w.snapshot_count}
+                                    </span>
+                                </span>
+                            );
+                        }
+                        return (
+                            <Link
+                                key={w.slug}
+                                href={href}
+                                prefetch
+                                className={`nx-nav-item${active ? ' active' : ''}`}
+                            >
+                                <span className="dot" />
+                                <span>{w.name}</span>
+                                <span className="count">
+                                    {w.snapshot_count}
+                                </span>
+                            </Link>
+                        );
+                    })
+                )}
 
                 <div className="nx-nav-section">views</div>
                 <span className="nx-nav-item">
@@ -184,29 +205,24 @@ export default function NexusShellLayout({
                 </span>
 
                 <div className="nx-nav-section">system</div>
-                {navItem(
-                    { title: 'dashboard', href: dashboard().url },
-                    { icon: <LayoutGrid size={12} /> },
-                )}
-                {navItem(
-                    { title: 'api tokens', href: editTokens().url },
-                    { icon: <KeyRound size={12} /> },
-                )}
-                {navItem(
-                    { title: 'activity', href: '#' },
-                    { icon: <ActivityIcon size={12} /> },
-                )}
-                {navItem(
-                    { title: 'settings', href: '/settings/profile' },
-                    { icon: <Settings size={12} /> },
-                )}
+                {systemItems.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        prefetch
+                        className={`nx-nav-item${isActive(item.href) ? ' active' : ''}`}
+                    >
+                        {item.icon}
+                        <span>{item.title}</span>
+                    </Link>
+                ))}
 
                 <div className="mt-auto flex items-center gap-2 border-t border-[color:var(--line)] px-1 pt-3 font-mono text-[11px] text-[color:var(--fg-3)]">
                     <span
                         aria-hidden
                         className="size-1.5 rounded-full bg-[color:var(--ok)] ring-[3px] ring-[color:oklch(0.76_0.15_150/0.2)]"
                     />
-                    agent channel live
+                    mcp endpoint online
                 </div>
             </aside>
 

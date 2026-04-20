@@ -7,12 +7,35 @@ import {
     LayoutList,
     Network,
     Presentation,
-    Share2,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
+import { show as showSnapshot } from '@/routes/workbench/snapshot';
 
 type Zone = 'deck' | 'table' | 'kanban' | 'flow';
+
+type ViewType = 'slide_deck' | 'table' | 'kanban' | 'flowchart' | string;
+
+type RecentSnapshot = {
+    workbench_slug: string;
+    workbench_name: string;
+    snapshot_slug: string;
+    snapshot_title: string | null;
+    revision: number;
+    view_type: ViewType;
+    created_at: string | null;
+    created_human: string | null;
+};
+
+type DashboardProps = {
+    kpis: {
+        workbenches: number;
+        snapshots: number;
+        revisions_today: number;
+        mcp_calls_today: number;
+    };
+    recentSnapshots: RecentSnapshot[];
+};
 
 const viewTypes: {
     zone: Zone;
@@ -46,34 +69,57 @@ const viewTypes: {
     },
 ];
 
-const recentSnapshots = [
-    {
-        workbench: 'incidents',
-        snapshot: '2024-apr-19-pager',
-        rev: 7,
-        view: 'deck' as Zone,
-        when: '12m ago',
-        by: 'claude-sonnet-4.5',
-    },
-    {
-        workbench: 'release-gate',
-        snapshot: 'v2.14.0-canary',
-        rev: 3,
-        view: 'table' as Zone,
-        when: '44m ago',
-        by: 'cursor-agent',
-    },
-    {
-        workbench: 'cost-audit',
-        snapshot: 'q2-overruns',
-        rev: 12,
-        view: 'kanban' as Zone,
-        when: '2h ago',
-        by: 'claude-opus-4',
-    },
-];
+const zoneForView = (view: ViewType): Zone => {
+    switch (view) {
+        case 'slide_deck':
+            return 'deck';
+        case 'kanban':
+            return 'kanban';
+        case 'flowchart':
+            return 'flow';
+        case 'table':
+        default:
+            return 'table';
+    }
+};
 
-export default function Dashboard() {
+const formatNumber = (n: number): string => {
+    if (n >= 1000) {
+        return `${(n / 1000).toFixed(n >= 10000 ? 0 : 1)}k`;
+    }
+    return n.toString();
+};
+
+export default function Dashboard({
+    kpis,
+    recentSnapshots,
+}: DashboardProps) {
+    const kpiCards = [
+        {
+            label: 'workbenches',
+            value: formatNumber(kpis.workbenches),
+            hint:
+                kpis.snapshots === 1
+                    ? '1 snapshot total'
+                    : `${formatNumber(kpis.snapshots)} snapshots total`,
+        },
+        {
+            label: 'revisions today',
+            value: formatNumber(kpis.revisions_today),
+            hint: kpis.revisions_today === 0 ? 'none yet today' : 'since midnight',
+        },
+        {
+            label: 'snapshots',
+            value: formatNumber(kpis.snapshots),
+            hint: 'all-time across workbenches',
+        },
+        {
+            label: 'mcp tool calls',
+            value: formatNumber(kpis.mcp_calls_today),
+            hint: kpis.mcp_calls_today === 0 ? 'awaiting agent traffic' : 'today',
+        },
+    ];
+
     return (
         <>
             <Head title="Dashboard" />
@@ -88,16 +134,20 @@ export default function Dashboard() {
                         </span>
                     </h1>
                     <div className="meta">
-                        <span>workbench · {recentSnapshots.length} active</span>
+                        <span>
+                            {kpis.workbenches === 1
+                                ? '1 workbench'
+                                : `${formatNumber(kpis.workbenches)} workbenches`}
+                        </span>
                         <span className="text-[color:var(--fg-4)]">·</span>
-                        <span>mcp endpoint ready</span>
+                        <span>
+                            {kpis.snapshots === 1
+                                ? '1 snapshot'
+                                : `${formatNumber(kpis.snapshots)} snapshots`}
+                        </span>
                     </div>
                 </div>
                 <div className="nx-stage-actions">
-                    <button type="button" className="nx-btn ghost">
-                        <Share2 size={13} />
-                        Share
-                    </button>
                     <Link href={editTokens()} className="nx-btn primary">
                         <KeyRound size={13} />
                         Mint MCP token
@@ -108,28 +158,7 @@ export default function Dashboard() {
             <div className="nx-stage-body">
                 <div className="mx-auto w-full max-w-[1120px] px-6 py-8">
                     <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                        {[
-                            {
-                                label: 'workbenches',
-                                value: '4',
-                                hint: '12 active snapshots',
-                            },
-                            {
-                                label: 'revisions today',
-                                value: '27',
-                                hint: '+6 vs yesterday',
-                            },
-                            {
-                                label: 'selections sent back',
-                                value: '9',
-                                hint: 'avg 3 per snapshot',
-                            },
-                            {
-                                label: 'mcp tool calls',
-                                value: '1.4k',
-                                hint: 'p95 240ms',
-                            },
-                        ].map((kpi) => (
+                        {kpiCards.map((kpi) => (
                             <div key={kpi.label} className="nx-card p-4">
                                 <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-[color:var(--fg-3)]">
                                     {kpi.label}
@@ -194,78 +223,109 @@ export default function Dashboard() {
                                         recent snapshots
                                     </span>
                                 </div>
-                                <Link
-                                    href="#"
-                                    className="font-mono text-[11.5px] text-[color:var(--fg-2)] hover:text-[color:var(--fg-0)]"
-                                >
-                                    view all →
-                                </Link>
+                                <span className="font-mono text-[11.5px] text-[color:var(--fg-3)]">
+                                    {recentSnapshots.length} shown
+                                </span>
                             </div>
-                            <ul className="divide-y divide-[color:var(--line)]">
-                                {recentSnapshots.map((s) => (
-                                    <li
-                                        key={s.snapshot}
-                                        className="flex items-center gap-3 px-4 py-3 hover:bg-[color:var(--bg-2)]"
-                                    >
-                                        <span
-                                            className="nx-view-chip"
-                                            data-zone={s.view}
-                                        >
-                                            <span className="sq" />
-                                            {s.view}
-                                        </span>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="truncate text-[13px] text-[color:var(--fg-0)]">
-                                                {s.workbench}{' '}
-                                                <span className="text-[color:var(--fg-4)]">
-                                                    /
-                                                </span>{' '}
-                                                <span className="font-mono text-[12px]">
-                                                    {s.snapshot}
-                                                </span>
-                                            </div>
-                                            <div className="truncate font-mono text-[11px] text-[color:var(--fg-3)]">
-                                                rev #
-                                                {String(s.rev).padStart(2, '0')}{' '}
-                                                · {s.when} · {s.by}
-                                            </div>
-                                        </div>
-                                        <ArrowRight
-                                            size={14}
-                                            className="text-[color:var(--fg-3)]"
-                                        />
-                                    </li>
-                                ))}
-                            </ul>
+                            {recentSnapshots.length === 0 ? (
+                                <div className="px-4 py-10 text-center font-mono text-[12px] text-[color:var(--fg-3)]">
+                                    No snapshots yet. When an agent calls
+                                    <code className="mx-1 rounded bg-[color:var(--bg-2)] px-1 text-[color:var(--fg-0)]">
+                                        present_structured_data
+                                    </code>
+                                    they'll appear here.
+                                </div>
+                            ) : (
+                                <ul className="divide-y divide-[color:var(--line)]">
+                                    {recentSnapshots.map((s) => {
+                                        const zone = zoneForView(s.view_type);
+                                        const href = showSnapshot({
+                                            workbench: s.workbench_slug,
+                                            snapshot: s.snapshot_slug,
+                                        }).url;
+                                        return (
+                                            <li
+                                                key={`${s.workbench_slug}/${s.snapshot_slug}/${s.revision}`}
+                                            >
+                                                <Link
+                                                    href={href}
+                                                    prefetch
+                                                    className="flex items-center gap-3 px-4 py-3 hover:bg-[color:var(--bg-2)]"
+                                                >
+                                                    <span
+                                                        className="nx-view-chip"
+                                                        data-zone={zone}
+                                                    >
+                                                        <span className="sq" />
+                                                        {zone}
+                                                    </span>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="truncate text-[13px] text-[color:var(--fg-0)]">
+                                                            {s.workbench_name}{' '}
+                                                            <span className="text-[color:var(--fg-4)]">
+                                                                /
+                                                            </span>{' '}
+                                                            <span className="font-mono text-[12px]">
+                                                                {s.snapshot_title ??
+                                                                    s.snapshot_slug}
+                                                            </span>
+                                                        </div>
+                                                        <div className="truncate font-mono text-[11px] text-[color:var(--fg-3)]">
+                                                            rev #
+                                                            {String(
+                                                                s.revision,
+                                                            ).padStart(2, '0')}
+                                                            {s.created_human
+                                                                ? ` · ${s.created_human} ago`
+                                                                : ''}
+                                                        </div>
+                                                    </div>
+                                                    <ArrowRight
+                                                        size={14}
+                                                        className="text-[color:var(--fg-3)]"
+                                                    />
+                                                </Link>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            )}
                         </div>
 
                         <div className="nx-card flex flex-col gap-3 p-4">
                             <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-[color:var(--fg-3)]">
-                                quick actions
+                                mcp endpoint
+                            </div>
+                            <div className="rounded-[var(--radius-md)] border border-[color:var(--line)] bg-[color:var(--bg-2)] p-3">
+                                <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-[color:var(--fg-3)]">
+                                    tool
+                                </div>
+                                <code className="mt-1 block truncate font-mono text-[12px] text-[color:var(--fg-0)]">
+                                    present_structured_data
+                                </code>
+                                <div className="mt-3 font-mono text-[10.5px] uppercase tracking-[0.08em] text-[color:var(--fg-3)]">
+                                    path
+                                </div>
+                                <code className="mt-1 block truncate font-mono text-[12px] text-[color:var(--fg-0)]">
+                                    POST /ai/mcp/nexus
+                                </code>
                             </div>
                             <Link
                                 href={editTokens()}
+                                prefetch
                                 className="nx-btn primary justify-start"
                             >
                                 <KeyRound size={13} />
-                                Mint MCP token
+                                Manage API tokens
                             </Link>
-                            <button type="button" className="nx-btn">
-                                <Presentation size={13} />
-                                New workbench
-                            </button>
-                            <button type="button" className="nx-btn ghost">
-                                <Share2 size={13} />
-                                Invite collaborator
-                            </button>
-                            <div className="mt-auto rounded-[var(--radius-md)] border border-[color:var(--line)] bg-[color:var(--bg-2)] p-3">
-                                <div className="font-mono text-[10.5px] uppercase tracking-[0.08em] text-[color:var(--fg-3)]">
-                                    endpoint
-                                </div>
-                                <code className="mt-1 block truncate font-mono text-[12px] text-[color:var(--fg-0)]">
-                                    POST /mcp/present_structured_data
+                            <p className="font-mono text-[11px] leading-snug text-[color:var(--fg-3)]">
+                                Scope each Sanctum token to a workbench slug
+                                with the
+                                <code className="mx-1 rounded bg-[color:var(--bg-2)] px-1 text-[color:var(--fg-0)]">
+                                    workbench:&lt;slug&gt;
                                 </code>
-                            </div>
+                                ability.
+                            </p>
                         </div>
                     </div>
                 </div>

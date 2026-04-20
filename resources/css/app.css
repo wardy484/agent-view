@@ -485,6 +485,13 @@
     .nx-nav-section:first-child {
         padding-top: 0;
     }
+    .nx-nav-empty {
+        padding: 6px 8px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--fg-3);
+        line-height: 1.4;
+    }
     .nx-nav-item {
         display: flex;
         align-items: center;

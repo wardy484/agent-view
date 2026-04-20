@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AgentActivityController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\SnapshotController;
 use Illuminate\Support\Facades\Route;
@@ -20,7 +21,7 @@ Route::inertia('cookies', 'legal/cookies')->name('legal.cookies');
 Route::inertia('acceptable-use', 'legal/acceptable-use')->name('legal.acceptable-use');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::inertia('dashboard', 'dashboard')->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'show'])->name('dashboard');
 });
 
 // Workbench snapshot page — renders the snapshot via the appropriate view

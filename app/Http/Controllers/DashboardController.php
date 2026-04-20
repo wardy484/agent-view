@@ -1,0 +1,54 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Http\Controllers;
+
+use App\Models\McpCallLog;
+use App\Models\Snapshot;
+use App\Models\SnapshotVersion;
+use App\Models\Workbench;
+use Carbon\CarbonInterface;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class DashboardController extends Controller
+{
+    public function show(Request $request): Response
+    {
+        $startOfDay = now()->startOfDay();
+
+        $workbenchCount = Workbench::count();
+        $snapshotCount = Snapshot::count();
+        $revisionsToday = SnapshotVersion::where('created_at', '>=', $startOfDay)->count();
+        $mcpCallsToday = McpCallLog::where('created_at', '>=', $startOfDay)->count();
+
+        $recentVersions = SnapshotVersion::query()
+            ->with(['snapshot.workbench'])
+            ->orderByDesc('created_at')
+            ->limit(6)
+            ->get()
+            ->map(fn (SnapshotVersion $v) => [
+                'workbench_slug' => $v->snapshot->workbench->slug,
+                'workbench_name' => $v->snapshot->workbench->name,
+                'snapshot_slug' => $v->snapshot->slug,
+                'snapshot_title' => $v->snapshot->title,
+                'revision' => $v->revision,
+                'view_type' => $v->view_type,
+                'created_at' => $v->created_at?->toIso8601String(),
+                'created_human' => $v->created_at?->diffForHumans(syntax: CarbonInterface::DIFF_ABSOLUTE, short: true),
+            ])
+            ->all();
+
+        return Inertia::render('dashboard', [
+            'kpis' => [
+                'workbenches' => $workbenchCount,
+                'snapshots' => $snapshotCount,
+                'revisions_today' => $revisionsToday,
+                'mcp_calls_today' => $mcpCallsToday,
+            ],
+            'recentSnapshots' => $recentVersions,
+        ]);
+    }
+}
