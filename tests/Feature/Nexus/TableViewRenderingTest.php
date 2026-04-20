@@ -36,7 +36,8 @@ it('REQ-M1-005: snapshot page hands every row in data_payload.rows to the table 
 
     $snapshot->forceFill(['current_version_id' => $version->id])->save();
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,

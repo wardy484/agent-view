@@ -7,6 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
+use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
@@ -14,10 +15,20 @@ use Inertia\Response;
 
 class SnapshotController extends Controller
 {
+    public function __construct(private readonly SnapshotPolicy $policy) {}
+
     public function show(Request $request, Workbench $workbench, Snapshot $snapshot): Response|HttpResponse
     {
         if ($snapshot->workbench_id !== $workbench->id) {
             abort(404);
+        }
+
+        // REQ-M4-005: gate on the snapshot policy — owner or unrevoked share
+        // row. Eager-load the workbench so the policy skips an extra query.
+        $snapshot->setRelation('workbench', $workbench);
+
+        if (! $this->policy->view($request->user(), $snapshot)) {
+            abort($request->user() === null ? 401 : 403);
         }
 
         // REQ-M1-007: list every revision newest first so the React switcher

@@ -25,7 +25,8 @@ it('REQ-M1-007: snapshot page exposes every revision newest-first', function ():
 
     $snapshot->forceFill(['current_version_id' => $third->id])->save();
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,
@@ -60,7 +61,8 @@ it('REQ-M1-007: ?revision={n} navigates to that revision', function (): void {
 
     $snapshot->forceFill(['current_version_id' => $rev2->id])->save();
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,
@@ -83,7 +85,8 @@ it('REQ-M1-007: unknown revision returns 404', function (): void {
         dataPayload: ['columns' => [['key' => 'id']], 'rows' => [['id' => 1]]],
     );
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,

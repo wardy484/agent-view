@@ -33,7 +33,8 @@ it('REQ-M2-002: snapshot page hands the kanban data_payload to the KanbanView', 
 
     $snapshot->forceFill(['current_version_id' => $version->id])->save();
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,

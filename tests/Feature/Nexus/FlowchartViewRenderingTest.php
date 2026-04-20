@@ -24,7 +24,8 @@ it('REQ-M2-005: snapshot page hands the flowchart data_payload to the FlowchartV
 
     $snapshot->forceFill(['current_version_id' => $version->id])->save();
 
-    $this->withoutVite()
+    $this->actingAs($workbench->owner)
+        ->withoutVite()
         ->get(route('workbench.snapshot.show', [
             'workbench' => $workbench->slug,
             'snapshot' => $snapshot->slug,
