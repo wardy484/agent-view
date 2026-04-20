@@ -4,12 +4,7 @@ import createServer from '@inertiajs/react/server';
 import ReactDOMServer from 'react-dom/server';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import AppLayout from '@/layouts/app-layout';
-import AuthLayout from '@/layouts/auth-layout';
-import MarketingLayout from '@/layouts/marketing-layout';
-import SettingsLayout from '@/layouts/settings/layout';
-
-const marketingPages = new Set(['welcome', 'contact']);
+import { pickLayout } from '@/lib/resolve-layout';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -25,19 +20,10 @@ createServer((page) =>
 
             return pages[`./pages/${name}.tsx`]().then((m) => m.default);
         },
-        layout: (name) => {
-            switch (true) {
-                case marketingPages.has(name):
-                case name.startsWith('legal/'):
-                    return MarketingLayout;
-                case name.startsWith('auth/'):
-                    return AuthLayout;
-                case name.startsWith('settings/'):
-                    return [AppLayout, SettingsLayout];
-                default:
-                    return AppLayout;
-            }
-        },
+        // MUST match the client `layout` in app.tsx exactly, otherwise
+        // SSR HTML and client hydration HTML diverge and the layout
+        // flashes in and then vanishes during hydration.
+        layout: pickLayout,
         setup: ({ App, props }) => (
             <TooltipProvider delayDuration={0}>
                 <App {...props} />
