@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Mcp\Content\EmbeddedResource;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
@@ -55,6 +56,11 @@ class AppServiceProvider extends ServiceProvider
         DB::prohibitDestructiveCommands(
             app()->isProduction(),
         );
+
+        // Surface N+1s as exceptions outside production. Any controller or
+        // service that accidentally lazy-loads a relation fails loudly in
+        // local dev and CI, so performance regressions never reach prod.
+        Model::preventLazyLoading(! app()->isProduction());
 
         Password::defaults(fn (): ?Password => app()->isProduction()
             ? Password::min(8)
