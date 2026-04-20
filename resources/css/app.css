@@ -9,13 +9,39 @@
 
 @theme {
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Geist', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+    --font-mono:
+        'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
 
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
     --radius-sm: calc(var(--radius) - 4px);
+
+    /* Nexus zone colours (view_type) */
+    --color-zone-deck: var(--zone-deck);
+    --color-zone-table: var(--zone-table);
+    --color-zone-kanban: var(--zone-kanban);
+    --color-zone-flow: var(--zone-flow);
+
+    /* Raw nexus surface/ink tokens exposed as Tailwind colours */
+    --color-bg-0: var(--bg-0);
+    --color-bg-1: var(--bg-1);
+    --color-bg-2: var(--bg-2);
+    --color-bg-3: var(--bg-3);
+    --color-bg-hi: var(--bg-hi);
+    --color-fg-0: var(--fg-0);
+    --color-fg-1: var(--fg-1);
+    --color-fg-2: var(--fg-2);
+    --color-fg-3: var(--fg-3);
+    --color-fg-4: var(--fg-4);
+    --color-line: var(--line);
+    --color-line-strong: var(--line-strong);
+    --color-ok: var(--ok);
+    --color-warn: var(--warn);
+    --color-err: var(--err);
 
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -62,74 +88,189 @@
 }
 
 :root {
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.205 0 0);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.577 0.245 27.325);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.87 0 0);
-    --chart-1: oklch(0.646 0.222 41.116);
-    --chart-2: oklch(0.6 0.118 184.704);
-    --chart-3: oklch(0.398 0.07 227.392);
-    --chart-4: oklch(0.828 0.189 84.429);
-    --chart-5: oklch(0.769 0.188 70.08);
+    /* --- Nexus-UI raw tokens (warm cream / paper neutrals) --- */
+    --bg-0: oklch(0.955 0.012 85); /* page: warm cream */
+    --bg-1: oklch(0.975 0.01 85); /* surface: lighter cream */
+    --bg-2: oklch(0.935 0.014 82); /* inset panel */
+    --bg-3: oklch(0.91 0.016 80); /* hover */
+    --bg-hi: oklch(0.885 0.018 78); /* pressed */
+    --line: oklch(0.86 0.018 78 / 0.7);
+    --line-strong: oklch(0.8 0.02 75);
+    --fg-0: oklch(0.25 0.018 75); /* primary ink — warm near-black */
+    --fg-1: oklch(0.36 0.018 75);
+    --fg-2: oklch(0.48 0.018 75);
+    --fg-3: oklch(0.59 0.018 75);
+    --fg-4: oklch(0.7 0.018 75);
+
+    /* accent: warm amber-gold */
+    --accent-brand: oklch(0.7 0.15 55);
+    --accent-soft: oklch(0.7 0.15 55 / 0.16);
+    --accent-line: oklch(0.7 0.15 55 / 0.45);
+    --accent-fg: oklch(0.2 0.04 55);
+
+    /* semantic */
+    --ok: oklch(0.62 0.14 150);
+    --warn: oklch(0.72 0.14 75);
+    --err: oklch(0.6 0.18 22);
+
+    /* view_type zoning */
+    --zone-deck: oklch(0.65 0.14 55);
+    --zone-table: oklch(0.6 0.12 200);
+    --zone-kanban: oklch(0.62 0.13 150);
+    --zone-flow: oklch(0.62 0.14 25);
+
+    --shadow-card:
+        0 1px 0 oklch(1 0 0 / 0.6) inset,
+        0 1px 2px oklch(0.3 0.04 75 / 0.06),
+        0 24px 50px -24px oklch(0.3 0.04 75 / 0.22);
+
+    /* --- shadcn-compatible mapping (Nexus palette) --- */
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.205 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.87 0 0);
+
+    --background: var(--bg-0);
+    --foreground: var(--fg-0);
+    --card: var(--bg-1);
+    --card-foreground: var(--fg-0);
+    --popover: var(--bg-1);
+    --popover-foreground: var(--fg-0);
+
+    /* primary = brand amber */
+    --primary: var(--accent-brand);
+    --primary-foreground: var(--accent-fg);
+
+    --secondary: var(--bg-2);
+    --secondary-foreground: var(--fg-0);
+
+    --muted: var(--bg-2);
+    --muted-foreground: var(--fg-2);
+
+    --accent: var(--bg-3);
+    --accent-foreground: var(--fg-0);
+
+    --destructive: var(--err);
+    --destructive-foreground: oklch(0.985 0.005 85);
+
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent-line);
+
+    --chart-1: var(--accent-brand);
+    --chart-2: var(--zone-table);
+    --chart-3: var(--zone-kanban);
+    --chart-4: var(--zone-flow);
+    --chart-5: var(--zone-deck);
+
+    --sidebar: var(--bg-1);
+    --sidebar-foreground: var(--fg-0);
+    --sidebar-primary: var(--accent-brand);
+    --sidebar-primary-foreground: var(--accent-fg);
+    --sidebar-accent: var(--bg-3);
+    --sidebar-accent-foreground: var(--fg-0);
+    --sidebar-border: var(--line);
+    --sidebar-ring: var(--accent-line);
+}
+
+/* Accent swatches: add data-accent="indigo|teal|amber|rose|plum" to <html> */
+[data-accent='indigo'] {
+    --accent-brand: oklch(0.58 0.18 260);
+    --accent-soft: oklch(0.58 0.18 260 / 0.14);
+    --accent-line: oklch(0.58 0.18 260 / 0.4);
+}
+[data-accent='teal'] {
+    --accent-brand: oklch(0.58 0.13 180);
+    --accent-soft: oklch(0.58 0.13 180 / 0.14);
+    --accent-line: oklch(0.58 0.13 180 / 0.4);
+}
+[data-accent='amber'] {
+    --accent-brand: oklch(0.7 0.15 55);
+    --accent-soft: oklch(0.7 0.15 55 / 0.16);
+    --accent-line: oklch(0.7 0.15 55 / 0.45);
+}
+[data-accent='rose'] {
+    --accent-brand: oklch(0.62 0.17 22);
+    --accent-soft: oklch(0.62 0.17 22 / 0.14);
+    --accent-line: oklch(0.62 0.17 22 / 0.4);
+}
+[data-accent='plum'] {
+    --accent-brand: oklch(0.56 0.15 320);
+    --accent-soft: oklch(0.56 0.15 320 / 0.14);
+    --accent-line: oklch(0.56 0.15 320 / 0.4);
+}
+
+[data-density='compact'] {
+    --row-h: 28px;
+    --pad-x: 12px;
+    --pad-y: 8px;
+    --pad-card: 12px;
+}
+[data-density='comfortable'] {
+    --row-h: 36px;
+    --pad-x: 16px;
+    --pad-y: 12px;
+    --pad-card: 18px;
 }
 
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.145 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.145 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.985 0 0);
-    --primary-foreground: oklch(0.205 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.396 0.141 25.723);
-    --destructive-foreground: oklch(0.637 0.237 25.331);
-    --border: oklch(0.269 0 0);
-    --input: oklch(0.269 0 0);
-    --ring: oklch(0.439 0 0);
-    --chart-1: oklch(0.488 0.243 264.376);
-    --chart-2: oklch(0.696 0.17 162.48);
-    --chart-3: oklch(0.769 0.188 70.08);
-    --chart-4: oklch(0.627 0.265 303.9);
-    --chart-5: oklch(0.645 0.246 16.439);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.985 0 0);
-    --sidebar-primary-foreground: oklch(0.985 0 0);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(0.269 0 0);
-    --sidebar-ring: oklch(0.439 0 0);
+    /* Nexus dark = warm graphite (keeps same hue family as cream) */
+    --bg-0: oklch(0.2 0.012 75);
+    --bg-1: oklch(0.235 0.012 75);
+    --bg-2: oklch(0.275 0.014 75);
+    --bg-3: oklch(0.32 0.016 75);
+    --bg-hi: oklch(0.37 0.018 75);
+    --line: oklch(0.4 0.02 75 / 0.6);
+    --line-strong: oklch(0.5 0.022 75);
+    --fg-0: oklch(0.965 0.01 85);
+    --fg-1: oklch(0.88 0.012 80);
+    --fg-2: oklch(0.74 0.014 78);
+    --fg-3: oklch(0.62 0.016 75);
+    --fg-4: oklch(0.5 0.018 75);
+
+    --accent-brand: oklch(0.78 0.15 65);
+    --accent-soft: oklch(0.78 0.15 65 / 0.18);
+    --accent-line: oklch(0.78 0.15 65 / 0.5);
+    --accent-fg: oklch(0.18 0.03 65);
+
+    --ok: oklch(0.72 0.14 150);
+    --warn: oklch(0.8 0.14 75);
+    --err: oklch(0.7 0.18 22);
+
+    --shadow-card:
+        0 1px 0 oklch(1 0 0 / 0.04) inset,
+        0 1px 2px oklch(0 0 0 / 0.3),
+        0 24px 50px -24px oklch(0 0 0 / 0.55);
+
+    --background: var(--bg-0);
+    --foreground: var(--fg-0);
+    --card: var(--bg-1);
+    --card-foreground: var(--fg-0);
+    --popover: var(--bg-1);
+    --popover-foreground: var(--fg-0);
+    --primary: var(--accent-brand);
+    --primary-foreground: var(--accent-fg);
+    --secondary: var(--bg-2);
+    --secondary-foreground: var(--fg-0);
+    --muted: var(--bg-2);
+    --muted-foreground: var(--fg-2);
+    --accent: var(--bg-3);
+    --accent-foreground: var(--fg-0);
+    --destructive: var(--err);
+    --destructive-foreground: oklch(0.15 0.02 22);
+    --border: var(--line);
+    --input: var(--line);
+    --ring: var(--accent-line);
+    --chart-1: var(--accent-brand);
+    --chart-2: var(--zone-table);
+    --chart-3: var(--zone-kanban);
+    --chart-4: var(--zone-flow);
+    --chart-5: var(--zone-deck);
+    --sidebar: var(--bg-1);
+    --sidebar-foreground: var(--fg-0);
+    --sidebar-primary: var(--accent-brand);
+    --sidebar-primary-foreground: var(--accent-fg);
+    --sidebar-accent: var(--bg-3);
+    --sidebar-accent-foreground: var(--fg-0);
+    --sidebar-border: var(--line);
+    --sidebar-ring: var(--accent-line);
 }
 
 @layer base {
@@ -139,5 +280,445 @@
 
     body {
         @apply bg-background text-foreground;
+        font-feature-settings: 'ss01', 'cv11';
+        -webkit-font-smoothing: antialiased;
+    }
+
+    kbd {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--fg-1);
+        background: var(--bg-3);
+        border: 1px solid var(--line-strong);
+        border-bottom-width: 2px;
+        border-radius: var(--radius-sm);
+        line-height: 1;
+    }
+
+    ::selection {
+        background: var(--accent-soft);
+        color: var(--fg-0);
+    }
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: var(--bg-hi);
+        border-radius: 6px;
+        border: 2px solid var(--bg-0);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--line-strong);
+    }
+}
+
+/* ==========================================================================
+   Nexus-UI shell — topbar + left-nav + stage layout for the logged-in area.
+   Classes are prefixed `nx-` to avoid clashing with shadcn utilities.
+   ========================================================================== */
+@layer components {
+    .nx-app {
+        display: grid;
+        grid-template-columns: 220px minmax(0, 1fr);
+        grid-template-rows: 44px 1fr;
+        height: 100dvh;
+        width: 100%;
+        min-width: 0;
+    }
+    @media (max-width: 1020px) {
+        .nx-app {
+            grid-template-columns: 180px minmax(0, 1fr);
+        }
+    }
+    @media (max-width: 720px) {
+        .nx-app {
+            display: flex;
+            flex-direction: column;
+            height: auto;
+            min-height: 100dvh;
+        }
+    }
+
+    .nx-topbar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0 14px;
+        border-bottom: 1px solid var(--line);
+        background: linear-gradient(180deg, var(--bg-1), var(--bg-0));
+        position: relative;
+        z-index: 20;
+        white-space: nowrap;
+        min-width: 0;
+        overflow: hidden;
+    }
+    .nx-brand {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-right: 12px;
+        margin-right: 4px;
+        border-right: 1px solid var(--line);
+        height: 100%;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        color: var(--fg-0);
+        text-decoration: none;
+    }
+    .nx-crumbs {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        color: var(--fg-2);
+        font-family: var(--font-mono);
+        min-width: 0;
+        flex-wrap: nowrap;
+        white-space: nowrap;
+        overflow: hidden;
+    }
+    .nx-crumbs a {
+        color: var(--fg-1);
+        text-decoration: none;
+    }
+    .nx-crumbs a:hover {
+        color: var(--fg-0);
+    }
+    .nx-crumbs .sep {
+        color: var(--fg-4);
+    }
+    .nx-crumbs .current {
+        color: var(--fg-0);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+    .nx-topbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+
+    .nx-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 26px;
+        padding: 0 10px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-family: var(--font-mono);
+        color: var(--fg-1);
+        background: var(--bg-2);
+        border: 1px solid var(--line);
+    }
+    .nx-pill.live::before {
+        content: '';
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--ok);
+        box-shadow: 0 0 0 3px
+            color-mix(in oklch, var(--ok) 25%, transparent);
+    }
+    .nx-icon-btn {
+        width: 28px;
+        height: 28px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: var(--radius-md);
+        color: var(--fg-1);
+        border: 1px solid transparent;
+        background: transparent;
+        cursor: pointer;
+    }
+    .nx-icon-btn:hover {
+        background: var(--bg-2);
+        border-color: var(--line);
+        color: var(--fg-0);
+    }
+
+    .nx-nav {
+        grid-row: 2;
+        border-right: 1px solid var(--line);
+        background: var(--bg-0);
+        padding: 14px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        overflow-y: auto;
+        min-height: 0;
+    }
+    .nx-nav-section {
+        font-family: var(--font-mono);
+        font-size: 10.5px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--fg-4);
+        padding: 14px 8px 6px;
+    }
+    .nx-nav-section:first-child {
+        padding-top: 0;
+    }
+    .nx-nav-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 8px;
+        border-radius: var(--radius-md);
+        color: var(--fg-1);
+        font-size: 13px;
+        cursor: pointer;
+        position: relative;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        text-decoration: none;
+        min-width: 0;
+    }
+    .nx-nav-item > span:not(.dot):not(.count) {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .nx-nav-item .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 2px;
+        background: var(--fg-4);
+        flex-shrink: 0;
+    }
+    .nx-nav-item .count {
+        margin-left: auto;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--fg-3);
+    }
+    .nx-nav-item:hover {
+        background: var(--bg-2);
+        color: var(--fg-0);
+    }
+    .nx-nav-item.active {
+        background: var(--bg-2);
+        color: var(--fg-0);
+    }
+    .nx-nav-item.active::before {
+        content: '';
+        position: absolute;
+        left: -10px;
+        top: 6px;
+        bottom: 6px;
+        width: 2px;
+        background: var(--accent-brand);
+        border-radius: 0 2px 2px 0;
+    }
+    .nx-nav-item.active .dot {
+        background: var(--accent-brand);
+    }
+
+    .nx-stage {
+        grid-row: 2;
+        overflow: hidden;
+        background:
+            radial-gradient(
+                1200px 600px at 50% -10%,
+                var(--accent-soft),
+                transparent 60%
+            ),
+            var(--bg-0);
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        min-width: 0;
+        min-height: 0;
+    }
+    .nx-stage-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 20px 12px;
+        border-bottom: 1px solid var(--line);
+        background: var(--bg-0);
+        flex-wrap: nowrap;
+        min-width: 0;
+    }
+    .nx-stage-title {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        min-width: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+    .nx-stage-title h1 {
+        margin: 0;
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--fg-0);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .nx-stage-title .meta {
+        font-family: var(--font-mono);
+        font-size: 11.5px;
+        color: var(--fg-3);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .nx-stage-actions {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+    }
+    .nx-stage-body {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .nx-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: var(--radius-md);
+        font-size: 12.5px;
+        color: var(--fg-1);
+        background: var(--bg-2);
+        border: 1px solid var(--line);
+        cursor: pointer;
+    }
+    .nx-btn:hover {
+        background: var(--bg-3);
+        color: var(--fg-0);
+    }
+    .nx-btn.primary {
+        background: var(--accent-brand);
+        color: var(--accent-fg);
+        border-color: color-mix(
+            in oklch,
+            var(--accent-brand) 80%,
+            black 0%
+        );
+        font-weight: 600;
+    }
+    .nx-btn.primary:hover {
+        background: color-mix(
+            in oklch,
+            var(--accent-brand) 88%,
+            black 12%
+        );
+        color: var(--accent-fg);
+    }
+    .nx-btn.ghost {
+        background: transparent;
+        border-color: transparent;
+    }
+    .nx-btn.ghost:hover {
+        background: var(--bg-2);
+        border-color: var(--line);
+    }
+
+    .nx-view-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--fg-0);
+        background: color-mix(
+            in oklch,
+            var(--zone-deck) 14%,
+            transparent
+        );
+        border: 1px solid
+            color-mix(in oklch, var(--zone-deck) 40%, transparent);
+    }
+    .nx-view-chip .sq {
+        width: 6px;
+        height: 6px;
+        border-radius: 1px;
+        background: var(--zone-deck);
+    }
+    .nx-view-chip[data-zone='table'] {
+        background: color-mix(
+            in oklch,
+            var(--zone-table) 14%,
+            transparent
+        );
+        border-color: color-mix(
+            in oklch,
+            var(--zone-table) 40%,
+            transparent
+        );
+    }
+    .nx-view-chip[data-zone='table'] .sq {
+        background: var(--zone-table);
+    }
+    .nx-view-chip[data-zone='kanban'] {
+        background: color-mix(
+            in oklch,
+            var(--zone-kanban) 14%,
+            transparent
+        );
+        border-color: color-mix(
+            in oklch,
+            var(--zone-kanban) 40%,
+            transparent
+        );
+    }
+    .nx-view-chip[data-zone='kanban'] .sq {
+        background: var(--zone-kanban);
+    }
+    .nx-view-chip[data-zone='flow'] {
+        background: color-mix(
+            in oklch,
+            var(--zone-flow) 14%,
+            transparent
+        );
+        border-color: color-mix(
+            in oklch,
+            var(--zone-flow) 40%,
+            transparent
+        );
+    }
+    .nx-view-chip[data-zone='flow'] .sq {
+        background: var(--zone-flow);
+    }
+
+    .nx-card {
+        background: var(--bg-1);
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-card);
     }
 }
