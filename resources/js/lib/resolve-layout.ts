@@ -7,7 +7,10 @@ import SettingsLayout from '@/layouts/settings/layout';
 const marketingPages = new Set(['contact']);
 
 // Pages that render their own chrome and must bypass every global layout.
-const standalonePages = new Set(['welcome']);
+// `snapshot` switches between app / preview / fullscreen chrome itself and
+// wraps its own body in AppLayout in app mode — letting the resolver pick
+// AppLayout here would double-wrap the sidebar.
+const standalonePages = new Set(['welcome', 'snapshot']);
 
 type Layout = ComponentType<{ children: React.ReactNode }>;
 
