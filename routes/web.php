@@ -3,6 +3,7 @@
 use App\Http\Controllers\AgentActivityController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
+use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -39,5 +40,13 @@ Route::middleware(['web', 'auth'])
 // REQ-M3-007: singleton "Agent Activity" dashboard — rendered by snapshot.tsx.
 Route::get('/workbenches/{workbench:slug}/agent-activity', [AgentActivityController::class, 'show'])
     ->name('workbench.agent-activity');
+
+// REQ-M4-002: public read-only link to a snapshot with visibility=link.
+// Throttled per-IP to resist token brute-forcing; every successful hit is
+// audited in snapshot_share_accesses.
+Route::get('/s/{token}', [PublicSnapshotController::class, 'show'])
+    ->middleware('throttle:share-link')
+    ->where('token', '[A-Za-z0-9_-]+')
+    ->name('snapshot.public');
 
 require __DIR__.'/settings.php';

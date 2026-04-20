@@ -87,5 +87,12 @@ class FortifyServiceProvider extends ServiceProvider
 
             return Limit::perMinute(5)->by($throttleKey);
         });
+
+        // REQ-M4-002: throttle the public `/s/{token}` snapshot route per IP.
+        // 60 / min accommodates legitimate refreshes and tab reloads while
+        // making brute-force token guessing infeasible.
+        RateLimiter::for('share-link', function (Request $request) {
+            return Limit::perMinute(60)->by('share-link:'.$request->ip());
+        });
     }
 }

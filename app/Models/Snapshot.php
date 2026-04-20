@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['workbench_id', 'slug', 'title', 'current_version_id', 'visibility'])]
+#[Fillable(['workbench_id', 'slug', 'title', 'current_version_id', 'visibility', 'share_token'])]
 class Snapshot extends Model
 {
     /** @use HasFactory<SnapshotFactory> */
@@ -81,5 +81,41 @@ class Snapshot extends Model
     public function allShares(): HasMany
     {
         return $this->hasMany(SnapshotShare::class);
+    }
+
+    /**
+     * REQ-M4-002: atomically transition sharing state.
+     *
+     * Private → Link: mint a fresh 32-byte URL-safe `share_token`.
+     * Link → Link: no rotation (idempotent).
+     * *     → Private: clear token.
+     * *     → Shared: clear token (link mode is off).
+     */
+    public function setVisibility(SnapshotVisibility $next): void
+    {
+        $current = $this->visibility;
+
+        $updates = ['visibility' => $next];
+
+        if ($next === SnapshotVisibility::Link) {
+            if ($current !== SnapshotVisibility::Link || $this->share_token === null) {
+                $updates['share_token'] = self::mintShareToken();
+            }
+        } else {
+            // Any non-Link destination retires the link token.
+            $updates['share_token'] = null;
+        }
+
+        $this->forceFill($updates)->save();
+    }
+
+    /**
+     * REQ-M4-002: 32 random bytes, URL-safe base64 encoded (43 characters,
+     * ~256 bits of entropy). Sufficient that brute-forcing a token is
+     * computationally infeasible even against millions of snapshots.
+     */
+    public static function mintShareToken(): string
+    {
+        return rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
     }
 }
