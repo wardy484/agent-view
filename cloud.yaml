@@ -16,6 +16,7 @@ build:
 
 deploy:
   - php artisan migrate --force
+  - php artisan db:seed --class=DemoSnapshotSeeder --force
   - php artisan optimize:clear
   - php artisan config:cache
   - php artisan route:cache
