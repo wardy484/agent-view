@@ -7,6 +7,8 @@ import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
 import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
+import { ReportView } from '@/components/nexus/report-view';
+import type { ReportViewPayload } from '@/components/nexus/report-view';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { TableView } from '@/components/nexus/table-view';
@@ -34,6 +36,9 @@ type Version = {
     view_type: string;
     data_payload: TableViewPayload | Record<string, unknown>;
     metadata: Record<string, unknown> | null;
+    // REQ-M5-007: report snapshots receive a server-resolved blocks array
+    // so the React renderer doesn't fan out N HTTP calls per embed.
+    resolved_blocks?: ReportViewPayload['resolved_blocks'];
 };
 
 type Mode = 'app' | 'preview';
@@ -218,6 +223,20 @@ function renderView(version: Version, fullBleed: boolean) {
 
     if (version.view_type === 'flowchart') {
         return <FlowchartView payload={version.data_payload as FlowchartViewPayload} fullBleed={fullBleed} />;
+    }
+
+    if (version.view_type === 'report') {
+        // REQ-M5-008: the controller inlines resolved_blocks alongside the
+        // raw data_payload so the React renderer doesn't fan out N HTTP
+        // calls. The report payload type reflects both shapes.
+        const reportPayload = {
+            ...(version.data_payload as ReportViewPayload),
+            resolved_blocks:
+                (version as { resolved_blocks?: ReportViewPayload['resolved_blocks'] }).resolved_blocks ??
+                (version.data_payload as ReportViewPayload).resolved_blocks,
+        };
+
+        return <ReportView payload={reportPayload} fullBleed={fullBleed} />;
     }
 
     return (
