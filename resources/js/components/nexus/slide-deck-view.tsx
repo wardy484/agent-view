@@ -89,19 +89,10 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
                 className,
             )}
         >
-            {isPresentation && (
-                <div className="flex items-center justify-between px-10 pt-8 text-xs tracking-widest uppercase text-neutral-500 dark:text-neutral-400">
-                    <span className="font-medium">Nexus UI</span>
-                    <span className="tabular-nums">
-                        {index + 1} / {slides.length}
-                    </span>
-                </div>
-            )}
-
             <section
                 className={cn(
                     isPresentation
-                        ? 'flex flex-1 items-center justify-center px-10 py-8'
+                        ? 'flex flex-1 items-center justify-center px-10 pt-16 pb-8'
                         : 'rounded-lg border border-border bg-background p-6',
                 )}
             >
@@ -137,7 +128,12 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
                     >
                         <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
                     </button>
-                    <SlideDots count={slides.length} active={index} onSelect={setIndex} />
+                    <div className="flex items-center gap-4">
+                        <SlideDots count={slides.length} active={index} onSelect={setIndex} />
+                        <span className="text-xs tabular-nums tracking-widest uppercase text-neutral-500 dark:text-neutral-400">
+                            {index + 1} / {slides.length}
+                        </span>
+                    </div>
                     <button
                         type="button"
                         onClick={goNext}
