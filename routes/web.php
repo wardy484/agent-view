@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
+use App\Http\Controllers\WorkbenchOrganisationController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -40,6 +41,17 @@ Route::middleware(['web', 'auth'])
 // REQ-M3-007: singleton "Agent Activity" dashboard — rendered by snapshot.tsx.
 Route::get('/workbenches/{workbench:slug}/agent-activity', [AgentActivityController::class, 'show'])
     ->name('workbench.agent-activity');
+
+// REQ-M6-001..005: owner-only organisational mutations on a workbench.
+// All routes sit under an authenticated prefix, are route-model-bound by
+// slug so unknown slugs 404 automatically, and defer to WorkbenchPolicy
+// for the 403 non-owner response.
+Route::middleware(['web', 'auth'])
+    ->prefix('workbenches/{workbench:slug}')
+    ->controller(WorkbenchOrganisationController::class)
+    ->group(function (): void {
+        Route::patch('/', 'rename')->name('workbench.rename');
+    });
 
 // REQ-M4-002: public read-only link to a snapshot with visibility=link.
 // Throttled per-IP to resist token brute-forcing; every successful hit is
