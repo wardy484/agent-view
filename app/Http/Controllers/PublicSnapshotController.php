@@ -35,6 +35,16 @@ class PublicSnapshotController extends Controller
             abort(404);
         }
 
+        // REQ-M6-005: a share link is void while its workbench is
+        // soft-deleted. `workbench()` applies the `SoftDeletes` global scope,
+        // so the relation returns null whenever `workbenches.deleted_at` is
+        // non-null — surface that as a 404 so the token cannot leak content.
+        $workbench = $snapshot->workbench;
+
+        if ($workbench === null) {
+            abort(404);
+        }
+
         $version = $snapshot->currentVersion;
 
         if (! $version instanceof SnapshotVersion) {
@@ -57,8 +67,8 @@ class PublicSnapshotController extends Controller
 
         return Inertia::render('snapshot', [
             'workbench' => [
-                'slug' => $snapshot->workbench->slug,
-                'name' => $snapshot->workbench->name,
+                'slug' => $workbench->slug,
+                'name' => $workbench->name,
             ],
             'snapshot' => [
                 'id' => $snapshot->id,

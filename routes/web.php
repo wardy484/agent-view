@@ -55,7 +55,16 @@ Route::middleware(['web', 'auth'])
         Route::delete('/pin', 'unpin')->name('workbench.unpin');
         Route::post('/archive', 'archive')->name('workbench.archive');
         Route::delete('/archive', 'unarchive')->name('workbench.unarchive');
+        Route::delete('/', 'delete')->name('workbench.delete');
     });
+
+// REQ-M6-005: POST /workbenches/{slug}/restore clears deleted_at. The route
+// model binding resolves trashed workbenches (the non-restore routes above
+// only operate on live rows).
+Route::middleware(['web', 'auth'])
+    ->post('/workbenches/{workbench:slug}/restore', [WorkbenchOrganisationController::class, 'restore'])
+    ->withTrashed()
+    ->name('workbench.restore');
 
 // REQ-M4-002: public read-only link to a snapshot with visibility=link.
 // Throttled per-IP to resist token brute-forcing; every successful hit is

@@ -160,6 +160,46 @@ class WorkbenchOrganisationController extends Controller
     }
 
     /**
+     * REQ-M6-005: DELETE /workbenches/{slug} soft-deletes the workbench.
+     * Default queries exclude soft-deleted rows via the `SoftDeletes` global
+     * scope; MCP writes short-circuit (see `PresentStructuredData`); public
+     * share links break (see `PublicSnapshotController`). The row stays
+     * recoverable for 30 days before `workbenches:prune` hard-deletes it.
+     */
+    public function delete(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('delete', $workbench);
+
+        $workbench->delete();
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'deleted_at' => $workbench->deleted_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * REQ-M6-005: POST /workbenches/{slug}/restore clears `deleted_at`. The
+     * route binding uses `withTrashed()` so we can resolve soft-deleted rows
+     * for their owner; the policy still gates the action to the owner.
+     */
+    public function restore(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('restore', $workbench);
+
+        $workbench->restore();
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'deleted_at' => null,
+            ],
+        ]);
+    }
+
+    /**
      * Shared gate for every REQ-M6-002..005 endpoint. Throws 403 when the
      * caller fails the ability, matching the spec's "403 for non-owners"
      * contract. Route-model-binding already returns 404 for unknown slugs.

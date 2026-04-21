@@ -54,8 +54,19 @@ class PresentStructuredData extends Tool
         // snapshots to embed yet). No workbench row is created until after
         // the validation gate — so validation failures leave no side effects.
         $slug = (string) $request->get('workbench_slug');
-        $existing = Workbench::query()->where('slug', $slug)->first();
         $callerId = Auth::id();
+
+        // REQ-M6-005: a soft-deleted workbench is unreachable — MCP writes
+        // must not silently resurrect it nor collide with its unique slug by
+        // creating a new row. Return a clear error; the owner has to restore
+        // the workbench before agents can write again.
+        $trashed = Workbench::withTrashed()->where('slug', $slug)->first();
+
+        if ($trashed !== null && $trashed->trashed()) {
+            return Response::error("Workbench '{$slug}' has been deleted and cannot be written to. Restore it to resume writes.");
+        }
+
+        $existing = $trashed;
 
         // REQ-M1-008: run the view-specific schema validator BEFORE any
         // workbench/snapshot rows are created so invalid payloads never
