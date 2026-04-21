@@ -9,7 +9,9 @@ use App\Models\McpCallLog;
 use App\Models\Workbench;
 use App\Policies\WorkbenchPolicy;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
@@ -20,6 +22,11 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
  */
 class WorkbenchOrganisationController extends Controller
 {
+    /**
+     * REQ-M6-003: per-user hard cap on pinned workbenches.
+     */
+    private const int MAX_PINS_PER_USER = 12;
+
     public function __construct(private readonly WorkbenchPolicy $policy) {}
 
     /**
@@ -50,6 +57,65 @@ class WorkbenchOrganisationController extends Controller
             'workbench' => [
                 'slug' => $workbench->slug,
                 'name' => $workbench->name,
+            ],
+        ]);
+    }
+
+    /**
+     * REQ-M6-003: POST /workbenches/{slug}/pin sets `pinned_at = now()`.
+     * Already-pinned workbenches are idempotent — re-pinning does not
+     * consume another slot against {@see self::MAX_PINS_PER_USER}.
+     * Pinning an archived workbench also clears `archived_at` because
+     * pin and archive are mutually exclusive states (REQ-M6-003).
+     */
+    public function pin(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('pin', $workbench);
+
+        $ownerId = (int) $workbench->owner_user_id;
+
+        DB::transaction(function () use ($workbench, $ownerId): void {
+            if ($workbench->pinned_at === null) {
+                $currentPins = Workbench::query()
+                    ->where('owner_user_id', $ownerId)
+                    ->whereNotNull('pinned_at')
+                    ->count();
+
+                if ($currentPins >= self::MAX_PINS_PER_USER) {
+                    throw ValidationException::withMessages([
+                        'pinned_at' => ['You can pin at most '.self::MAX_PINS_PER_USER.' workbenches.'],
+                    ])->status(422);
+                }
+            }
+
+            $workbench->forceFill([
+                'pinned_at' => now(),
+                'archived_at' => null,
+            ])->save();
+        });
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'pinned_at' => $workbench->pinned_at?->toIso8601String(),
+                'archived_at' => null,
+            ],
+        ]);
+    }
+
+    /**
+     * REQ-M6-003: DELETE /workbenches/{slug}/pin clears `pinned_at`.
+     */
+    public function unpin(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('unpin', $workbench);
+
+        $workbench->forceFill(['pinned_at' => null])->save();
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'pinned_at' => null,
             ],
         ]);
     }

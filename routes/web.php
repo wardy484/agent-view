@@ -51,6 +51,8 @@ Route::middleware(['web', 'auth'])
     ->controller(WorkbenchOrganisationController::class)
     ->group(function (): void {
         Route::patch('/', 'rename')->name('workbench.rename');
+        Route::post('/pin', 'pin')->name('workbench.pin');
+        Route::delete('/pin', 'unpin')->name('workbench.unpin');
     });
 
 // REQ-M4-002: public read-only link to a snapshot with visibility=link.
