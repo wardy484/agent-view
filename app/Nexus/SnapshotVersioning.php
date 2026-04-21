@@ -6,6 +6,7 @@ namespace App\Nexus;
 
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
+use App\Models\Workbench;
 use App\Nexus\Renderers\FlowchartPreviewRenderer;
 use App\Nexus\Renderers\KanbanPreviewRenderer;
 use App\Nexus\Renderers\ReportPreviewRenderer;
@@ -71,6 +72,18 @@ class SnapshotVersioning
                 ->update(['current_version_id' => $version->id]);
 
             $snapshot->forceFill(['current_version_id' => $version->id])->syncOriginalAttribute('current_version_id');
+
+            // REQ-M6-004 / REQ-M6-006: an MCP write automatically re-surfaces
+            // the workbench. `archived_at` is cleared and `last_activity_at`
+            // is stamped in the same transaction as the version write so
+            // neither the dashboard sort nor the archived state can drift
+            // from the true "most recent write" timestamp.
+            Workbench::query()
+                ->whereKey($snapshot->workbench_id)
+                ->update([
+                    'archived_at' => null,
+                    'last_activity_at' => now(),
+                ]);
 
             // REQ-M5-003: pin every embed in a report payload to the
             // embedded snapshot's current_version_id at write-time. Pins are

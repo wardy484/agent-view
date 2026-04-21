@@ -104,6 +104,45 @@ class WorkbenchOrganisationController extends Controller
     }
 
     /**
+     * REQ-M6-004: POST /workbenches/{slug}/archive sets `archived_at = now()`
+     * and clears `pinned_at` (pin and archive are mutually exclusive).
+     */
+    public function archive(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('archive', $workbench);
+
+        $workbench->forceFill([
+            'archived_at' => now(),
+            'pinned_at' => null,
+        ])->save();
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'archived_at' => $workbench->archived_at?->toIso8601String(),
+                'pinned_at' => null,
+            ],
+        ]);
+    }
+
+    /**
+     * REQ-M6-004: DELETE /workbenches/{slug}/archive clears `archived_at`.
+     */
+    public function unarchive(Request $request, Workbench $workbench): JsonResponse
+    {
+        $this->authorizeOrganisation('unarchive', $workbench);
+
+        $workbench->forceFill(['archived_at' => null])->save();
+
+        return response()->json([
+            'workbench' => [
+                'slug' => $workbench->slug,
+                'archived_at' => null,
+            ],
+        ]);
+    }
+
+    /**
      * REQ-M6-003: DELETE /workbenches/{slug}/pin clears `pinned_at`.
      */
     public function unpin(Request $request, Workbench $workbench): JsonResponse
