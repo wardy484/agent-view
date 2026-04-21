@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '@/lib/utils';
@@ -21,7 +22,8 @@ type Props = {
     mode?: 'presentation' | 'embedded';
 };
 
-const SERIF_STACK = '"Fraunces", "Iowan Old Style", "Palatino Linotype", "Palatino", "Georgia", serif';
+const SERIF_STACK =
+    '"Fraunces", "Iowan Old Style", "Palatino Linotype", "Palatino", "Georgia", serif';
 
 /**
  * REQ-M3-002: Slide Deck view supports keyboard navigation.
@@ -29,7 +31,11 @@ const SERIF_STACK = '"Fraunces", "Iowan Old Style", "Palatino Linotype", "Palati
  *  - ArrowRight: next slide
  *  - Space: next slide (preventDefault to avoid page scroll)
  */
-export function SlideDeckView({ payload, className, mode = 'presentation' }: Props) {
+export function SlideDeckView({
+    payload,
+    className,
+    mode = 'presentation',
+}: Props) {
     const slides = payload?.slides ?? [];
     const [index, setIndex] = useState(0);
 
@@ -109,11 +115,18 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
                                 ? 'text-5xl leading-[1.1] md:text-6xl'
                                 : 'text-xl font-semibold',
                         )}
-                        style={isPresentation ? { fontFamily: SERIF_STACK } : undefined}
+                        style={
+                            isPresentation
+                                ? { fontFamily: SERIF_STACK }
+                                : undefined
+                        }
                     >
                         {current.title}
                     </h2>
-                    <SlideMarkdown body={current.body_md} presentation={isPresentation} />
+                    <SlideMarkdown
+                        body={current.body_md}
+                        presentation={isPresentation}
+                    />
                 </article>
             </section>
 
@@ -129,8 +142,12 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
                         <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
                     </button>
                     <div className="flex items-center gap-4">
-                        <SlideDots count={slides.length} active={index} onSelect={setIndex} />
-                        <span className="text-xs tabular-nums tracking-widest uppercase text-neutral-500 dark:text-neutral-400">
+                        <SlideDots
+                            count={slides.length}
+                            active={index}
+                            onSelect={setIndex}
+                        />
+                        <span className="text-xs tracking-widest text-neutral-500 uppercase tabular-nums dark:text-neutral-400">
                             {index + 1} / {slides.length}
                         </span>
                     </div>
@@ -206,7 +223,13 @@ function SlideDots({
  * Presentation-mode markdown: generous prose sizing, real tables, real code blocks.
  * Uses react-markdown + remark-gfm so pipe-tables render as <table>.
  */
-function SlideMarkdown({ body, presentation }: { body: string; presentation: boolean }) {
+function SlideMarkdown({
+    body,
+    presentation,
+}: {
+    body: string;
+    presentation: boolean;
+}) {
     const components = useMemo<Components>(
         () => buildMarkdownComponents(presentation),
         [presentation],
@@ -245,7 +268,9 @@ function buildMarkdownComponents(presentation: boolean): Components {
         h3: ({ children }: MdProps) => (
             <h5 className={cn('mb-2 text-xl', h)}>{children}</h5>
         ),
-        p: ({ children }: MdProps) => <p className="mb-4 last:mb-0">{children}</p>,
+        p: ({ children }: MdProps) => (
+            <p className="mb-4 last:mb-0">{children}</p>
+        ),
         ul: ({ children }: MdProps) => (
             <ul className="mb-4 list-disc space-y-1 pl-6 marker:text-neutral-400 last:mb-0">
                 {children}
@@ -258,7 +283,9 @@ function buildMarkdownComponents(presentation: boolean): Components {
         ),
         li: ({ children }: MdProps) => <li className="pl-1">{children}</li>,
         strong: ({ children }: MdProps) => (
-            <strong className="font-semibold text-neutral-900 dark:text-neutral-50">{children}</strong>
+            <strong className="font-semibold text-neutral-900 dark:text-neutral-50">
+                {children}
+            </strong>
         ),
         em: ({ children }: MdProps) => <em className="italic">{children}</em>,
         a: ({ children, href }: MdProps) => (
@@ -272,18 +299,21 @@ function buildMarkdownComponents(presentation: boolean): Components {
             </a>
         ),
         blockquote: ({ children }: MdProps) => (
-            <blockquote className="my-4 border-l-2 border-neutral-400 pl-4 italic text-neutral-700 dark:text-neutral-300">
+            <blockquote className="my-4 border-l-2 border-neutral-400 pl-4 text-neutral-700 italic dark:text-neutral-300">
                 {children}
             </blockquote>
         ),
-        hr: () => <hr className="my-6 border-neutral-300 dark:border-neutral-700" />,
+        hr: () => (
+            <hr className="my-6 border-neutral-300 dark:border-neutral-700" />
+        ),
         code: ({ className, children, ...rest }: MdProps) => {
             const isBlock = /language-/.test(className ?? '');
+
             if (isBlock) {
                 return (
                     <code
                         className={cn(
-                            'block whitespace-pre font-mono text-sm leading-relaxed',
+                            'block font-mono text-sm leading-relaxed whitespace-pre',
                             className,
                         )}
                         {...rest}
@@ -292,6 +322,7 @@ function buildMarkdownComponents(presentation: boolean): Components {
                     </code>
                 );
             }
+
             return (
                 <code
                     className="rounded bg-neutral-900/5 px-1.5 py-0.5 font-mono text-[0.9em] text-neutral-900 dark:bg-neutral-100/10 dark:text-neutral-100"
@@ -308,7 +339,9 @@ function buildMarkdownComponents(presentation: boolean): Components {
         ),
         table: ({ children }: MdProps) => (
             <div className="mb-4 overflow-x-auto rounded-lg border border-neutral-200 bg-white/60 shadow-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900/40">
-                <table className="w-full border-collapse text-left text-base">{children}</table>
+                <table className="w-full border-collapse text-left text-base">
+                    {children}
+                </table>
             </div>
         ),
         thead: ({ children }: MdProps) => (

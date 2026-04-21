@@ -1,11 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Copy, KeyRound, LayoutGrid, Settings } from 'lucide-react';
-import { type PropsWithChildren } from 'react';
-import {
-    Avatar,
-    AvatarFallback,
-    AvatarImage,
-} from '@/components/ui/avatar';
+import type { PropsWithChildren } from 'react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -64,6 +60,7 @@ export default function NexusShellLayout({
                     ) : (
                         breadcrumbs.map((crumb, i) => {
                             const last = i === breadcrumbs.length - 1;
+
                             return (
                                 <span
                                     key={
@@ -99,9 +96,7 @@ export default function NexusShellLayout({
                         className="nx-icon-btn"
                         title="Copy permalink"
                         onClick={() =>
-                            navigator.clipboard?.writeText(
-                                window.location.href,
-                            )
+                            navigator.clipboard?.writeText(window.location.href)
                         }
                     >
                         <Copy size={13} />
@@ -111,7 +106,7 @@ export default function NexusShellLayout({
                             <DropdownMenuTrigger asChild>
                                 <button
                                     type="button"
-                                    className="nx-icon-btn flex items-center gap-2 !w-auto !h-7 !px-1.5"
+                                    className="nx-icon-btn flex !h-7 !w-auto items-center gap-2 !px-1.5"
                                     title={user.name}
                                 >
                                     <Avatar className="size-5 rounded-full">
@@ -155,14 +150,13 @@ export default function NexusShellLayout({
                                   snapshot: w.latest_snapshot_slug,
                               }).url
                             : '#';
-                        const active = isActive(
-                            `/workbenches/${w.slug}/`,
-                        );
+                        const active = isActive(`/workbenches/${w.slug}/`);
+
                         if (href === '#') {
                             return (
                                 <span
                                     key={w.slug}
-                                    className={`nx-nav-item${active ? ' active' : ''}`}
+                                    className={`nx-nav-item${active ? 'active' : ''}`}
                                     title={`${w.name} · no snapshots yet`}
                                 >
                                     <span className="dot" />
@@ -173,12 +167,13 @@ export default function NexusShellLayout({
                                 </span>
                             );
                         }
+
                         return (
                             <Link
                                 key={w.slug}
                                 href={href}
                                 prefetch
-                                className={`nx-nav-item${active ? ' active' : ''}`}
+                                className={`nx-nav-item${active ? 'active' : ''}`}
                             >
                                 <span className="dot" />
                                 <span>{w.name}</span>
@@ -226,7 +221,7 @@ export default function NexusShellLayout({
                         key={item.href}
                         href={item.href}
                         prefetch
-                        className={`nx-nav-item${isActive(item.href) ? ' active' : ''}`}
+                        className={`nx-nav-item${isActive(item.href) ? 'active' : ''}`}
                     >
                         {item.icon}
                         <span>{item.title}</span>

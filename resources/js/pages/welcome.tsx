@@ -2,7 +2,6 @@ import { Head, Link } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { login, register } from '@/routes';
 
-type WelcomeProps = { canRegister?: boolean };
 
 const NexusMark = ({ size = 26 }: { size?: number }) => (
     <svg
@@ -126,21 +125,27 @@ const demoCards = [
     },
 ];
 
-export default function Welcome(_props: WelcomeProps) {
+export default function Welcome() {
     const [openFaq, setOpenFaq] = useState<number | null>(0);
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const root = document.documentElement;
         root.classList.add('mkt-page-root');
+
         return () => root.classList.remove('mkt-page-root');
     }, []);
 
     const toggleCard = (id: string) => {
         setSelected((prev) => {
             const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
+
+            if (next.has(id)) {
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
+
             return next;
         });
     };
@@ -149,9 +154,12 @@ export default function Welcome(_props: WelcomeProps) {
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setSelected(new Set());
+            if (e.key === 'Escape') {
+                setSelected(new Set());
+            }
         };
         window.addEventListener('keydown', onKey);
+
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
@@ -166,7 +174,7 @@ export default function Welcome(_props: WelcomeProps) {
 
             {/* NAV */}
             <nav className="nav">
-                <div className="container nav-inner">
+                <div className="nav-inner container">
                     <a className="brand" href="#">
                         <NexusMark />
                         <span>nexus</span>
@@ -222,8 +230,7 @@ export default function Welcome(_props: WelcomeProps) {
                                     href={register()}
                                     className="btn lg primary"
                                 >
-                                    Start free{' '}
-                                    <span className="arrow">→</span>
+                                    Start free <span className="arrow">→</span>
                                 </Link>
                                 <a href="#demo" className="btn lg">
                                     See the demo
@@ -304,8 +311,8 @@ export default function Welcome(_props: WelcomeProps) {
                                         </h3>
                                         <p>
                                             Cache warmer shipped with stale
-                                            keyspace; pricing-read cascaded
-                                            into a burn.
+                                            keyspace; pricing-read cascaded into
+                                            a burn.
                                         </p>
                                         <div className="mini-grid">
                                             <div className="hp-card sel">
@@ -445,10 +452,7 @@ export default function Welcome(_props: WelcomeProps) {
             </section>
 
             {/* LOGO BAR */}
-            <section
-                className="logobar"
-                style={{ padding: '36px 0 44px' }}
-            >
+            <section className="logobar" style={{ padding: '36px 0 44px' }}>
                 <div className="container">
                     <div className="header">
                         Weekend projects and side-projects using nexus
@@ -495,14 +499,12 @@ export default function Welcome(_props: WelcomeProps) {
                     <div className="section-head">
                         <span className="kicker">How it works</span>
                         <h2>
-                            Three lines of JSON.{' '}
-                            <em>One shareable page.</em>
+                            Three lines of JSON. <em>One shareable page.</em>
                         </h2>
                         <p>
                             Your agent already knows how to produce structured
                             output. Nexus gives that output a home — with
-                            versions, links, and an interface humans don't
-                            hate.
+                            versions, links, and an interface humans don't hate.
                         </p>
                     </div>
 
@@ -531,10 +533,9 @@ export default function Welcome(_props: WelcomeProps) {
                             </div>
                             <h3>Agent emits a snapshot</h3>
                             <p>
-                                POST structured JSON to a workbench. Pick a
-                                view type — table, kanban, deck, flowchart —
-                                Nexus handles rendering, links, and
-                                pagination.
+                                POST structured JSON to a workbench. Pick a view
+                                type — table, kanban, deck, flowchart — Nexus
+                                handles rendering, links, and pagination.
                             </p>
                             <span className="tag">POST /w/incidents</span>
                         </div>
@@ -601,8 +602,8 @@ export default function Welcome(_props: WelcomeProps) {
                             <h3>Humans select, agents continue</h3>
                             <p>
                                 Pick any row, card, or slide-item. Send the
-                                selection back to the agent as a new prompt
-                                with full context. No copy-paste archaeology.
+                                selection back to the agent as a new prompt with
+                                full context. No copy-paste archaeology.
                             </p>
                             <span className="tag">⌘ + ↵</span>
                         </div>
@@ -650,8 +651,8 @@ export default function Welcome(_props: WelcomeProps) {
                             <p>
                                 Switch how the same data renders without
                                 rewriting it. Table today, kanban tomorrow,
-                                slide deck for the weekly share-out — your
-                                agent emits the data once.
+                                slide deck for the weekly share-out — your agent
+                                emits the data once.
                             </p>
                             <div className="views-visual">
                                 <div className="view-tile deck">
@@ -721,8 +722,7 @@ export default function Welcome(_props: WelcomeProps) {
                             <p>
                                 Every agent write is immutable. Diff two
                                 revisions, roll back, or branch a new one from
-                                any point. No more "where did that version
-                                go?"
+                                any point. No more "where did that version go?"
                             </p>
                             <div className="revs-mini">
                                 <div className="rmini-row cur">
@@ -733,8 +733,7 @@ export default function Welcome(_props: WelcomeProps) {
                                             className="note"
                                             style={{ color: 'var(--fg-0)' }}
                                         >
-                                            Added follow-up owners +
-                                            estimates.
+                                            Added follow-up owners + estimates.
                                         </span>
                                     </div>
                                     <span className="time">+6 −0</span>
@@ -754,8 +753,7 @@ export default function Welcome(_props: WelcomeProps) {
                                     <div className="lbl">
                                         rev <b>#05</b> · 11 min{' '}
                                         <span className="note">
-                                            Impact metrics from grafana
-                                            export.
+                                            Impact metrics from grafana export.
                                         </span>
                                     </div>
                                     <span className="time">+4 −0</span>
@@ -900,9 +898,8 @@ export default function Welcome(_props: WelcomeProps) {
                             </div>
                             <h3>Share by URL</h3>
                             <p>
-                                Public, password, or team-scoped. Every
-                                snapshot is a link. Every revision has a
-                                permalink.
+                                Public, password, or team-scoped. Every snapshot
+                                is a link. Every revision has a permalink.
                             </p>
                         </div>
 
@@ -1026,11 +1023,12 @@ export default function Welcome(_props: WelcomeProps) {
                                 <div className="grid4">
                                     {demoCards.map((c) => {
                                         const isSel = selected.has(c.id);
+
                                         return (
                                             <button
                                                 key={c.id}
                                                 type="button"
-                                                className={`demo-card${isSel ? ' sel' : ''}`}
+                                                className={`demo-card${isSel ? 'sel' : ''}`}
                                                 onClick={() => toggleCard(c.id)}
                                             >
                                                 <div className="tick">
@@ -1057,7 +1055,7 @@ export default function Welcome(_props: WelcomeProps) {
                                                     {c.val}
                                                 </span>
                                                 <span
-                                                    className={`dl${c.err ? ' err' : ''}`}
+                                                    className={`dl${c.err ? 'err' : ''}`}
                                                 >
                                                     {c.dl}
                                                 </span>
@@ -1067,7 +1065,7 @@ export default function Welcome(_props: WelcomeProps) {
                                 </div>
 
                                 <div
-                                    className={`demo-selbar${selectedCount === 0 ? ' hidden' : ''}`}
+                                    className={`demo-selbar${selectedCount === 0 ? 'hidden' : ''}`}
                                 >
                                     <span className="n">{selectedCount}</span>
                                     <span className="txt">
@@ -1131,8 +1129,8 @@ export default function Welcome(_props: WelcomeProps) {
                             <em>Just return a snapshot.</em>
                         </h2>
                         <p>
-                            One import, one function call. Works with any
-                            agent framework, any model provider.
+                            One import, one function call. Works with any agent
+                            framework, any model provider.
                         </p>
                     </div>
 
@@ -1146,14 +1144,13 @@ export default function Welcome(_props: WelcomeProps) {
                                 <p>
                                     Install{' '}
                                     <code className="mono">nexus-sdk</code>.
-                                    It's 28KB. No peer deps. Works in Node,
-                                    Bun, Deno, and edge runtimes.
+                                    It's 28KB. No peer deps. Works in Node, Bun,
+                                    Deno, and edge runtimes.
                                 </p>
                             </div>
                             <div className="pt">
                                 <h4>
-                                    <span className="num">02</span> One API
-                                    call
+                                    <span className="num">02</span> One API call
                                 </h4>
                                 <p>
                                     Pass a workbench slug and a typed payload.
@@ -1171,9 +1168,8 @@ export default function Welcome(_props: WelcomeProps) {
                                     <code className="mono">
                                         snapshot.onSelection
                                     </code>{' '}
-                                    to receive the cards the human picked,
-                                    typed and ready to pipe into your next
-                                    prompt.
+                                    to receive the cards the human picked, typed
+                                    and ready to pipe into your next prompt.
                                 </p>
                             </div>
                         </div>
@@ -1209,9 +1205,9 @@ export default function Welcome(_props: WelcomeProps) {
                             Free to start. <em>Honest when you grow.</em>
                         </h2>
                         <p>
-                            No seats. No per-call gotchas. Priced on the
-                            number of workbenches and storage — the things you
-                            can actually feel.
+                            No seats. No per-call gotchas. Priced on the number
+                            of workbenches and storage — the things you can
+                            actually feel.
                         </p>
                     </div>
 
@@ -1272,10 +1268,7 @@ export default function Welcome(_props: WelcomeProps) {
                                 ))}
                             </ul>
                             <div className="cta">
-                                <Link
-                                    href={register()}
-                                    className="btn primary"
-                                >
+                                <Link href={register()} className="btn primary">
                                     Start 14-day trial{' '}
                                     <span className="arrow">→</span>
                                 </Link>
@@ -1336,10 +1329,11 @@ export default function Welcome(_props: WelcomeProps) {
                     <div className="faq-list">
                         {faqItems.map((item, i) => {
                             const open = openFaq === i;
+
                             return (
                                 <div
                                     key={item.q}
-                                    className={`faq${open ? ' open' : ''}`}
+                                    className={`faq${open ? 'open' : ''}`}
                                 >
                                     <button
                                         type="button"
@@ -1368,8 +1362,8 @@ export default function Welcome(_props: WelcomeProps) {
                         Give your agents a <em>home page.</em>
                     </h2>
                     <p>
-                        Free forever plan. 90-second install. No credit card,
-                        no sales call, no dark patterns.
+                        Free forever plan. 90-second install. No credit card, no
+                        sales call, no dark patterns.
                     </p>
                     <div
                         style={{
@@ -1379,8 +1373,7 @@ export default function Welcome(_props: WelcomeProps) {
                         }}
                     >
                         <Link href={register()} className="btn lg primary">
-                            Create a workbench{' '}
-                            <span className="arrow">→</span>
+                            Create a workbench <span className="arrow">→</span>
                         </Link>
                         <a href="#how" className="btn lg">
                             Read the docs
@@ -1408,13 +1401,16 @@ export default function Welcome(_props: WelcomeProps) {
                                     e.preventDefault();
                                     const form =
                                         e.currentTarget as HTMLFormElement;
-                                    const input =
-                                        form.querySelector('input');
-                                    const button =
-                                        form.querySelector('button');
-                                    if (input) input.value = '';
-                                    if (button)
+                                    const input = form.querySelector('input');
+                                    const button = form.querySelector('button');
+
+                                    if (input) {
+                                        input.value = '';
+                                    }
+
+                                    if (button) {
                                         button.textContent = '✓ subscribed';
+                                    }
                                 }}
                             >
                                 <input
