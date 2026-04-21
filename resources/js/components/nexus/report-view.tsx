@@ -13,6 +13,7 @@ import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { cn } from '@/lib/utils';
+import { show as snapshotShow } from '@/routes/workbench/snapshot';
 
 /**
  * REQ-M5-008: client renderer for report view_type. Blocks are iterated in
@@ -136,7 +137,10 @@ function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
 
     const href =
         block.workbench_slug && block.snapshot_slug
-            ? `/workbench/${block.workbench_slug}/${block.snapshot_slug}`
+            ? snapshotShow.url({
+                  workbench: block.workbench_slug,
+                  snapshot: block.snapshot_slug,
+              })
             : null;
 
     return (

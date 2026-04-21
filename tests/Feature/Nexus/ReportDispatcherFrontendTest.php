@@ -48,6 +48,24 @@ it('REQ-M5-008: report view React component ships with expected exports', functi
         ->toContain('data-report-embed-readonly="true"');
 });
 
+it('REQ-M5-008: report embed "Open" link uses the Wayfinder snapshot route (not a hand-built /workbench/... URL that 404s)', function (): void {
+    $source = (string) file_get_contents(resource_path('js/components/nexus/report-view.tsx'));
+
+    // The hand-rolled singular "/workbench/${slug}/${slug}" URL does not
+    // match routes/web.php (which is "/workbenches/{wb}/snapshots/{snap}"),
+    // so clicking the embed "Open" button 404s. Guard against regression by
+    // requiring the Wayfinder-generated route instead.
+    expect($source)
+        ->toContain("from '@/routes/workbench/snapshot'")
+        ->toContain('snapshotShow.url(')
+        ->not->toContain('`/workbench/${');
+
+    // Confirm the underlying Wayfinder route still points at the plural
+    // `/workbenches/...` path so the import above resolves to a real URL.
+    $routeSource = (string) file_get_contents(resource_path('js/routes/workbench/snapshot/index.ts'));
+    expect($routeSource)->toContain('/workbenches/{workbench}/snapshots/{snapshot}');
+});
+
 it('REQ-M5-008: snapshot.tsx dispatcher routes report view_type to ReportView', function (): void {
     $source = (string) file_get_contents(resource_path('js/pages/snapshot.tsx'));
 
