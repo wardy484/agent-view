@@ -1,14 +1,25 @@
 import { Head, Link } from '@inertiajs/react';
 import {
     Activity,
+    Archive,
     ArrowRight,
     Columns3,
     FileText,
+    Inbox,
     KeyRound,
     LayoutList,
     Network,
     Presentation,
+    Search,
+    Trash2,
 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import {
+    WorkbenchCard
+    
+} from '@/components/nexus/workbench-card';
+import type {WorkbenchItem} from '@/components/nexus/workbench-card';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
 import { show as showSnapshot } from '@/routes/workbench/snapshot';
@@ -52,7 +63,10 @@ type DashboardProps = {
     };
     recentSnapshots: RecentSnapshot[];
     viewTypeSamples: ViewTypeSamples;
+    ownedWorkbenches: WorkbenchItem[];
 };
+
+type Tab = 'active' | 'archived' | 'trash';
 
 const viewTypes: {
     key: keyof ViewTypeSamples;
@@ -127,7 +141,72 @@ export default function Dashboard({
     kpis,
     recentSnapshots,
     viewTypeSamples,
+    ownedWorkbenches,
 }: DashboardProps) {
+    const [tab, setTab] = useState<Tab>('active');
+    const [search, setSearch] = useState('');
+
+    const tabCounts = useMemo(() => {
+        const counts = { active: 0, archived: 0, trash: 0 };
+
+        for (const w of ownedWorkbenches) {
+            if (w.deleted_at !== null) {
+                counts.trash += 1;
+            } else if (w.archived_at !== null) {
+                counts.archived += 1;
+            } else {
+                counts.active += 1;
+            }
+        }
+
+        return counts;
+    }, [ownedWorkbenches]);
+
+    const filteredWorkbenches = useMemo(() => {
+        const term = search.trim().toLowerCase();
+        const matchesTab = (w: WorkbenchItem): boolean => {
+            if (w.deleted_at !== null) {
+return tab === 'trash';
+}
+
+            if (w.archived_at !== null) {
+return tab === 'archived';
+}
+
+            return tab === 'active';
+        };
+        const matchesSearch = (w: WorkbenchItem): boolean =>
+            term.length === 0 ||
+            w.name.toLowerCase().includes(term) ||
+            w.slug.toLowerCase().includes(term);
+
+        // REQ-M6-007: within the Active tab, pinned workbenches float to the
+        // top; otherwise the server-side `last_activity_at desc` order wins.
+        return ownedWorkbenches
+            .filter((w) => matchesTab(w) && matchesSearch(w))
+            .slice()
+            .sort((a, b) => {
+                if (tab !== 'active') {
+return 0;
+}
+
+                const aPin = a.pinned_at !== null ? 1 : 0;
+                const bPin = b.pinned_at !== null ? 1 : 0;
+
+                return bPin - aPin;
+            });
+    }, [ownedWorkbenches, tab, search]);
+
+    const tabs: {
+        key: Tab;
+        label: string;
+        icon: React.ReactNode;
+    }[] = [
+        { key: 'active', label: 'Active', icon: <Inbox size={13} /> },
+        { key: 'archived', label: 'Archived', icon: <Archive size={13} /> },
+        { key: 'trash', label: 'Trash', icon: <Trash2 size={13} /> },
+    ];
+
     const kpiCards = [
         {
             label: 'workbenches',
@@ -205,6 +284,108 @@ export default function Dashboard({
                                 </div>
                             </div>
                         ))}
+                    </div>
+
+                    <div
+                        className="mt-8 flex flex-wrap items-baseline gap-3"
+                        data-test="workbenches-section"
+                    >
+                        <h2 className="font-serif text-[22px] leading-none tracking-tight text-[color:var(--fg-0)]">
+                            workbenches
+                        </h2>
+                        <span className="font-mono text-[11.5px] text-[color:var(--fg-3)]">
+                            organise, pin, archive, or restore your workbenches
+                        </span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div
+                            className="inline-flex rounded-[var(--radius-md)] border border-[color:var(--line)] bg-[color:var(--bg-2)] p-0.5"
+                            role="tablist"
+                            aria-label="Workbench filter"
+                        >
+                            {tabs.map((t) => {
+                                const active = tab === t.key;
+                                const count = tabCounts[t.key];
+
+                                return (
+                                    <button
+                                        key={t.key}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={active}
+                                        data-test={`workbench-tab-${t.key}`}
+                                        onClick={() => setTab(t.key)}
+                                        className={cn(
+                                            'inline-flex items-center gap-1.5 rounded-[var(--radius-sm)] px-2.5 py-1 font-mono text-[11.5px] tracking-wide',
+                                            active
+                                                ? 'bg-[color:var(--bg-0)] text-[color:var(--fg-0)] shadow-sm'
+                                                : 'text-[color:var(--fg-3)] hover:text-[color:var(--fg-0)]',
+                                        )}
+                                    >
+                                        {t.icon}
+                                        {t.label}
+                                        <span
+                                            className={cn(
+                                                'rounded-full px-1.5 py-[1px] text-[10px]',
+                                                active
+                                                    ? 'bg-[color:var(--bg-2)] text-[color:var(--fg-2)]'
+                                                    : 'text-[color:var(--fg-3)]',
+                                            )}
+                                        >
+                                            {count}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        <label className="relative flex min-w-[220px] items-center sm:w-72">
+                            <Search
+                                size={13}
+                                className="pointer-events-none absolute left-2.5 text-[color:var(--fg-3)]"
+                            />
+                            <input
+                                type="search"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder="Search name or slug…"
+                                aria-label="Search workbenches"
+                                data-test="workbench-search"
+                                className="w-full rounded-[var(--radius-md)] border border-[color:var(--line)] bg-[color:var(--bg-2)] py-1.5 pl-7 pr-2 font-mono text-[12px] text-[color:var(--fg-0)] outline-none placeholder:text-[color:var(--fg-3)] focus:border-[color:var(--fg-2)]"
+                            />
+                        </label>
+                    </div>
+                    <div className="mt-3" data-test="workbench-list">
+                        {filteredWorkbenches.length === 0 ? (
+                            <div className="nx-card flex flex-col items-center gap-1 px-4 py-10 text-center font-mono text-[12px] text-[color:var(--fg-3)]">
+                                {tab === 'trash' &&
+                                    tabCounts.trash === 0 &&
+                                    'Trash is empty. Deleted workbenches appear here for 30 days.'}
+                                {tab === 'archived' &&
+                                    tabCounts.archived === 0 &&
+                                    'No archived workbenches.'}
+                                {tab === 'active' &&
+                                    tabCounts.active === 0 &&
+                                    search.trim().length === 0 &&
+                                    'No workbenches yet. Agents create them on first call.'}
+                                {((tab === 'active' && tabCounts.active > 0) ||
+                                    (tab === 'archived' &&
+                                        tabCounts.archived > 0) ||
+                                    (tab === 'trash' && tabCounts.trash > 0) ||
+                                    search.trim().length > 0) &&
+                                    filteredWorkbenches.length === 0 &&
+                                    'No workbenches match your search.'}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                                {filteredWorkbenches.map((w) => (
+                                    <WorkbenchCard
+                                        key={w.slug}
+                                        workbench={w}
+                                        tab={tab}
+                                    />
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="mt-8 flex items-baseline gap-3">

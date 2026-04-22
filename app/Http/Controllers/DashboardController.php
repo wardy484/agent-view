@@ -24,6 +24,8 @@ class DashboardController extends Controller
         $revisionsToday = SnapshotVersion::where('created_at', '>=', $startOfDay)->count();
         $mcpCallsToday = McpCallLog::where('created_at', '>=', $startOfDay)->count();
 
+        $ownedWorkbenches = $this->ownedWorkbenches($request);
+
         $recentVersions = SnapshotVersion::query()
             ->with(['snapshot.workbench'])
             ->orderByDesc('created_at')
@@ -52,7 +54,54 @@ class DashboardController extends Controller
             ],
             'recentSnapshots' => $recentVersions,
             'viewTypeSamples' => $viewTypeSamples,
+            'ownedWorkbenches' => $ownedWorkbenches,
         ]);
+    }
+
+    /**
+     * REQ-M6-007: workbenches owned by the current user, including archived
+     * and soft-deleted rows, sorted by `last_activity_at desc`. The client
+     * splits this list into Active / Archived / Trash tabs.
+     *
+     * @return list<array{
+     *     slug: string,
+     *     name: string,
+     *     snapshot_count: int,
+     *     pinned_at: ?string,
+     *     archived_at: ?string,
+     *     deleted_at: ?string,
+     *     last_activity_at: ?string,
+     *     last_activity_human: ?string,
+     *     latest_snapshot_slug: ?string,
+     * }>
+     */
+    private function ownedWorkbenches(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return [];
+        }
+
+        return Workbench::withTrashed()
+            ->where('owner_user_id', $user->id)
+            ->withCount('snapshots')
+            ->with(['snapshots' => fn ($q) => $q->latest('updated_at')->limit(1)])
+            ->orderByRaw('last_activity_at DESC NULLS LAST')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Workbench $w) => [
+                'slug' => $w->slug,
+                'name' => $w->name,
+                'snapshot_count' => (int) $w->snapshots_count,
+                'pinned_at' => $w->pinned_at?->toIso8601String(),
+                'archived_at' => $w->archived_at?->toIso8601String(),
+                'deleted_at' => $w->deleted_at?->toIso8601String(),
+                'last_activity_at' => $w->last_activity_at?->toIso8601String(),
+                'last_activity_human' => $w->last_activity_at?->diffForHumans(syntax: CarbonInterface::DIFF_ABSOLUTE, short: true),
+                'latest_snapshot_slug' => $w->snapshots->first()?->slug,
+            ])
+            ->all();
     }
 
     /**
