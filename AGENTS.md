@@ -66,6 +66,15 @@ Never skip a step. Never invent requirements the spec doesn't list.
    ./scripts/worktree-destroy.sh <your-branch-name>
    ```
 
+> **Automation note.** When you are working inside an orchestrator-managed
+> Polyscope workspace, steps 1 (worktree bootstrap) and 7 (worktree
+> teardown after merge) may already have been performed for you, and the
+> next REQ-ID may have been chosen up front. The contract above is still
+> the canonical contract — automation only wraps it; it does not replace
+> any step or excuse skipping the local gate in step 6. If you are unsure
+> whether a step has been done for you, run it yourself; the scripts and
+> `spec:check --next` are idempotent.
+
 ## Never Do
 
 - **Never edit `docs/nexus-spec.md` casually.** Spec changes need their own PR
