@@ -54,12 +54,12 @@ it('REQ-M4-007: signed-in users see a shared_with_me list on every Inertia page'
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('sharing.shared_with_me', 2)
-            ->where('sharing.shared_with_me.0.workbench_slug', fn ($slug) => in_array($slug, [$wbA->slug, $wbB->slug], true))
+            ->has('nav.shared_with_me', 2)
+            ->where('nav.shared_with_me.0.workbench_slug', fn ($slug) => in_array($slug, [$wbA->slug, $wbB->slug], true))
         );
 });
 
-it('REQ-M4-007: guests receive empty sharing payloads', function (): void {
+it('REQ-M4-007: guests receive empty nav payloads', function (): void {
     $this->withoutVite()
         ->get(route('dashboard'))
         ->assertRedirect(); // dashboard is auth-gated; guests bounce.
@@ -84,7 +84,7 @@ it('REQ-M4-007: email-only share rows (user_id=null) still surface to the matchi
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('sharing.shared_with_me', 1)
+            ->has('nav.shared_with_me', 1)
         );
 });
 
@@ -108,8 +108,8 @@ it('REQ-M4-007: owner sidebar exposes share_count + has_link badges for owned sn
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->has('sharing.owned_badges')
-            ->where('sharing.owned_badges', function ($badges) use ($quiet, $withShares, $withLink) {
+            ->has('nav.owned_badges')
+            ->where('nav.owned_badges', function ($badges) use ($quiet, $withShares, $withLink) {
                 $bySlug = collect($badges)->keyBy('snapshot_slug');
 
                 return ($bySlug[$quiet->slug]['share_count'] ?? null) === 0
@@ -138,7 +138,7 @@ it('REQ-M4-007: revoked shares do not contribute to the share_count badge', func
         ->get(route('dashboard'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('sharing.owned_badges', function ($badges) use ($snapshot) {
+            ->where('nav.owned_badges', function ($badges) use ($snapshot) {
                 $entry = collect($badges)->firstWhere('snapshot_slug', $snapshot->slug);
 
                 return ($entry['share_count'] ?? null) === 0;

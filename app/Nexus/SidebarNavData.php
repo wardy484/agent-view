@@ -8,21 +8,27 @@ use App\Enums\SnapshotVisibility;
 use App\Models\Snapshot;
 use App\Models\SnapshotShare;
 use App\Models\User;
+use App\Models\Workbench;
 
 /**
- * REQ-M4-007: builds the sidebar data shared on every Inertia response for
+ * Builds the sidebar nav data shared on every Inertia response for
  * signed-in users.
  *
- * - `shared_with_me`: snapshots the user can see through an unrevoked
- *   `snapshot_shares` row (resolved by `user_id` OR case-insensitive email).
- * - `owned_badges`: for every snapshot the user owns, the active share count
- *   and whether it has an active link token. The sidebar renders a badge when
- *   either signal is non-zero.
+ * - `pinned` / `recent` (REQ-M6-008): owner-scoped workbench shortcuts
+ *   populated behind a single eager-loaded query per request.
+ * - `shared_with_me` (REQ-M4-007): snapshots the user can see through an
+ *   unrevoked `snapshot_shares` row (resolved by `user_id` OR
+ *   case-insensitive email).
+ * - `owned_badges` (REQ-M4-007): for every snapshot the user owns, the
+ *   active share count and whether it has an active link token. The
+ *   sidebar renders a badge when either signal is non-zero.
  */
-class SidebarSharingData
+class SidebarNavData
 {
     /**
      * @return array{
+     *     pinned: list<array{slug:string,name:string,url:string}>,
+     *     recent: list<array{slug:string,name:string,url:string}>,
      *     shared_with_me: list<array{snapshot_id:int,snapshot_slug:string,snapshot_title:?string,workbench_slug:string,workbench_name:string,url:string}>,
      *     owned_badges: list<array{snapshot_id:int,snapshot_slug:string,workbench_slug:string,share_count:int,has_link:bool}>
      * }
@@ -30,12 +36,78 @@ class SidebarSharingData
     public function for(?User $user): array
     {
         if ($user === null) {
-            return ['shared_with_me' => [], 'owned_badges' => []];
+            return [
+                'pinned' => [],
+                'recent' => [],
+                'shared_with_me' => [],
+                'owned_badges' => [],
+            ];
         }
 
+        [$pinned, $recent] = $this->pinnedAndRecent($user);
+
         return [
+            'pinned' => $pinned,
+            'recent' => $recent,
             'shared_with_me' => $this->sharedWithMe($user),
             'owned_badges' => $this->ownedBadges($user),
+        ];
+    }
+
+    /**
+     * REQ-M6-008: single eager-loaded query returns every non-archived
+     * workbench owned by the user plus its latest snapshot slug (for the
+     * link target). We split in PHP: pinned rows (ordered by
+     * `pinned_at desc`) and up to 5 non-pinned rows (ordered by
+     * `last_activity_at desc`).
+     *
+     * @return array{0: list<array{slug:string,name:string,url:string}>, 1: list<array{slug:string,name:string,url:string}>}
+     */
+    private function pinnedAndRecent(User $user): array
+    {
+        $workbenches = Workbench::query()
+            ->where('owner_user_id', $user->id)
+            ->whereNull('archived_at')
+            ->with(['snapshots' => fn ($q) => $q->latest('updated_at')->limit(1)])
+            ->orderByRaw('pinned_at DESC NULLS LAST')
+            ->orderByRaw('last_activity_at DESC NULLS LAST')
+            ->orderByDesc('created_at')
+            ->get();
+
+        $pinned = $workbenches
+            ->filter(fn (Workbench $w) => $w->pinned_at !== null)
+            ->map(fn (Workbench $w) => $this->workbenchLink($w))
+            ->values()
+            ->all();
+
+        $recent = $workbenches
+            ->filter(fn (Workbench $w) => $w->pinned_at === null)
+            ->take(5)
+            ->map(fn (Workbench $w) => $this->workbenchLink($w))
+            ->values()
+            ->all();
+
+        return [$pinned, $recent];
+    }
+
+    /**
+     * @return array{slug:string,name:string,url:string}
+     */
+    private function workbenchLink(Workbench $workbench): array
+    {
+        $latest = $workbench->snapshots->first();
+
+        $url = $latest !== null
+            ? route('workbench.snapshot.show', [
+                'workbench' => $workbench->slug,
+                'snapshot' => $latest->slug,
+            ])
+            : route('workbench.agent-activity', ['workbench' => $workbench->slug]);
+
+        return [
+            'slug' => $workbench->slug,
+            'name' => $workbench->name,
+            'url' => $url,
         ];
     }
 

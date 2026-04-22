@@ -1,5 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
-import { KeyRound, LayoutGrid, Users2 } from 'lucide-react';
+import { Clock, KeyRound, LayoutGrid, Pin, Users2 } from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
@@ -32,7 +32,14 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-// REQ-M4-007: shape of the `sharing` prop injected by HandleInertiaRequests.
+// REQ-M6-008 / REQ-M4-007: shape of the `nav` prop injected by
+// HandleInertiaRequests.
+type WorkbenchLink = {
+    slug: string;
+    name: string;
+    url: string;
+};
+
 type SharedSnapshot = {
     snapshot_id: number;
     snapshot_slug: string;
@@ -42,7 +49,9 @@ type SharedSnapshot = {
     url: string;
 };
 
-type SharingPayload = {
+type NavPayload = {
+    pinned: WorkbenchLink[];
+    recent: WorkbenchLink[];
     shared_with_me: SharedSnapshot[];
     owned_badges: Array<{
         snapshot_id: number;
@@ -54,8 +63,10 @@ type SharingPayload = {
 };
 
 export function AppSidebar() {
-    const page = usePage<{ sharing?: SharingPayload }>();
-    const sharedWithMe = page.props.sharing?.shared_with_me ?? [];
+    const page = usePage<{ nav?: NavPayload }>();
+    const pinned = page.props.nav?.pinned ?? [];
+    const recent = page.props.nav?.recent ?? [];
+    const sharedWithMe = page.props.nav?.shared_with_me ?? [];
 
     return (
         <Sidebar collapsible="icon" variant="inset">
@@ -73,6 +84,54 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+
+                {pinned.length > 0 ? (
+                    <SidebarGroup data-testid="sidebar-pinned">
+                        <SidebarGroupLabel>
+                            <Pin className="size-4" />
+                            Pinned
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {pinned.map((entry) => (
+                                    <SidebarMenuItem key={entry.slug}>
+                                        <SidebarMenuButton asChild>
+                                            <Link href={entry.url} prefetch>
+                                                <span className="truncate">
+                                                    {entry.name}
+                                                </span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ) : null}
+
+                {recent.length > 0 ? (
+                    <SidebarGroup data-testid="sidebar-recent">
+                        <SidebarGroupLabel>
+                            <Clock className="size-4" />
+                            Recent
+                        </SidebarGroupLabel>
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {recent.map((entry) => (
+                                    <SidebarMenuItem key={entry.slug}>
+                                        <SidebarMenuButton asChild>
+                                            <Link href={entry.url} prefetch>
+                                                <span className="truncate">
+                                                    {entry.name}
+                                                </span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                ))}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
+                ) : null}
 
                 {sharedWithMe.length > 0 ? (
                     <SidebarGroup data-testid="sidebar-shared-with-me">
