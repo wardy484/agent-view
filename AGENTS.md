@@ -71,9 +71,19 @@ Never skip a step. Never invent requirements the spec doesn't list.
 > teardown after merge) may already have been performed for you, and the
 > next REQ-ID may have been chosen up front. The contract above is still
 > the canonical contract — automation only wraps it; it does not replace
-> any step or excuse skipping the local gate in step 6. If you are unsure
-> whether a step has been done for you, run it yourself; the scripts and
-> `spec:check --next` are idempotent.
+> any step or excuse skipping the local gate in step 6.
+>
+> Do **not** invoke `scripts/worktree-bootstrap.sh` or
+> `scripts/worktree-destroy.sh` from inside an existing worktree — both
+> derive `WORKTREE_ROOT` from `git rev-parse --show-toplevel`'s parent,
+> so running them from `.../nexus-ui-worktrees/<branch>` resolves to
+> `.../nexus-ui-worktrees/nexus-ui-worktrees/<branch>`. They are only
+> safe to run from the primary checkout (the orchestrator's entrypoint,
+> or your local clone of `main`). If you need a worktree action and you
+> are already inside one, `cd "$(git rev-parse --show-toplevel)/.."` to
+> the worktree root, then into the primary checkout, before invoking
+> the script. `php artisan spec:check --next` has no such constraint
+> and can be run from anywhere.
 
 ## Never Do
 
