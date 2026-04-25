@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Nexus;
 
+use App\Events\SnapshotVersionAppended;
 use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Nexus\Renderers\FlowchartPreviewRenderer;
@@ -26,6 +27,13 @@ use Throwable;
  */
 class SnapshotVersioning
 {
+    /**
+     * REQ-M7-004: maximum JSON-serialised size of `metadata.orchestrator`.
+     * 32 KB is plenty for scout outputs / dependency DAG / subagent IDs and
+     * keeps the row from ballooning the `metadata` JSONB column.
+     */
+    public const ORCHESTRATOR_METADATA_MAX_BYTES = 32 * 1024;
+
     private static bool $writing = false;
 
     /**
@@ -45,6 +53,15 @@ class SnapshotVersioning
         ?array $metadata = null,
         ?string $previewHtml = null,
     ): SnapshotVersion {
+        // REQ-M7-004: enforce the 32 KB cap on `metadata.orchestrator` before
+        // any DB work so an oversized blob never lands a partial revision.
+        // The blob's inner shape is free-form — the orchestrator owns its own
+        // contract — so we only validate (a) it's a JSON-serialisable
+        // array/object and (b) its serialised length is within the cap.
+        if ($metadata !== null && array_key_exists('orchestrator', $metadata)) {
+            self::guardOrchestratorMetadata($metadata['orchestrator']);
+        }
+
         // REQ-M6-001: for report payloads, normalise block ids by carrying
         // forward from the previous version's blocks where bodies match by
         // sha1. The MCP-layer call to ReportViewSchema::validate() runs
@@ -62,7 +79,7 @@ class SnapshotVersioning
         // REQ-M1-012: render the preview at write-time so reads never re-render.
         $previewHtml ??= self::renderPreview($viewType, $dataPayload);
 
-        return self::runAuthorised(fn (): SnapshotVersion => DB::transaction(function () use ($snapshot, $viewType, $dataPayload, $metadata, $previewHtml): SnapshotVersion {
+        $version = self::runAuthorised(fn (): SnapshotVersion => DB::transaction(function () use ($snapshot, $viewType, $dataPayload, $metadata, $previewHtml): SnapshotVersion {
             // Pessimistic lock — blocks any other append() against this snapshot.
             Snapshot::query()->whereKey($snapshot->getKey())->lockForUpdate()->first();
 
@@ -96,6 +113,15 @@ class SnapshotVersioning
 
             return $version;
         }));
+
+        // REQ-M7-002: broadcast AFTER the transaction commits and
+        // current_version_id has been bumped. Firing post-commit avoids
+        // notifying subscribers about a revision that may roll back, and
+        // guarantees the snapshot row is consistent with the broadcast
+        // payload before any subscriber re-fetches.
+        broadcast(new SnapshotVersionAppended($version));
+
+        return $version;
     }
 
     /**
@@ -220,6 +246,36 @@ class SnapshotVersioning
             'report' => ReportPreviewRenderer::render($payload),
             default => null,
         };
+    }
+
+    /**
+     * REQ-M7-004: validate the `metadata.orchestrator` blob.
+     *
+     * The blob is intentionally free-form — anything that survives a
+     * JSON encode round-trip is acceptable shape-wise. The only hard rule
+     * is the 32 KB serialised cap; we throw {@see OrchestratorMetadataTooLargeException}
+     * on overflow rather than silently truncating so the orchestrator is
+     * forced to summarise / spill state itself.
+     */
+    private static function guardOrchestratorMetadata(mixed $orchestrator): void
+    {
+        $encoded = json_encode($orchestrator, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        if ($encoded === false) {
+            throw new OrchestratorMetadataTooLargeException(
+                'metadata.orchestrator must be JSON-serialisable: '.json_last_error_msg()
+            );
+        }
+
+        $bytes = strlen($encoded);
+
+        if ($bytes > self::ORCHESTRATOR_METADATA_MAX_BYTES) {
+            throw new OrchestratorMetadataTooLargeException(sprintf(
+                'metadata.orchestrator exceeds the %d-byte cap (got %d bytes serialised).',
+                self::ORCHESTRATOR_METADATA_MAX_BYTES,
+                $bytes,
+            ));
+        }
     }
 
     /**

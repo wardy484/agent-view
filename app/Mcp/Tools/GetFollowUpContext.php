@@ -6,6 +6,7 @@ namespace App\Mcp\Tools;
 
 use App\Mcp\Support\McpCallLogger;
 use App\Models\FollowUpContext;
+use App\Models\Snapshot;
 use App\Models\Workbench;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Facades\DB;
@@ -68,12 +69,39 @@ class GetFollowUpContext extends Tool
                 ->whereIn('id', $ids)
                 ->update(['consumed_at' => now()]);
 
-            return array_map(static fn (FollowUpContext $row): array => [
-                'id' => (int) $row->id,
-                'snapshot_id' => $row->snapshot_id,
-                'payload' => $row->payload,
-                'created_at' => $row->created_at?->toIso8601String(),
-            ], $rows);
+            // REQ-M7-004: surface each referenced snapshot's current-version
+            // metadata (including the optional `orchestrator` blob) verbatim
+            // so `/feature --resume` can reconstruct full state without a
+            // second round-trip through `SnapshotController@show`.
+            $snapshotIds = array_values(array_filter(array_map(
+                static fn (FollowUpContext $row): ?int => $row->snapshot_id !== null ? (int) $row->snapshot_id : null,
+                $rows,
+            )));
+
+            $metadataBySnapshotId = $snapshotIds === []
+                ? []
+                : Snapshot::query()
+                    ->whereIn('id', $snapshotIds)
+                    ->with('currentVersion:id,metadata')
+                    ->get(['id', 'current_version_id'])
+                    ->mapWithKeys(static fn (Snapshot $snapshot): array => [
+                        (int) $snapshot->id => $snapshot->currentVersion?->metadata,
+                    ])
+                    ->all();
+
+            return array_map(static function (FollowUpContext $row) use ($metadataBySnapshotId): array {
+                $snapshotId = $row->snapshot_id !== null ? (int) $row->snapshot_id : null;
+
+                return [
+                    'id' => (int) $row->id,
+                    'snapshot_id' => $row->snapshot_id,
+                    'payload' => $row->payload,
+                    'metadata' => $snapshotId !== null && array_key_exists($snapshotId, $metadataBySnapshotId)
+                        ? $metadataBySnapshotId[$snapshotId]
+                        : null,
+                    'created_at' => $row->created_at?->toIso8601String(),
+                ];
+            }, $rows);
         });
 
         $payloadsJson = json_encode($contexts, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

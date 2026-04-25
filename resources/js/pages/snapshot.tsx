@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -139,6 +139,66 @@ export default function SnapshotPage(props: Props) {
         props.workbench.slug,
     );
 
+    // REQ-M7-003: a brief fade-out / fade-in flag toggled when an Echo push
+    // triggers a partial reload. We swap opacity for 200 ms so the user gets a
+    // visual cue that the workbench just refreshed itself.
+    const [isFading, setIsFading] = useState(false);
+
+    // REQ-M7-003: subscribe to the snapshot's private broadcast channel so
+    // SnapshotVersionAppended events trigger an Inertia partial reload of
+    // just the bits that change (`snapshot`, `currentRevision`). Falls back
+    // silently when Echo is unavailable — Reverb is an optimisation, not a
+    // hard dependency. The 8-second poll path (REQ-M6-016, wired above via
+    // useSidebarPolling) covers that case unconditionally, so this effect is
+    // purely additive: when Echo is reachable we get instant updates, when it
+    // is not the poll keeps the sidebar fresh on its 8-second cadence.
+    const snapshotId = props.snapshot.id;
+    const liveRevision = props.version.revision;
+    useEffect(() => {
+        const echo = (window as { Echo?: { private: (channel: string) => { listen: (event: string, cb: (payload: { revision: number }) => void) => unknown }; leave: (channel: string) => void } }).Echo;
+
+        if (!echo) {
+            // REQ-M6-016: poll fallback is already running unconditionally via
+            // useSidebarPolling above, so when Echo is unavailable we simply
+            // no-op here and let the 8-second loop carry the workbench.
+            return;
+        }
+
+        const channelName = `snapshot.${snapshotId}`;
+
+        try {
+            const channel = echo.private(channelName);
+            channel.listen('.SnapshotVersionAppended', (payload: { revision: number }) => {
+                if (typeof payload?.revision === 'number' && payload.revision > liveRevision) {
+                    setIsFading(true);
+                    router.reload({
+                        only: ['snapshot', 'currentRevision'],
+                        onFinish: () => {
+                            // 200 ms fade transition then restore opacity.
+                            window.setTimeout(() => setIsFading(false), 200);
+                        },
+                    });
+                }
+            });
+
+            return () => {
+                try {
+                    echo.leave(`private-${channelName}`);
+                } catch (error) {
+                    // Defensive: leave should never throw, but swallow to keep
+                    // unmount clean.
+                    console.warn('[snapshot] Echo.leave failed', error);
+                }
+            };
+        } catch (error) {
+            // REQ-M6-016: Echo failed mid-subscribe — log and rely on the
+            // useSidebarPolling 8-second fallback to keep the page fresh.
+            console.warn('[snapshot] Echo subscription failed; falling back to poll', error);
+
+            return;
+        }
+    }, [snapshotId, liveRevision]);
+
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
     useEffect(() => {
@@ -164,25 +224,33 @@ export default function SnapshotPage(props: Props) {
     const fullBleed = isPreview || isFullscreen;
     const showHomeButton = isPreview || isFullscreen;
 
+    // REQ-M7-003: wrap the body in a 200 ms opacity transition so the swap
+    // triggered by an Echo push is visually announced. `transition-opacity
+    // duration-200` is the Tailwind primitive — no custom CSS file needed.
     const body = (
-        <SnapshotBody
-            workbench={props.workbench}
-            snapshot={props.snapshot}
-            version={props.version}
-            versions={props.versions}
-            showWorkbenchHeader={showWorkbenchHeader}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={() => setIsFullscreen((current) => !current)}
-            fullBleed={fullBleed}
-            isOwner={is_owner}
-            isPublicLink={is_public_link}
-            visibility={visibility}
-            shareUrl={share_url}
-            shares={shares}
-            comments={comments}
-            versionHistory={versionHistory}
-            isHistoricalView={is_historical_view}
-        />
+        <div
+            data-testid="nexus-snapshot-fade"
+            className={cn('transition-opacity duration-200', isFading ? 'opacity-50' : 'opacity-100')}
+        >
+            <SnapshotBody
+                workbench={props.workbench}
+                snapshot={props.snapshot}
+                version={props.version}
+                versions={props.versions}
+                showWorkbenchHeader={showWorkbenchHeader}
+                isFullscreen={isFullscreen}
+                onToggleFullscreen={() => setIsFullscreen((current) => !current)}
+                fullBleed={fullBleed}
+                isOwner={is_owner}
+                isPublicLink={is_public_link}
+                visibility={visibility}
+                shareUrl={share_url}
+                shares={shares}
+                comments={comments}
+                versionHistory={versionHistory}
+                isHistoricalView={is_historical_view}
+            />
+        </div>
     );
 
     const heading = props.snapshot.title ?? props.snapshot.slug;

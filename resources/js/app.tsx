@@ -1,6 +1,7 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import './echo';
 import { initializeTheme } from '@/hooks/use-appearance';
 import { pickLayout } from '@/lib/resolve-layout';
 

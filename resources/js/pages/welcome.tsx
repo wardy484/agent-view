@@ -2,8 +2,6 @@ import { Head, Link } from '@inertiajs/react';
 import { useEffect, useState } from 'react';
 import { login, register } from '@/routes';
 
-type WelcomeProps = { canRegister?: boolean };
-
 const NexusMark = ({ size = 26 }: { size?: number }) => (
     <svg
         width={size}
@@ -126,21 +124,27 @@ const demoCards = [
     },
 ];
 
-export default function Welcome(_props: WelcomeProps) {
+export default function Welcome() {
     const [openFaq, setOpenFaq] = useState<number | null>(0);
     const [selected, setSelected] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         const root = document.documentElement;
         root.classList.add('mkt-page-root');
+
         return () => root.classList.remove('mkt-page-root');
     }, []);
 
     const toggleCard = (id: string) => {
         setSelected((prev) => {
             const next = new Set(prev);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
+
+            if (next.has(id)) {
+next.delete(id);
+} else {
+next.add(id);
+}
+
             return next;
         });
     };
@@ -149,9 +153,12 @@ export default function Welcome(_props: WelcomeProps) {
 
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setSelected(new Set());
+            if (e.key === 'Escape') {
+setSelected(new Set());
+}
         };
         window.addEventListener('keydown', onKey);
+
         return () => window.removeEventListener('keydown', onKey);
     }, []);
 
@@ -956,7 +963,7 @@ export default function Welcome(_props: WelcomeProps) {
                         </p>
                     </div>
 
-                    <div className="demo-shell">
+                    <div className="demo-shell min-w-0 max-w-full overflow-hidden">
                         <div className="demo-head">
                             <div className="dots">
                                 <span />
@@ -972,7 +979,7 @@ export default function Welcome(_props: WelcomeProps) {
                                 <button className="demo-tab">JSON</button>
                             </div>
                         </div>
-                        <div className="demo-body">
+                        <div className="demo-body min-w-0 max-w-full overflow-x-auto">
                             <aside className="demo-side">
                                 <div className="sec">Slides</div>
                                 <div className="it">
@@ -1013,7 +1020,7 @@ export default function Welcome(_props: WelcomeProps) {
                                     #05 · 11 min ago
                                 </div>
                             </aside>
-                            <div className="demo-view">
+                            <div className="demo-view min-w-0">
                                 <div className="chip-row">
                                     <span className="hp-chip">slide_deck</span>
                                     <h3>Impact — customer-facing</h3>
@@ -1026,6 +1033,7 @@ export default function Welcome(_props: WelcomeProps) {
                                 <div className="grid4">
                                     {demoCards.map((c) => {
                                         const isSel = selected.has(c.id);
+
                                         return (
                                             <button
                                                 key={c.id}
@@ -1336,6 +1344,7 @@ export default function Welcome(_props: WelcomeProps) {
                     <div className="faq-list">
                         {faqItems.map((item, i) => {
                             const open = openFaq === i;
+
                             return (
                                 <div
                                     key={item.q}
@@ -1412,9 +1421,14 @@ export default function Welcome(_props: WelcomeProps) {
                                         form.querySelector('input');
                                     const button =
                                         form.querySelector('button');
-                                    if (input) input.value = '';
-                                    if (button)
-                                        button.textContent = '✓ subscribed';
+
+                                    if (input) {
+input.value = '';
+}
+
+                                    if (button) {
+button.textContent = '✓ subscribed';
+}
                                 }}
                             >
                                 <input

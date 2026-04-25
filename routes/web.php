@@ -12,6 +12,9 @@ use App\Http\Controllers\Snapshots\CommentReplyController;
 use App\Http\Controllers\Snapshots\CommentStatusController;
 use App\Http\Controllers\Snapshots\SnapshotSidebarController;
 use App\Http\Controllers\SnapshotShareController;
+use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
@@ -106,5 +109,34 @@ Route::middleware(['web', 'auth'])
         Route::post('/reactions', [CommentReactionController::class, 'toggle'])->name('reactions.toggle');
         Route::patch('/status', [CommentStatusController::class, 'update'])->name('status.update');
     });
+
+// Dev-only auth bypass for the /ui-review skill: a single GET hit logs in the
+// seeded review user without going through the Fortify login form. The route
+// is ONLY registered in the local environment — in any other env this file
+// never declares it, so it 404s. If it ever stops 404ing in production, that
+// is a security incident.
+if (app()->environment('local')) {
+    Route::get('/__dev-login', function (Request $request) {
+        $user = User::query()
+            ->where('email', 'ui-reviewer@gentle-toucan.test')
+            ->first();
+
+        if ($user === null) {
+            abort(404, 'Review user not seeded. Run: php artisan nexus:seed-review-user');
+        }
+
+        Auth::login($user);
+
+        info('dev-login used', ['user' => $user->id]);
+
+        $redirect = $request->query('redirect');
+
+        if (is_string($redirect) && str_starts_with($redirect, '/') && ! str_contains($redirect, '://')) {
+            return redirect($redirect);
+        }
+
+        return redirect('/dashboard');
+    });
+}
 
 require __DIR__.'/settings.php';

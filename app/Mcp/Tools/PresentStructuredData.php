@@ -57,12 +57,24 @@ class PresentStructuredData extends Tool
         $existing = Workbench::query()->where('slug', $slug)->first();
         $callerId = Auth::id();
 
+        // REQ-M7-001: when this call appends a new revision to an existing
+        // kanban snapshot, look up that snapshot's current data_payload so
+        // the schema can carry forward card ids by `(column_key, title)`.
+        $previousPayload = null;
+
+        if ($viewType === 'kanban' && $existing !== null) {
+            $previousPayload = $this->resolvePreviousPayloadForCarryForward(
+                workbench: $existing,
+                snapshotIdentifier: $request->get('snapshot_id'),
+            );
+        }
+
         // REQ-M1-008: run the view-specific schema validator BEFORE any
         // workbench/snapshot rows are created so invalid payloads never
         // leak side effects. Surfaces the validator's dot-path error
         // message as an MCP tool error.
         try {
-            $dataPayload = $this->validateDataPayload($viewType, $dataPayload, $existing?->id);
+            $dataPayload = $this->validateDataPayload($viewType, $dataPayload, $existing?->id, $previousPayload);
         } catch (
             TableViewSchemaException
             |SlideDeckViewSchemaException
@@ -195,16 +207,53 @@ class PresentStructuredData extends Tool
      * @throws FlowchartViewSchemaException
      * @throws ReportViewSchemaException
      */
-    private function validateDataPayload(string $viewType, array $payload, ?int $workbenchId = null): array
+    private function validateDataPayload(string $viewType, array $payload, ?int $workbenchId = null, ?array $previousPayload = null): array
     {
         return match ($viewType) {
             'table' => TableViewSchema::validate($payload),
             'slide_deck' => SlideDeckViewSchema::validate($payload),
-            'kanban' => KanbanViewSchema::validate($payload),
+            'kanban' => KanbanViewSchema::validate($payload, $previousPayload),
             'flowchart' => FlowchartViewSchema::validate($payload),
             'report' => ReportViewSchema::validate($payload, $workbenchId),
             default => $payload,
         };
+    }
+
+    /**
+     * REQ-M7-001: locate the kanban snapshot's previous payload (if any) so
+     * the schema can carry card ids forward across revisions. Returns null
+     * when no prior revision exists or when the caller has not addressed an
+     * existing snapshot.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolvePreviousPayloadForCarryForward(Workbench $workbench, mixed $snapshotIdentifier): ?array
+    {
+        if ($snapshotIdentifier === null || $snapshotIdentifier === '') {
+            return null;
+        }
+
+        $snapshot = Snapshot::query()
+            ->where('workbench_id', $workbench->id)
+            ->where(function ($query) use ($snapshotIdentifier): void {
+                $query->where('slug', (string) $snapshotIdentifier);
+
+                if (ctype_digit((string) $snapshotIdentifier)) {
+                    $query->orWhere('id', (int) $snapshotIdentifier);
+                }
+            })
+            ->with('currentVersion:id,view_type,data_payload')
+            ->first();
+
+        $current = $snapshot?->currentVersion;
+
+        if ($current === null || $current->view_type !== 'kanban') {
+            return null;
+        }
+
+        $payload = $current->data_payload;
+
+        return is_array($payload) ? $payload : null;
     }
 
     private function resolveSnapshot(Request $request, Workbench $workbench): Snapshot
