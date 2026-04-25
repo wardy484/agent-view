@@ -150,44 +150,128 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
  *
  * When the pill expands into a composer, the live OS selection is dismissed
  * (the user is about to type into a textarea) so we wrap the captured range
- * in a `<mark data-pending-anchor>` element to keep the selected text
- * visibly highlighted. The mark is unwrapped on Submit / Cancel / Escape.
+ * in `<mark data-pending-anchor>` element(s) to keep the selected text
+ * visibly highlighted. The marks are unwrapped on Submit / Cancel / Escape.
  *
- * `surroundContents` throws when the range crosses partial element
- * boundaries (e.g. a span of bold + plain text). The fallback splits the
- * range across the boundary by extracting its contents and inserting a
- * `<mark>` containing them — preserving the rendered text but losing
- * inline formatting inside the mark, which is acceptable for a transient
- * composer-only highlight.
+ * REQ-M6-035: highlight wrapping must not shift the document layout. The
+ * implementation walks the range with a TreeWalker (`wrapRangeWithMarks`)
+ * and emits ONE `<mark>` per intersecting text-node sub-range. Each wrap
+ * is a pure text-node split (`splitText`) followed by a parent-equivalent
+ * inline wrap (`insertBefore` + `appendChild`) — no block-level elements
+ * introduced, no whitespace inserted, no `display` overrides applied. A
+ * paragraph-spanning quote becomes multiple inline `<mark>` elements that
+ * share a common attribute (e.g. `data-comment-id`, `data-pending-anchor`).
  */
 export const PENDING_ANCHOR_ATTR = 'data-pending-anchor';
 
-export function synthesizeHighlight(range: Range): HTMLElement | null {
-    const mark = document.createElement('mark');
-    mark.setAttribute(PENDING_ANCHOR_ATTR, 'true');
-    mark.className = 'rounded bg-amber-200/60 px-0.5 dark:bg-amber-900/50';
+/**
+ * REQ-M6-035: walk `range`, splitting each intersecting text node so that
+ * its in-range portion can be wrapped by a fresh `<mark>` produced by
+ * `factory`. `factory` is invoked once per emitted mark so that callers can
+ * attach event listeners, attributes, and classes per-mark; ALL marks for a
+ * single logical highlight share the same `data-*` attributes (the caller
+ * is responsible for that — `factory` is called once per text-node split,
+ * but the caller passes the same identity into each invocation).
+ *
+ * Returns the array of inserted marks in document order.
+ *
+ * Invariants:
+ *   - Each `<mark>` wraps exactly one text-node sub-range.
+ *   - No `<mark>` ever contains a non-text child; therefore zero block-
+ *     level shift, zero whitespace insertion.
+ *   - The DOM-shifting Range APIs that relocate non-text children when a
+ *     range crosses element boundaries are never used inside this helper.
+ */
+export function wrapRangeWithMarks(
+    range: Range,
+    factory: () => HTMLElement,
+): HTMLElement[] {
+    const marks: HTMLElement[] = [];
 
-    try {
-        range.surroundContents(mark);
-
-        return mark;
-    } catch {
-        try {
-            const contents = range.extractContents();
-            mark.appendChild(contents);
-            range.insertNode(mark);
-
-            return mark;
-        } catch {
-            return null;
-        }
+    if (range.collapsed) {
+        return marks;
     }
+
+    const root = range.commonAncestorContainer;
+    const walkRoot =
+        root.nodeType === Node.TEXT_NODE ? (root.parentNode as Node | null) : root;
+
+    if (!walkRoot) {
+        return marks;
+    }
+
+    const walker = document.createTreeWalker(walkRoot, NodeFilter.SHOW_TEXT, {
+        acceptNode(node: Node): number {
+            try {
+                return range.intersectsNode(node)
+                    ? NodeFilter.FILTER_ACCEPT
+                    : NodeFilter.FILTER_REJECT;
+            } catch {
+                return NodeFilter.FILTER_REJECT;
+            }
+        },
+    });
+
+    const textNodes: Text[] = [];
+    let n: Node | null = walker.nextNode();
+
+    while (n) {
+        textNodes.push(n as Text);
+        n = walker.nextNode();
+    }
+
+    for (const textNode of textNodes) {
+        const start =
+            textNode === range.startContainer ? range.startOffset : 0;
+        const end =
+            textNode === range.endContainer
+                ? range.endOffset
+                : textNode.length;
+
+        if (start >= end) {
+            continue;
+        }
+
+        // Split the text node so the in-range portion is a standalone node.
+        // After two splits, `target` holds the exact substring to wrap and
+        // remains a sibling under the original parent; `tail` holds the
+        // remaining text after the range end (already in the DOM).
+        let target: Text = textNode;
+
+        if (start > 0) {
+            target = target.splitText(start);
+        }
+
+        if (end - start < target.length) {
+            target.splitText(end - start);
+        }
+
+        const parent = target.parentNode;
+
+        if (!parent) {
+            continue;
+        }
+
+        const mark = factory();
+        parent.insertBefore(mark, target);
+        mark.appendChild(target);
+        marks.push(mark);
+    }
+
+    return marks;
 }
 
-export function removeSyntheticHighlight(): void {
-    const marks = document.querySelectorAll<HTMLElement>(
-        `mark[${PENDING_ANCHOR_ATTR}="true"]`,
-    );
+/**
+ * REQ-M6-035: unwrap every element matched by `selector` under `root`,
+ * preserving the wrapped content in-place and coalescing adjacent text
+ * nodes back together via `parent.normalize()`.
+ */
+export function unwrapMarks(
+    root: ParentNode | Document,
+    selector: string,
+): void {
+    const marks = root.querySelectorAll<HTMLElement>(selector);
+    const parents = new Set<Node>();
 
     marks.forEach((mark) => {
         const parent = mark.parentNode;
@@ -196,11 +280,41 @@ export function removeSyntheticHighlight(): void {
             return;
         }
 
+        parents.add(parent);
+
         while (mark.firstChild) {
             parent.insertBefore(mark.firstChild, mark);
         }
 
         parent.removeChild(mark);
-        parent.normalize();
     });
+
+    parents.forEach((parent) => {
+        if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+            (parent as Element).normalize();
+        }
+    });
+}
+
+export function synthesizeHighlight(range: Range): HTMLElement[] {
+    // REQ-M6-035: emit ONE inline <mark> per text-node sub-range, sharing
+    // `data-pending-anchor`. Replaces the previous wrapping path that
+    // shifted the document layout when the range crossed element
+    // boundaries.
+    const marks = wrapRangeWithMarks(range, () => {
+        const mark = document.createElement('mark');
+        mark.setAttribute(PENDING_ANCHOR_ATTR, 'true');
+        mark.className = 'rounded bg-amber-200/60 px-0.5 dark:bg-amber-900/50';
+
+        return mark;
+    });
+
+    return marks;
+}
+
+export function removeSyntheticHighlight(): void {
+    // REQ-M6-035: unwrap ALL pending-anchor marks (a single logical
+    // highlight may have produced many inline <mark> elements). Adjacent
+    // text-node fragments are re-coalesced via normalize().
+    unwrapMarks(document, `mark[${PENDING_ANCHOR_ATTR}="true"]`);
 }

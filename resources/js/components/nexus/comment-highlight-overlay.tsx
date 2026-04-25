@@ -6,6 +6,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { unwrapMarks, wrapRangeWithMarks } from '@/lib/selection-helpers';
 
 /**
  * REQ-M6-028: persistent inline highlights for comments whose anchor
@@ -16,6 +17,14 @@ import {
  * `<mark data-comment-overlay="true" data-comment-id="…" data-status="…">`
  * element. Idempotent: existing overlay marks are unwrapped before a
  * fresh walk. Stale anchors render no mark.
+ *
+ * REQ-M6-035: wrapping previously shifted the document layout when an
+ * anchor crossed element boundaries (paragraphs broke, words split mid-
+ * letter through `<code>` / `<strong>` siblings). The overlay now uses
+ * the shared `wrapRangeWithMarks` helper, which walks the range with a
+ * TreeWalker and emits ONE inline `<mark>` per intersecting text-node
+ * sub-range. All marks for one comment share the same `data-comment-id`,
+ * so the click handler / tooltip contract is unchanged.
  */
 
 export type HighlightCommentSummary = {
@@ -45,6 +54,7 @@ type Props = {
 };
 
 const OVERLAY_ATTR = 'data-comment-overlay';
+const OVERLAY_SELECTOR = `mark[${OVERLAY_ATTR}="true"]`;
 
 // REQ-M6-033: a deletion is a suggestion whose proposed_text is the empty
 // string. Surfaced as a small helper so styling + tooltip can branch on it.
@@ -94,6 +104,9 @@ export function CommentHighlightOverlay({
         }
 
         // Idempotent re-run: unwrap any prior overlay marks before walking.
+        // REQ-M6-035: a single comment may have produced many sibling
+        // marks; unwrapMarks handles them all and re-coalesces adjacent
+        // text nodes via parent.normalize().
         unwrapOverlayMarks(container);
 
         const eligible = comments.filter(
@@ -129,46 +142,48 @@ export function CommentHighlightOverlay({
                 continue;
             }
 
-            const mark = document.createElement('mark');
-            mark.setAttribute(OVERLAY_ATTR, 'true');
-            mark.setAttribute('data-comment-id', String(comment.id));
-            mark.setAttribute('data-status', comment.status);
-            mark.setAttribute('data-kind', comment.kind);
-
-            // REQ-M6-033: surface the deletion variant for downstream tests
-            // and styling debugging. Empty string (the deletion sentinel) is
-            // explicitly distinct from a missing attribute.
-            if (comment.kind === 'suggestion') {
-                mark.setAttribute('data-deletion', isDeletion(comment) ? 'true' : 'false');
-            }
-
-            mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
-
             // REQ-M6-033: tooltip surfaces the comment kind alongside the
             // existing author + first-line body.
             const firstLine = (comment.body.split(/\r?\n/)[0] ?? '').trim();
             const tooltipLabel = `${comment.author.display_name} (${comment.kind}): ${firstLine}`;
-            mark.title = tooltipLabel;
-            mark.setAttribute('aria-label', tooltipLabel);
-            mark.setAttribute('data-tooltip', tooltipLabel);
 
-            mark.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                onCommentClick(comment.id);
+            // REQ-M6-035: per-text-node wrapping. wrapRangeWithMarks emits
+            // one inline <mark> per text-node sub-range, all sharing the
+            // same data-comment-id so the click handler + tooltip stay
+            // consistent across siblings. The DOM-shifting Range APIs that
+            // caused the layout regression this REQ fixes are not used.
+            const marks = wrapRangeWithMarks(range, () => {
+                const mark = document.createElement('mark');
+                mark.setAttribute(OVERLAY_ATTR, 'true');
+                mark.setAttribute('data-comment-id', String(comment.id));
+                mark.setAttribute('data-status', comment.status);
+                mark.setAttribute('data-kind', comment.kind);
+
+                // REQ-M6-033: surface the deletion variant for downstream
+                // tests and styling debugging. Empty string (the deletion
+                // sentinel) is explicitly distinct from a missing attribute.
+                if (comment.kind === 'suggestion') {
+                    mark.setAttribute(
+                        'data-deletion',
+                        isDeletion(comment) ? 'true' : 'false',
+                    );
+                }
+
+                mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
+                mark.title = tooltipLabel;
+                mark.setAttribute('aria-label', tooltipLabel);
+                mark.setAttribute('data-tooltip', tooltipLabel);
+
+                mark.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onCommentClick(comment.id);
+                });
+
+                return mark;
             });
 
-            try {
-                range.surroundContents(mark);
-            } catch {
-                try {
-                    const contents = range.extractContents();
-                    mark.appendChild(contents);
-                    range.insertNode(mark);
-                } catch {
-                    // Give up on this anchor; leave the block as-is.
-                }
-            }
+            void marks;
         }
 
         return () => {
@@ -202,24 +217,12 @@ export function CommentHighlightOverlay({
 }
 
 function unwrapOverlayMarks(root: HTMLElement): void {
-    const marks = root.querySelectorAll<HTMLElement>(
-        `mark[${OVERLAY_ATTR}="true"]`,
-    );
-
-    marks.forEach((mark) => {
-        const parent = mark.parentNode;
-
-        if (!parent) {
-            return;
-        }
-
-        while (mark.firstChild) {
-            parent.insertBefore(mark.firstChild, mark);
-        }
-
-        parent.removeChild(mark);
-        parent.normalize();
-    });
+    // REQ-M6-035: delegate to the shared unwrapMarks so adjacent text
+    // nodes are coalesced (parent.normalize()) — keeping the DOM identical
+    // to its pre-overlay shape between re-runs. The selector matches every
+    // overlay mark, including the multiple siblings produced for a single
+    // comment whose anchor crosses element boundaries.
+    unwrapMarks(root, OVERLAY_SELECTOR);
 }
 
 function findAnchorRange(
