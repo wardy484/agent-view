@@ -5,6 +5,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
+use App\Http\Controllers\Snapshots\CommentAcceptanceController;
 use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -62,5 +63,13 @@ Route::middleware(['web', 'auth'])
         Route::post('/shares', [SnapshotShareController::class, 'storeShare'])->name('shares.store');
         Route::delete('/shares/{share}', [SnapshotShareController::class, 'destroyShare'])->name('shares.destroy');
     });
+
+// REQ-M6-008: owner-only acceptance of a suggestion comment. Resolves the
+// anchor against the snapshot's current revision, patches the body with
+// `proposed_text`, mints a new report revision, and atomically resolves the
+// comment as user-applied. Stale anchors return HTTP 409.
+Route::middleware(['web', 'auth'])
+    ->post('/snapshots/{snapshot}/comments/{comment}/accept', CommentAcceptanceController::class)
+    ->name('snapshots.comments.accept');
 
 require __DIR__.'/settings.php';

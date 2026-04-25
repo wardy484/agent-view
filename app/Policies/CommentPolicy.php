@@ -93,6 +93,16 @@ class CommentPolicy
         return $this->view($user, $comment);
     }
 
+    /**
+     * REQ-M6-008: acceptance of a suggestion is strict owner-only — only the
+     * snapshot owner can replace block content via the accept flow. Even the
+     * suggestion's original author cannot accept their own suggestion.
+     */
+    public function accept(User $user, Comment $comment): bool
+    {
+        return $this->ownsSnapshot($user, $comment->snapshot);
+    }
+
     private function ownsSnapshot(User $user, Snapshot $snapshot): bool
     {
         $ownerId = $snapshot->workbench?->owner_user_id
