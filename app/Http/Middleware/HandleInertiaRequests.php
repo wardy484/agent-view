@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Workbench;
 use App\Nexus\SidebarSharingData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -50,33 +49,11 @@ class HandleInertiaRequests extends Middleware
                 'user' => $user,
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
-            // Defer the sidebar/nav queries so the page shell ships immediately
-            // and the chrome hydrates via a follow-up request. Guests pay
-            // nothing — the closures short-circuit to empty arrays.
-            'workbenches' => Inertia::defer(fn (): array => $user ? $this->workbenchNav() : []),
             // REQ-M4-007: sidebar data — "Shared with me" entries for the
             // signed-in user and share-count / link badges for every snapshot
-            // they own. Guests receive empty arrays.
+            // they own. Guests receive empty arrays. Deferred so the initial
+            // page shell ships without waiting on this query.
             'sharing' => Inertia::defer(fn () => $user ? $this->sharingData->for($user) : $emptySharing),
         ];
-    }
-
-    /**
-     * @return list<array{slug: string, name: string, snapshot_count: int, latest_snapshot_slug: ?string}>
-     */
-    private function workbenchNav(): array
-    {
-        return Workbench::query()
-            ->withCount('snapshots')
-            ->with(['snapshots' => fn ($q) => $q->latest('updated_at')->limit(1)])
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Workbench $w) => [
-                'slug' => $w->slug,
-                'name' => $w->name,
-                'snapshot_count' => (int) $w->snapshots_count,
-                'latest_snapshot_slug' => $w->snapshots->first()?->slug,
-            ])
-            ->all();
     }
 }
