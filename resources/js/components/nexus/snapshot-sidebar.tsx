@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, User as UserIcon, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, Smile, User as UserIcon, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { temporaryRowIdFromClientId, useOptimisticComments } from '@/hooks/use-optimistic-comments';
 import { cn } from '@/lib/utils';
 
 /**
@@ -132,10 +133,39 @@ export function SnapshotSidebar({
 }: Props) {
     const [activeTab, setActiveTab] = useState<Tab>('comments');
 
+    // REQ-M6-017: optimistic-UI overlay. The hook returns `comments` =
+    // serverComments + unreconciled local mutations, plus a set of helpers
+    // we hand to CommentCard / CommentComposer for create/reply/react/flip
+    // flows. Each helper returns a `clientId` we pass to `router.post`'s
+    // onError so a server rejection rolls the optimistic row back.
+    const {
+        comments: optimisticComments,
+        pending,
+        addOptimisticComment,
+        addOptimisticReply,
+        toggleOptimisticReaction,
+        flipOptimisticStatus,
+        rollback,
+    } = useOptimisticComments(comments);
+
     const grouped = useMemo(
-        () => groupCommentsByBlock(comments, blockOrder),
-        [comments, blockOrder],
+        () => groupCommentsByBlock(optimisticComments, blockOrder),
+        [optimisticComments, blockOrder],
     );
+
+    const pendingClientIds = useMemo(() => {
+        const map = new Map<number, string>();
+
+        for (const mutation of pending.values()) {
+            if (mutation.kind === 'comment') {
+                // Negative-id rows carry the optimistic clientId.
+                // The CommentCard reads `data-optimistic` to apply the pulse.
+                map.set(temporaryRowIdFromClientId(mutation.clientId), mutation.clientId);
+            }
+        }
+
+        return map;
+    }, [pending]);
 
     return (
         <aside
@@ -169,6 +199,12 @@ export function SnapshotSidebar({
                     onComposerClose={onComposerClose}
                     isHistoricalView={isHistoricalView}
                     activeRevision={activeRevision}
+                    pendingClientIds={pendingClientIds}
+                    addOptimisticComment={addOptimisticComment}
+                    addOptimisticReply={addOptimisticReply}
+                    toggleOptimisticReaction={toggleOptimisticReaction}
+                    flipOptimisticStatus={flipOptimisticStatus}
+                    rollback={rollback}
                 />
             ) : (
                 <HistoryTab
@@ -284,6 +320,12 @@ function CommentsTab({
     onComposerClose,
     isHistoricalView,
     activeRevision,
+    pendingClientIds,
+    addOptimisticComment,
+    addOptimisticReply,
+    toggleOptimisticReaction,
+    flipOptimisticStatus,
+    rollback,
 }: {
     snapshotId: number;
     grouped: GroupedComments;
@@ -291,6 +333,12 @@ function CommentsTab({
     onComposerClose: () => void;
     isHistoricalView: boolean;
     activeRevision: number | undefined;
+    pendingClientIds: Map<number, string>;
+    addOptimisticComment: ReturnType<typeof useOptimisticComments>['addOptimisticComment'];
+    addOptimisticReply: ReturnType<typeof useOptimisticComments>['addOptimisticReply'];
+    toggleOptimisticReaction: ReturnType<typeof useOptimisticComments>['toggleOptimisticReaction'];
+    flipOptimisticStatus: ReturnType<typeof useOptimisticComments>['flipOptimisticStatus'];
+    rollback: ReturnType<typeof useOptimisticComments>['rollback'];
 }) {
     // REQ-M6-015: composer is suppressed entirely when viewing a historical
     // revision — historical anchors must not accumulate new threads.
@@ -323,6 +371,8 @@ function CommentsTab({
                     selection={composerSelection!}
                     expectedVersionId={null}
                     onClose={onComposerClose}
+                    addOptimisticComment={addOptimisticComment}
+                    rollback={rollback}
                 />
             ) : null}
 
@@ -347,7 +397,17 @@ function CommentsTab({
                     className="border-b border-border last:border-b-0"
                 >
                     {group.comments.map((comment) => (
-                        <CommentCard key={comment.id} comment={comment} />
+                        <CommentCard
+                            key={comment.id}
+                            snapshotId={snapshotId}
+                            comment={comment}
+                            isOptimistic={pendingClientIds.has(comment.id)}
+                            isHistoricalView={isHistoricalView}
+                            addOptimisticReply={addOptimisticReply}
+                            toggleOptimisticReaction={toggleOptimisticReaction}
+                            flipOptimisticStatus={flipOptimisticStatus}
+                            rollback={rollback}
+                        />
                     ))}
                 </section>
             ))}
@@ -355,8 +415,38 @@ function CommentsTab({
     );
 }
 
-function CommentCard({ comment }: { comment: CommentSummary }) {
-    const onClick = () => {
+// REQ-M6-017: the fixed 6-emoji set mirrored from CommentReactionEmoji.
+const REACTION_EMOJIS = ['👍', '👎', '❤️', '🎉', '🤔', '👀'] as const;
+
+function CommentCard({
+    snapshotId,
+    comment,
+    isOptimistic,
+    isHistoricalView,
+    addOptimisticReply,
+    toggleOptimisticReaction,
+    flipOptimisticStatus,
+    rollback,
+}: {
+    snapshotId: number;
+    comment: CommentSummary;
+    isOptimistic: boolean;
+    isHistoricalView: boolean;
+    addOptimisticReply: ReturnType<typeof useOptimisticComments>['addOptimisticReply'];
+    toggleOptimisticReaction: ReturnType<typeof useOptimisticComments>['toggleOptimisticReaction'];
+    flipOptimisticStatus: ReturnType<typeof useOptimisticComments>['flipOptimisticStatus'];
+    rollback: ReturnType<typeof useOptimisticComments>['rollback'];
+}) {
+    const [replyOpen, setReplyOpen] = useState(false);
+    const [replyBody, setReplyBody] = useState('');
+    const [reactionsOpen, setReactionsOpen] = useState(false);
+
+    const isUnreconciled = isOptimistic || comment.id < 0;
+    // Unreconciled rows have no real server id; their actions are effectively
+    // disabled until reconciliation. Same goes for historical view (read-only).
+    const actionsDisabled = isUnreconciled || isHistoricalView;
+
+    const onJumpToAnchor = () => {
         const ok = scrollToAndHighlightAnchor(comment.block_id, comment.anchor.quote);
 
         if (!ok) {
@@ -369,53 +459,140 @@ function CommentCard({ comment }: { comment: CommentSummary }) {
             ? `${comment.anchor.quote.slice(0, 80)}…`
             : comment.anchor.quote;
 
+    const onToggleReaction = (emoji: string) => {
+        if (actionsDisabled) {
+            return;
+        }
+
+        const isAdding = (comment.reactions_summary[emoji] ?? 0) === 0;
+        const clientId = toggleOptimisticReaction(comment.id, emoji, isAdding);
+        setReactionsOpen(false);
+
+        router.post(
+            `/snapshots/${snapshotId}/comments/${comment.id}/reactions`,
+            { emoji },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: () => {
+                    rollback(clientId);
+                    toast.error('Could not toggle reaction');
+                },
+            },
+        );
+    };
+
+    const onFlipStatus = (next: CommentSummary['status']) => {
+        if (actionsDisabled || comment.status === next) {
+            return;
+        }
+
+        const clientId = flipOptimisticStatus(comment.id, next);
+
+        router.patch(
+            `/snapshots/${snapshotId}/comments/${comment.id}/status`,
+            { status: next },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: () => {
+                    rollback(clientId);
+                    toast.error('Could not change status');
+                },
+            },
+        );
+    };
+
+    const submitReply = (event: React.FormEvent) => {
+        event.preventDefault();
+
+        if (replyBody.trim().length === 0 || actionsDisabled) {
+            return;
+        }
+
+        const body = replyBody.trim();
+        const clientId = addOptimisticReply(comment.id, body, {
+            display_name: 'You',
+            kind: 'user',
+        });
+
+        router.post(
+            `/snapshots/${snapshotId}/comments/${comment.id}/replies`,
+            { body },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: () => {
+                    rollback(clientId);
+                    toast.error('Could not post reply');
+                },
+                onSuccess: () => {
+                    setReplyBody('');
+                    setReplyOpen(false);
+                },
+            },
+        );
+    };
+
     return (
-        <button
-            type="button"
-            onClick={onClick}
+        <div
             data-testid="snapshot-sidebar-comment"
             data-comment-id={comment.id}
-            className="flex w-full flex-col gap-2 px-4 py-3 text-left hover:bg-muted/40"
+            data-optimistic={isUnreconciled ? 'true' : 'false'}
+            className={cn(
+                'flex w-full flex-col gap-2 px-4 py-3',
+                isUnreconciled ? 'animate-pulse opacity-90' : null,
+            )}
         >
-            <header className="flex items-center gap-2">
-                <CommentStatusBadge status={comment.status} />
-                <AuthorChip author={comment.author} />
-                {comment.kind === 'suggestion' ? (
-                    <span
-                        className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400"
-                        data-testid="snapshot-sidebar-comment-suggestion-chip"
-                    >
-                        Suggestion
-                    </span>
-                ) : null}
-            </header>
+            <button
+                type="button"
+                onClick={onJumpToAnchor}
+                className="flex w-full flex-col gap-2 text-left"
+            >
+                <header className="flex items-center gap-2">
+                    <CommentStatusBadge status={comment.status} />
+                    <AuthorChip author={comment.author} />
+                    {comment.kind === 'suggestion' ? (
+                        <span
+                            className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400"
+                            data-testid="snapshot-sidebar-comment-suggestion-chip"
+                        >
+                            Suggestion
+                        </span>
+                    ) : null}
+                </header>
 
-            <p className="text-xs italic text-muted-foreground">“{truncatedQuote}”</p>
+                <p className="text-xs italic text-muted-foreground">“{truncatedQuote}”</p>
 
-            <div className="text-sm text-foreground">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.body}</ReactMarkdown>
-            </div>
-
-            {comment.kind === 'suggestion' && comment.proposed_text ? (
-                <div
-                    className="rounded-md border border-border bg-muted/30 p-2 text-xs"
-                    data-testid="snapshot-sidebar-comment-proposed-text"
-                >
-                    <span className="font-medium text-muted-foreground">Suggested:</span>{' '}
-                    <span className="font-mono">{comment.proposed_text}</span>
+                <div className="text-sm text-foreground">
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.body}</ReactMarkdown>
                 </div>
-            ) : null}
+
+                {comment.kind === 'suggestion' && comment.proposed_text ? (
+                    <div
+                        className="rounded-md border border-border bg-muted/30 p-2 text-xs"
+                        data-testid="snapshot-sidebar-comment-proposed-text"
+                    >
+                        <span className="font-medium text-muted-foreground">Suggested:</span>{' '}
+                        <span className="font-mono">{comment.proposed_text}</span>
+                    </div>
+                ) : null}
+            </button>
 
             {Object.keys(comment.reactions_summary).length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
                     {Object.entries(comment.reactions_summary).map(([emoji, count]) => (
-                        <span
+                        <button
+                            type="button"
                             key={emoji}
-                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs"
+                            disabled={actionsDisabled}
+                            onClick={() => onToggleReaction(emoji)}
+                            data-testid="snapshot-sidebar-reaction-chip"
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-50"
                         >
                             <span>{emoji}</span>
                             <span className="text-muted-foreground">{count}</span>
-                        </span>
+                        </button>
                     ))}
                 </div>
             ) : null}
@@ -438,7 +615,95 @@ function CommentCard({ comment }: { comment: CommentSummary }) {
                     ))}
                 </ol>
             ) : null}
-        </button>
+
+            {!isHistoricalView ? (
+                <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    <button
+                        type="button"
+                        onClick={() => setReplyOpen((v) => !v)}
+                        disabled={actionsDisabled}
+                        data-testid="snapshot-sidebar-comment-reply-toggle"
+                        className="rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    >
+                        Reply
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setReactionsOpen((v) => !v)}
+                        disabled={actionsDisabled}
+                        data-testid="snapshot-sidebar-comment-react-toggle"
+                        className="inline-flex items-center gap-1 rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    >
+                        <Smile className="size-3" aria-hidden /> React
+                    </button>
+
+                    <select
+                        data-testid="snapshot-sidebar-comment-status-select"
+                        value={comment.status}
+                        disabled={actionsDisabled}
+                        onChange={(e) => onFlipStatus(e.target.value as CommentSummary['status'])}
+                        className="rounded border border-border bg-background px-1 py-0.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                    >
+                        <option value="open">Open</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="wontfix">Won't fix</option>
+                    </select>
+                </div>
+            ) : null}
+
+            {reactionsOpen && !actionsDisabled ? (
+                <div
+                    data-testid="snapshot-sidebar-reaction-picker"
+                    className="flex flex-wrap gap-1 rounded-md border border-border bg-muted/30 p-1"
+                >
+                    {REACTION_EMOJIS.map((emoji) => (
+                        <button
+                            type="button"
+                            key={emoji}
+                            onClick={() => onToggleReaction(emoji)}
+                            className="rounded px-2 py-1 text-base hover:bg-background"
+                        >
+                            {emoji}
+                        </button>
+                    ))}
+                </div>
+            ) : null}
+
+            {replyOpen && !actionsDisabled ? (
+                <form
+                    onSubmit={submitReply}
+                    data-testid="snapshot-sidebar-reply-box"
+                    className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-2"
+                >
+                    <textarea
+                        value={replyBody}
+                        onChange={(e) => setReplyBody(e.target.value)}
+                        rows={2}
+                        placeholder="Write a reply…"
+                        className="w-full rounded border border-border bg-background p-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                        data-testid="snapshot-sidebar-reply-body"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setReplyOpen(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            size="sm"
+                            disabled={replyBody.trim().length === 0}
+                            data-testid="snapshot-sidebar-reply-submit"
+                        >
+                            Reply
+                        </Button>
+                    </div>
+                </form>
+            ) : null}
+        </div>
     );
 }
 
@@ -781,6 +1046,8 @@ function CommentComposer({
     selection,
     expectedVersionId,
     onClose,
+    addOptimisticComment,
+    rollback,
 }: {
     snapshotId: number;
     selection: ComposerSelection;
@@ -788,6 +1055,8 @@ function CommentComposer({
      * has been advanced since this composer opened. */
     expectedVersionId: number | null;
     onClose: () => void;
+    addOptimisticComment: ReturnType<typeof useOptimisticComments>['addOptimisticComment'];
+    rollback: ReturnType<typeof useOptimisticComments>['rollback'];
 }) {
     const [body, setBody] = useState('');
     const [proposedText, setProposedText] = useState(selection.quote);
@@ -802,12 +1071,31 @@ function CommentComposer({
 
         setSubmitting(true);
 
+        // REQ-M6-017: insert the optimistic row before the network round-trip.
+        // The polling tick (or the redirect-back partial reload) will project
+        // the canonical row a moment later; the hook reconciles by matching
+        // (block_id, body, kind) and drops the optimistic copy. On error we
+        // rollback explicitly via the clientId we stored.
+        const trimmedBody = body.trim();
+        const clientId = addOptimisticComment({
+            blockId: selection.blockId,
+            body: trimmedBody,
+            kind: selection.kind,
+            proposedText: selection.kind === 'suggestion' ? proposedText : null,
+            anchor: {
+                quote: selection.quote,
+                prefix: selection.prefix,
+                suffix: selection.suffix,
+            },
+            author: { display_name: 'You', kind: 'user' },
+        });
+
         router.post(
             `/snapshots/${snapshotId}/comments`,
             {
                 block_id: selection.blockId,
                 kind: selection.kind,
-                body,
+                body: trimmedBody,
                 proposed_text: selection.kind === 'suggestion' ? proposedText : null,
                 anchor_quote: selection.quote,
                 anchor_prefix: selection.prefix,
@@ -818,6 +1106,10 @@ function CommentComposer({
             },
             {
                 preserveScroll: true,
+                onError: () => {
+                    rollback(clientId);
+                    toast.error('Could not post comment');
+                },
                 onFinish: () => {
                     setSubmitting(false);
                     setBody('');

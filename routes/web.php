@@ -7,6 +7,9 @@ use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
 use App\Http\Controllers\Snapshots\CommentAcceptanceController;
 use App\Http\Controllers\Snapshots\CommentController;
+use App\Http\Controllers\Snapshots\CommentReactionController;
+use App\Http\Controllers\Snapshots\CommentReplyController;
+use App\Http\Controllers\Snapshots\CommentStatusController;
 use App\Http\Controllers\Snapshots\SnapshotSidebarController;
 use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
@@ -89,5 +92,19 @@ Route::middleware(['web', 'auth'])
 Route::middleware(['web', 'auth'])
     ->post('/snapshots/{snapshot}/comments', [CommentController::class, 'store'])
     ->name('snapshots.comments.store');
+
+// REQ-M6-017: optimistic-UI write endpoints for the sidebar Reply box,
+// reaction buttons, and status dropdown. Each is a thin controller that
+// delegates to existing services / policies and returns a redirect-back
+// (Inertia partial reload), so the React optimistic queue can reconcile
+// against the polling refresh of the `comments` prop.
+Route::middleware(['web', 'auth'])
+    ->prefix('/snapshots/{snapshot}/comments/{comment}')
+    ->name('snapshots.comments.')
+    ->group(function (): void {
+        Route::post('/replies', [CommentReplyController::class, 'store'])->name('replies.store');
+        Route::post('/reactions', [CommentReactionController::class, 'toggle'])->name('reactions.toggle');
+        Route::patch('/status', [CommentStatusController::class, 'update'])->name('status.update');
+    });
 
 require __DIR__.'/settings.php';
