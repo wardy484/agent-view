@@ -12,16 +12,22 @@ declare(strict_types=1);
  * assert the source files declare the contract the spec requires. When
  * Pest 4 browser tests come online, these assertions can be promoted into
  * `visit()`-based interaction tests without changing the implementation.
+ *
+ * REQ-M6-023 renamed the menu component to `comment-selection-pill.tsx`
+ * and made it the single renderer (above on lg+, below on smaller
+ * screens). The contract REQ-M6-013 originally pinned still holds — three
+ * actions, cross-block disable, Escape-to-close — it just lives in the
+ * pill source now.
  */
-it('REQ-M6-013: comment-selection-menu component file ships with the three actions and cross-block disable', function (): void {
-    $path = resource_path('js/components/nexus/comment-selection-menu.tsx');
+it('REQ-M6-013: comment selection pill component file ships with the three actions and cross-block disable', function (): void {
+    $path = resource_path('js/components/nexus/comment-selection-pill.tsx');
 
     expect(file_exists($path))->toBeTrue();
 
     $source = (string) file_get_contents($path);
 
     expect($source)
-        ->toContain('export function CommentSelectionMenu')
+        ->toContain('export function CommentSelectionPill')
         // Three labelled actions, in order.
         ->toContain('label="Comment"')
         ->toContain('label="Suggest edit"')
@@ -33,18 +39,17 @@ it('REQ-M6-013: comment-selection-menu component file ships with the three actio
         // Cross-block selection disables comment / suggest.
         ->toContain('crossesBlocks')
         ->toContain('Selection must stay within one block.')
-        // Floating positioning above the selection.
+        // Floating positioning derives from the selection rect.
         ->toContain('rect.top')
-        ->toContain('MENU_HEIGHT')
-        // Escape closes the menu.
+        // Escape closes the pill.
         ->toContain("event.key === 'Escape'")
         // Copy uses the existing clipboard hook (which delegates to
         // navigator.clipboard.writeText).
         ->toContain('useClipboard')
         // Test hooks for the three actions.
-        ->toContain('comment-selection-menu-comment')
-        ->toContain('comment-selection-menu-suggest')
-        ->toContain('comment-selection-menu-copy');
+        ->toContain('comment-selection-pill-comment')
+        ->toContain('comment-selection-pill-suggest')
+        ->toContain('comment-selection-pill-copy');
 });
 
 it('REQ-M6-013: useMarkdownSelection hook captures block_id, quote, prefix, suffix, and rect', function (): void {
@@ -91,7 +96,8 @@ it('REQ-M6-013: report-view tags markdown blocks with data-comment-block-id and 
     $source = (string) file_get_contents($path);
 
     expect($source)
-        ->toContain('CommentSelectionMenu')
+        // REQ-M6-023: the floating menu is now the floating pill.
+        ->toContain('CommentSelectionPill')
         ->toContain('useMarkdownSelection')
         // Each markdown block carries its stable id so the hook can pin a
         // selection to a single block (REQ-M6-001 / REQ-M6-003).
@@ -107,21 +113,21 @@ it('REQ-M6-013: report-view tags markdown blocks with data-comment-block-id and 
 });
 
 it('REQ-M6-013: Copy action uses navigator.clipboard via the shared clipboard hook', function (): void {
-    $menuPath = resource_path('js/components/nexus/comment-selection-menu.tsx');
+    $pillPath = resource_path('js/components/nexus/comment-selection-pill.tsx');
     $hookPath = resource_path('js/hooks/use-clipboard.ts');
 
-    expect(file_exists($menuPath))->toBeTrue();
+    expect(file_exists($pillPath))->toBeTrue();
     expect(file_exists($hookPath))->toBeTrue();
 
-    $menu = (string) file_get_contents($menuPath);
+    $pill = (string) file_get_contents($pillPath);
     $clipboard = (string) file_get_contents($hookPath);
 
     // The shared hook is the only allowed path to `navigator.clipboard` —
     // it handles unsupported-environment fallbacks and toast feedback. The
-    // menu must consume it rather than reach for `navigator.clipboard`
+    // pill must consume it rather than reach for `navigator.clipboard`
     // directly.
     expect($clipboard)->toContain('navigator.clipboard.writeText');
-    expect($menu)
+    expect($pill)
         ->toContain('useClipboard')
         ->not->toContain('navigator.clipboard');
 });

@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
  * History tab is a stub for REQ-M6-014 — it lists the revisions backed by
  * the `versionHistory` Inertia prop. The full History UI lands in M6-015.
  *
- * Composer wiring: when the report-view's CommentSelectionMenu fires
+ * Composer wiring: when the report-view's CommentSelectionPill fires
  * `onComment` / `onSuggest`, the parent passes a `composerSelection` so the
  * sidebar surfaces an inline composer at the top of the Comments tab. Submit
  * POSTs to `snapshots.comments.store` (no optimistic UI yet — that's
