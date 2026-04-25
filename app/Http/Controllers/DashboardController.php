@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\McpCallLog;
-use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
 use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -17,17 +17,13 @@ class DashboardController extends Controller
 {
     public function show(Request $request): Response
     {
-        $startOfDay = now()->startOfDay();
+        $user = $request->user();
 
-        $workbenchCount = Workbench::count();
-        $snapshotCount = Snapshot::count();
-        $revisionsToday = SnapshotVersion::where('created_at', '>=', $startOfDay)->count();
-        $mcpCallsToday = McpCallLog::where('created_at', '>=', $startOfDay)->count();
-
-        $recentVersions = SnapshotVersion::query()
+        $recentSnapshots = SnapshotVersion::query()
             ->with(['snapshot.workbench'])
+            ->whereHas('snapshot.workbench', fn ($q) => $q->where('owner_user_id', $user->id))
             ->orderByDesc('created_at')
-            ->limit(6)
+            ->limit(5)
             ->get()
             ->map(fn (SnapshotVersion $v) => [
                 'workbench_slug' => $v->snapshot->workbench->slug,
@@ -41,64 +37,54 @@ class DashboardController extends Controller
             ])
             ->all();
 
-        $viewTypeSamples = $this->latestPerViewType();
+        $lastVersionAtSub = DB::table('snapshot_versions')
+            ->join('snapshots', 'snapshots.id', '=', 'snapshot_versions.snapshot_id')
+            ->whereColumn('snapshots.workbench_id', 'workbenches.id')
+            ->selectRaw('max(snapshot_versions.created_at)');
+
+        $snapshotCountSub = DB::table('snapshots')
+            ->whereColumn('snapshots.workbench_id', 'workbenches.id')
+            ->selectRaw('count(*)');
+
+        $latestSnapshotSlugSub = DB::table('snapshot_versions')
+            ->join('snapshots', 'snapshots.id', '=', 'snapshot_versions.snapshot_id')
+            ->whereColumn('snapshots.workbench_id', 'workbenches.id')
+            ->orderByDesc('snapshot_versions.created_at')
+            ->limit(1)
+            ->select('snapshots.slug');
+
+        $workbenches = Workbench::query()
+            ->where('owner_user_id', $user->id)
+            ->select('workbenches.*')
+            ->selectSub($lastVersionAtSub, 'last_version_at')
+            ->selectSub($snapshotCountSub, 'snapshot_count')
+            ->selectSub($latestSnapshotSlugSub, 'latest_snapshot_slug')
+            ->orderByRaw('('.$lastVersionAtSub->toSql().') desc nulls last')
+            ->orderByDesc('workbenches.created_at')
+            ->get()
+            ->map(function (Workbench $w): array {
+                $lastVersionAt = $w->getAttribute('last_version_at');
+                $lastActivity = $lastVersionAt !== null
+                    ? Carbon::parse($lastVersionAt)
+                    : $w->created_at;
+
+                return [
+                    'slug' => $w->slug,
+                    'name' => $w->name,
+                    'last_activity_at' => $lastActivity?->toIso8601String(),
+                    'last_activity_human' => $lastActivity?->diffForHumans(
+                        syntax: CarbonInterface::DIFF_ABSOLUTE,
+                        short: true,
+                    ),
+                    'snapshot_count' => (int) $w->getAttribute('snapshot_count'),
+                    'latest_snapshot_slug' => $w->getAttribute('latest_snapshot_slug'),
+                ];
+            })
+            ->all();
 
         return Inertia::render('dashboard', [
-            'kpis' => [
-                'workbenches' => $workbenchCount,
-                'snapshots' => $snapshotCount,
-                'revisions_today' => $revisionsToday,
-                'mcp_calls_today' => $mcpCallsToday,
-            ],
-            'recentSnapshots' => $recentVersions,
-            'viewTypeSamples' => $viewTypeSamples,
+            'recentSnapshots' => $recentSnapshots,
+            'workbenches' => $workbenches,
         ]);
-    }
-
-    /**
-     * Latest snapshot per view_type. Powers the dashboard view-type cards so
-     * each card links to a real example when one exists.
-     *
-     * @return array<string, array{workbench_slug: string, snapshot_slug: string, snapshot_title: string|null}|null>
-     */
-    private function latestPerViewType(): array
-    {
-        // REQ-M5-000: `report` is a narrative view_type that bundles other
-        // snapshots inline; the dashboard surfaces it alongside the four
-        // structured zones so users can find a sample report the same way
-        // they find a table or slide deck.
-        $viewTypes = ['slide_deck', 'table', 'kanban', 'flowchart', 'report'];
-        $samples = array_fill_keys($viewTypes, null);
-
-        // One row per view_type via correlated subquery instead of hydrating
-        // every matching SnapshotVersion in the table. At most 4 rows are
-        // returned regardless of revision history size.
-        $latestIds = SnapshotVersion::query()
-            ->selectRaw('max(id) as id, view_type')
-            ->whereIn('view_type', $viewTypes)
-            ->groupBy('view_type')
-            ->pluck('id');
-
-        $latest = SnapshotVersion::query()
-            ->with(['snapshot.workbench'])
-            ->whereIn('id', $latestIds)
-            ->get()
-            ->keyBy('view_type');
-
-        foreach ($viewTypes as $viewType) {
-            $version = $latest->get($viewType);
-
-            if ($version === null) {
-                continue;
-            }
-
-            $samples[$viewType] = [
-                'workbench_slug' => $version->snapshot->workbench->slug,
-                'snapshot_slug' => $version->snapshot->slug,
-                'snapshot_title' => $version->snapshot->title,
-            ];
-        }
-
-        return $samples;
     }
 }
