@@ -445,6 +445,16 @@ function CommentCard({
     // Unreconciled rows have no real server id; their actions are effectively
     // disabled until reconciliation. Same goes for historical view (read-only).
     const actionsDisabled = isUnreconciled || isHistoricalView;
+    // REQ-M6-019: a comment is stale when either the lifecycle status has been
+    // flipped to `stale` server-side, OR the projected anchor no longer
+    // resolves in the current revision. The server may not have flipped the
+    // status yet for this render, so we treat both as the same condition.
+    // When the next polling tick brings down a freshly-resolvable anchor (per
+    // REQ-M6-012's auto-revival), this flag flips back to false and the card
+    // re-renders without the muted styling — no animation, no notification.
+    const isStale =
+        comment.status === 'stale' || !comment.anchor.resolved_in_current_version;
+    const staleTooltip = 'Anchor not found in current revision';
 
     const onJumpToAnchor = () => {
         const ok = scrollToAndHighlightAnchor(comment.block_id, comment.anchor.quote);
@@ -478,6 +488,22 @@ function CommentCard({
                     rollback(clientId);
                     toast.error('Could not toggle reaction');
                 },
+            },
+        );
+    };
+
+    const onAcceptSuggestion = () => {
+        if (actionsDisabled || isStale) {
+            return;
+        }
+
+        router.post(
+            `/snapshots/${snapshotId}/comments/${comment.id}/accept`,
+            {},
+            {
+                preserveScroll: true,
+                preserveState: true,
+                onError: () => toast.error('Could not accept suggestion'),
             },
         );
     };
@@ -539,9 +565,11 @@ function CommentCard({
             data-testid="snapshot-sidebar-comment"
             data-comment-id={comment.id}
             data-optimistic={isUnreconciled ? 'true' : 'false'}
+            data-stale={isStale ? 'true' : 'false'}
             className={cn(
                 'flex w-full flex-col gap-2 px-4 py-3',
                 isUnreconciled ? 'animate-pulse opacity-90' : null,
+                isStale ? 'opacity-60 grayscale' : null,
             )}
         >
             <button
@@ -560,9 +588,30 @@ function CommentCard({
                             Suggestion
                         </span>
                     ) : null}
+                    {isStale ? (
+                        <span
+                            data-testid="snapshot-sidebar-comment-anchor-lost-chip"
+                            title={staleTooltip}
+                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                        >
+                            Anchor lost
+                        </span>
+                    ) : null}
                 </header>
 
                 <p className="text-xs italic text-muted-foreground">“{truncatedQuote}”</p>
+
+                {isStale ? (
+                    <p
+                        data-testid="snapshot-sidebar-comment-stale-quote"
+                        className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[11px] text-muted-foreground"
+                    >
+                        <span className="font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                            Original anchor:
+                        </span>{' '}
+                        <span className="italic">{comment.anchor.quote}</span>
+                    </p>
+                ) : null}
 
                 <div className="text-sm text-foreground">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.body}</ReactMarkdown>
@@ -640,7 +689,8 @@ function CommentCard({
                     <select
                         data-testid="snapshot-sidebar-comment-status-select"
                         value={comment.status}
-                        disabled={actionsDisabled}
+                        disabled={actionsDisabled || isStale}
+                        title={isStale ? staleTooltip : undefined}
                         onChange={(e) => onFlipStatus(e.target.value as CommentSummary['status'])}
                         className="rounded border border-border bg-background px-1 py-0.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
                     >
@@ -648,6 +698,19 @@ function CommentCard({
                         <option value="resolved">Resolved</option>
                         <option value="wontfix">Won't fix</option>
                     </select>
+
+                    {comment.kind === 'suggestion' ? (
+                        <button
+                            type="button"
+                            onClick={onAcceptSuggestion}
+                            disabled={actionsDisabled || isStale}
+                            title={isStale ? staleTooltip : undefined}
+                            data-testid="snapshot-sidebar-comment-accept"
+                            className="rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                        >
+                            Accept
+                        </button>
+                    ) : null}
                 </div>
             ) : null}
 
