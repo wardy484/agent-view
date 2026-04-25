@@ -103,6 +103,22 @@ export function CommentHighlightOverlay({
     useLayoutEffect(() => {
         const container = containerRef.current;
 
+        // REQ-M6-039: opt-in diagnostic. Gated on ?debug-highlights=1 so we
+        // don't spam production consoles. Temporary — will be reverted once
+        // we've identified why first-paint highlight application keeps
+        // failing despite three layers of triggers (REQ-M6-036/038).
+        const debug =
+            typeof window !== 'undefined' &&
+            new URLSearchParams(window.location.search).has('debug-highlights');
+
+        if (debug) {
+             
+            console.log('[highlight-overlay] effect started', {
+                commentsLength: comments.length,
+                hasContainer: !!container,
+            });
+        }
+
         if (!container) {
             return;
         }
@@ -136,6 +152,30 @@ export function CommentHighlightOverlay({
                     classForComment(c) !== null,
             );
 
+            // REQ-M6-039: opt-in diagnostic at the top of every wrapPass.
+            if (debug) {
+                const blockEls = container.querySelectorAll(
+                    '[data-comment-block-id]',
+                );
+                 
+                console.log('[highlight-overlay] wrapPass', {
+                    trigger:
+                        new Error().stack?.split('\n')[2]?.trim() ?? 'unknown',
+                    commentsTotal: comments.length,
+                    eligibleCount: eligible.length,
+                    blocksInDom: blockEls.length,
+                    blockIdsInDom: [...blockEls].map((el) =>
+                        el.getAttribute('data-comment-block-id'),
+                    ),
+                    firstEligibleBlockId: eligible[0]?.block_id ?? null,
+                    firstEligibleQuotePreview:
+                        eligible[0]?.anchor.quote.slice(0, 40) ?? null,
+                    firstEligibleResolvedFlag:
+                        eligible[0]?.anchor.resolved_in_current_version ?? null,
+                    firstEligibleStatus: eligible[0]?.status ?? null,
+                });
+            }
+
             let wrapped = 0;
 
             for (const comment of eligible) {
@@ -144,6 +184,14 @@ export function CommentHighlightOverlay({
                 );
 
                 if (!block) {
+                    if (debug) {
+                         
+                        console.log('[highlight-overlay] block not found', {
+                            commentId: comment.id,
+                            blockId: comment.block_id,
+                        });
+                    }
+
                     continue;
                 }
 
@@ -155,6 +203,15 @@ export function CommentHighlightOverlay({
                 );
 
                 if (!range) {
+                    if (debug) {
+                         
+                        console.log('[highlight-overlay] range not found', {
+                            commentId: comment.id,
+                            quote: comment.anchor.quote.slice(0, 40),
+                            blockText: block.textContent?.slice(0, 100),
+                        });
+                    }
+
                     continue;
                 }
 
@@ -201,6 +258,11 @@ export function CommentHighlightOverlay({
                 if (marks.length > 0) {
                     wrapped += marks.length;
                 }
+            }
+
+            if (debug) {
+                 
+                console.log('[highlight-overlay] wrapPass result', { wrapped });
             }
 
             if (observer && !unmounted) {
