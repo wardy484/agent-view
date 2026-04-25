@@ -36,9 +36,25 @@ class CommentController extends Controller
             'anchor_suffix' => ['nullable', 'string', 'max:200'],
             'anchor_start_hint' => ['required', 'integer', 'min:0'],
             'anchor_end_hint' => ['required', 'integer', 'min:0'],
+            // REQ-M6-015: clients running on a historical revision may try to
+            // submit a comment after the snapshot has been advanced. They send
+            // the version_id they were rendering against; mismatch = 409 so
+            // the UI can prompt the user to reload before retrying.
+            'expected_version_id' => ['nullable', 'integer'],
         ]);
 
         $snapshot->loadMissing('currentVersion');
+
+        // REQ-M6-015: belt-and-braces concurrency check. The UI hides the
+        // composer in historical mode, but a stale tab could still POST.
+        if (
+            isset($validated['expected_version_id'])
+            && $validated['expected_version_id'] !== null
+            && $snapshot->current_version_id !== null
+            && (int) $validated['expected_version_id'] !== (int) $snapshot->current_version_id
+        ) {
+            abort(409, 'Snapshot has been advanced since this comment was started.');
+        }
 
         Comment::query()->create([
             'snapshot_id' => $snapshot->id,

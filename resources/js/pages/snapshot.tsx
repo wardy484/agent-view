@@ -67,6 +67,9 @@ type Props = {
     // gating so the History tab stays consistent.
     comments?: CommentSummary[] | null;
     versionHistory?: VersionHistoryEntry[] | null;
+    // REQ-M6-015: true when ?revision= resolved to a non-current revision.
+    // Drives the sidebar's read-only banner + composer suppression.
+    is_historical_view?: boolean;
 };
 
 /**
@@ -93,6 +96,7 @@ export default function SnapshotPage(props: Props) {
         shares = [],
         comments = null,
         versionHistory = null,
+        is_historical_view = false,
     } = props;
     const isPreview = mode === 'preview';
     // Shared content (public links or shared-with viewers) defaults to
@@ -143,6 +147,7 @@ export default function SnapshotPage(props: Props) {
             shares={shares}
             comments={comments}
             versionHistory={versionHistory}
+            isHistoricalView={is_historical_view}
         />
     );
 
@@ -175,6 +180,7 @@ type BodyProps = {
     shares: SnapshotShareSummary[];
     comments: CommentSummary[] | null;
     versionHistory: VersionHistoryEntry[] | null;
+    isHistoricalView: boolean;
 };
 
 function SnapshotBody({
@@ -193,6 +199,7 @@ function SnapshotBody({
     shares,
     comments,
     versionHistory,
+    isHistoricalView,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
@@ -205,7 +212,7 @@ function SnapshotBody({
         // Preview / fullscreen: render the view edge-to-edge with no chrome.
         return (
             <main data-testid="nexus-snapshot-body">
-                {renderView(version, fullBleed, snapshot.id, comments, versionHistory)}
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
             </main>
         );
     }
@@ -257,7 +264,7 @@ function SnapshotBody({
             </header>
 
             <main data-testid="nexus-snapshot-body">
-                {renderView(version, fullBleed, snapshot.id, comments, versionHistory)}
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
             </main>
         </div>
     );
@@ -269,6 +276,9 @@ function renderView(
     snapshotId: number,
     comments: CommentSummary[] | null,
     versionHistory: VersionHistoryEntry[] | null,
+    isHistoricalView: boolean,
+    workbenchSlug: string,
+    snapshotSlug: string,
 ) {
     if (version.view_type === 'table') {
         return <TableView payload={version.data_payload as TableViewPayload} fullBleed={fullBleed} />;
@@ -310,6 +320,10 @@ function renderView(
                 snapshotId={snapshotId}
                 comments={comments}
                 versionHistory={versionHistory}
+                isHistoricalView={isHistoricalView}
+                workbenchSlug={workbenchSlug}
+                snapshotSlug={snapshotSlug}
+                activeRevision={version.revision}
             />
         );
     }

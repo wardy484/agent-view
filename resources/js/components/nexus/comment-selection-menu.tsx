@@ -22,13 +22,23 @@ type Props = {
     onComment: (selection: SelectionInfo) => void;
     onSuggest: (selection: SelectionInfo) => void;
     onClose: () => void;
+    /** REQ-M6-015: disables Comment + Suggest while keeping Copy enabled —
+     * historical revisions can be quoted but never commented on. */
+    readOnly?: boolean;
 };
 
 const MENU_HEIGHT = 40;
 const MENU_GAP = 8;
 const CROSS_BLOCK_HINT = 'Selection must stay within one block.';
+const READ_ONLY_HINT = 'Read-only — switch to the latest revision to comment.';
 
-export function CommentSelectionMenu({ selection, onComment, onSuggest, onClose }: Props) {
+export function CommentSelectionMenu({
+    selection,
+    onComment,
+    onSuggest,
+    onClose,
+    readOnly = false,
+}: Props) {
     const [menuEl, setMenuEl] = useState<HTMLDivElement | null>(null);
     const [, copy] = useClipboard();
 
@@ -88,8 +98,8 @@ export function CommentSelectionMenu({ selection, onComment, onSuggest, onClose 
                 <ActionButton
                     label="Comment"
                     icon={<MessageSquare className="size-4" aria-hidden />}
-                    disabled={crossesBlocks}
-                    disabledHint={CROSS_BLOCK_HINT}
+                    disabled={crossesBlocks || readOnly}
+                    disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
                     onClick={() => onComment(selection)}
                     testId="comment-selection-menu-comment"
                 />
@@ -97,8 +107,8 @@ export function CommentSelectionMenu({ selection, onComment, onSuggest, onClose 
                 <ActionButton
                     label="Suggest edit"
                     icon={<PenLine className="size-4" aria-hidden />}
-                    disabled={crossesBlocks}
-                    disabledHint={CROSS_BLOCK_HINT}
+                    disabled={crossesBlocks || readOnly}
+                    disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
                     onClick={() => onSuggest(selection)}
                     testId="comment-selection-menu-suggest"
                 />

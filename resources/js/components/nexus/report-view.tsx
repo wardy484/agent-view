@@ -73,6 +73,13 @@ type Props = {
     snapshotId?: number;
     comments?: CommentSummary[] | null;
     versionHistory?: VersionHistoryEntry[] | null;
+    /** REQ-M6-015: when true the page is rendering a historical revision —
+     * disable the floating selection menu's write actions and the composer. */
+    isHistoricalView?: boolean;
+    workbenchSlug?: string;
+    snapshotSlug?: string;
+    /** REQ-M6-015: revision currently being rendered (for the History tab). */
+    activeRevision?: number;
 };
 
 export function ReportView({
@@ -82,6 +89,10 @@ export function ReportView({
     snapshotId,
     comments,
     versionHistory,
+    isHistoricalView = false,
+    workbenchSlug,
+    snapshotSlug,
+    activeRevision,
 }: Props) {
     // Server inlines the resolved blocks; fall back to raw blocks so the
     // component still renders something useful if resolved_blocks is missing
@@ -132,8 +143,12 @@ export function ReportView({
     // sidebar. Cross-block selections are rejected (blockId === null) — the
     // selection menu disables those actions, so we only need a defensive
     // guard here for keyboard-only invocation paths.
+    //
+    // REQ-M6-015: in historical view we suppress composer creation entirely
+    // so a stray keyboard shortcut can't open one even though the floating
+    // menu's Comment / Suggest buttons are also disabled.
     const openComposer = (kind: 'comment' | 'suggestion') => (info: SelectionInfo) => {
-        if (info.blockId === null) {
+        if (info.blockId === null || isHistoricalView) {
             return;
         }
 
@@ -182,6 +197,7 @@ export function ReportView({
                 onComment={handleComment}
                 onSuggest={handleSuggest}
                 onClose={clearSelection}
+                readOnly={isHistoricalView}
             />
         </div>
     );
@@ -203,6 +219,10 @@ export function ReportView({
                 blockOrder={blockOrder}
                 composerSelection={composerSelection}
                 onComposerClose={() => setComposerSelection(null)}
+                isHistoricalView={isHistoricalView}
+                workbenchSlug={workbenchSlug}
+                snapshotSlug={snapshotSlug}
+                activeRevision={activeRevision}
             />
         </div>
     );

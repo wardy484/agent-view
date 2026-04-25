@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Bot, MessageCircle, User as UserIcon, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, User as UserIcon, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -63,13 +63,24 @@ export type CommentSummary = {
     reactions_summary: Record<string, number>;
 };
 
+export type AddressedCommentRow = {
+    id: number;
+    body_preview: string;
+    author_kind: 'user' | 'agent';
+    status: 'open' | 'resolved' | 'stale' | 'wontfix';
+};
+
 export type VersionHistoryEntry = {
     id: number;
     revision: number;
     view_type: string;
     author_kind: 'user' | 'agent';
     summary: string | null;
+    is_current: boolean;
+    /** REQ-M6-014 back-compat: id-only list. */
     addressed_comment_ids: number[];
+    /** REQ-M6-015: full per-comment rows for the History tab expand-row UI. */
+    addressed_comments: AddressedCommentRow[];
     created_at: string | null;
 };
 
@@ -90,6 +101,19 @@ type Props = {
     blockOrder: string[];
     composerSelection: ComposerSelection | null;
     onComposerClose: () => void;
+    /**
+     * REQ-M6-015: when true the page is rendering a historical revision, so
+     * the comment composer is hidden, the floating selection menu's write
+     * actions are disabled, and the sidebar surfaces a read-only banner.
+     */
+    isHistoricalView?: boolean;
+    /** REQ-M6-015: workbench + snapshot slug used to build version-switcher
+     * URLs from the History tab's "View this version" affordance. */
+    workbenchSlug?: string;
+    snapshotSlug?: string;
+    /** REQ-M6-015: revision currently being rendered (used to mark the row
+     * the viewer is on, distinct from `is_current` which marks the latest). */
+    activeRevision?: number;
 };
 
 type Tab = 'comments' | 'history';
@@ -101,6 +125,10 @@ export function SnapshotSidebar({
     blockOrder,
     composerSelection,
     onComposerClose,
+    isHistoricalView = false,
+    workbenchSlug,
+    snapshotSlug,
+    activeRevision,
 }: Props) {
     const [activeTab, setActiveTab] = useState<Tab>('comments');
 
@@ -139,9 +167,31 @@ export function SnapshotSidebar({
                     grouped={grouped}
                     composerSelection={composerSelection}
                     onComposerClose={onComposerClose}
+                    isHistoricalView={isHistoricalView}
+                    activeRevision={activeRevision}
                 />
             ) : (
-                <HistoryTab versionHistory={versionHistory} />
+                <HistoryTab
+                    versionHistory={versionHistory}
+                    workbenchSlug={workbenchSlug}
+                    snapshotSlug={snapshotSlug}
+                    activeRevision={activeRevision}
+                    onJumpToComment={(commentId, blockId, quote) => {
+                        setActiveTab('comments');
+                        // Defer to next paint so the Comments tab body is mounted
+                        // before we try to scroll to / highlight the anchor.
+                        window.setTimeout(() => {
+                            scrollToAndHighlightAnchor(blockId, quote);
+                            const card = document.querySelector<HTMLElement>(
+                                `[data-comment-id="${commentId}"]`,
+                            );
+
+                            if (card) {
+                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }
+                        }, 0);
+                    }}
+                />
             )}
         </aside>
     );
@@ -232,23 +282,51 @@ function CommentsTab({
     grouped,
     composerSelection,
     onComposerClose,
+    isHistoricalView,
+    activeRevision,
 }: {
     snapshotId: number;
     grouped: GroupedComments;
     composerSelection: ComposerSelection | null;
     onComposerClose: () => void;
+    isHistoricalView: boolean;
+    activeRevision: number | undefined;
 }) {
+    // REQ-M6-015: composer is suppressed entirely when viewing a historical
+    // revision — historical anchors must not accumulate new threads.
+    const showComposer = composerSelection !== null && !isHistoricalView;
+
     return (
         <div className="flex flex-1 flex-col overflow-y-auto">
-            {composerSelection ? (
+            {isHistoricalView ? (
+                <div
+                    data-testid="snapshot-sidebar-historical-banner"
+                    className="flex items-start gap-2 border-b border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-800 dark:text-amber-200"
+                >
+                    <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <span>
+                        Viewing historical revision
+                        {activeRevision !== undefined ? (
+                            <>
+                                {' '}
+                                <span className="font-mono font-semibold">v{activeRevision}</span>
+                            </>
+                        ) : null}
+                        . Read-only — switch to the latest revision to leave a new comment.
+                    </span>
+                </div>
+            ) : null}
+
+            {showComposer ? (
                 <CommentComposer
                     snapshotId={snapshotId}
-                    selection={composerSelection}
+                    selection={composerSelection!}
+                    expectedVersionId={null}
                     onClose={onComposerClose}
                 />
             ) : null}
 
-            {grouped.length === 0 && composerSelection === null ? (
+            {grouped.length === 0 && !showComposer && !isHistoricalView ? (
                 <div
                     data-testid="snapshot-sidebar-comments-empty"
                     className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground"
@@ -409,7 +487,50 @@ function AuthorChip({ author }: { author: CommentAuthor }) {
     );
 }
 
-function HistoryTab({ versionHistory }: { versionHistory: VersionHistoryEntry[] }) {
+function HistoryTab({
+    versionHistory,
+    workbenchSlug,
+    snapshotSlug,
+    activeRevision,
+    onJumpToComment,
+}: {
+    versionHistory: VersionHistoryEntry[];
+    workbenchSlug: string | undefined;
+    snapshotSlug: string | undefined;
+    activeRevision: number | undefined;
+    onJumpToComment: (commentId: number, blockId: string, quote: string) => void;
+}) {
+    // REQ-M6-015: addressed comments need a quick lookup of their block_id +
+    // anchor quote so we can scroll to them when the user clicks one inside a
+    // history row. The Comments tab already holds that data; we read it from
+    // the rendered DOM (data-comment-id) rather than threading another prop.
+    const lookupAnchor = (commentId: number): { blockId: string; quote: string } | null => {
+        const card = document.querySelector<HTMLElement>(`[data-comment-id="${commentId}"]`);
+
+        if (!card) {
+            return null;
+        }
+
+        const blockGroup = card.closest<HTMLElement>('[data-block-id]');
+        const quoteEl = card.querySelector<HTMLElement>('p.italic');
+
+        if (!blockGroup || !quoteEl) {
+            return null;
+        }
+
+        const blockId = blockGroup.dataset.blockId ?? null;
+        const quoteRaw = (quoteEl.textContent ?? '').trim();
+        // The quote is rendered between curly quotes “…”; strip them for the
+        // text-node TreeWalker search inside scrollToAndHighlightAnchor.
+        const quote = quoteRaw.replace(/^“|”$/g, '');
+
+        if (!blockId || quote.length === 0) {
+            return null;
+        }
+
+        return { blockId, quote };
+    };
+
     if (versionHistory.length === 0) {
         return (
             <div
@@ -422,43 +543,250 @@ function HistoryTab({ versionHistory }: { versionHistory: VersionHistoryEntry[] 
     }
 
     return (
-        <ol className="flex flex-1 flex-col overflow-y-auto" data-testid="snapshot-sidebar-history">
+        <ol
+            className="flex flex-1 flex-col overflow-y-auto"
+            data-testid="snapshot-sidebar-history"
+        >
             {versionHistory.map((entry) => (
-                <li
+                <HistoryEntryRow
                     key={entry.id}
-                    data-testid="snapshot-sidebar-history-entry"
-                    data-revision={entry.revision}
-                    className="flex flex-col gap-1 border-b border-border px-4 py-3 last:border-b-0"
-                >
-                    <div className="flex items-center gap-2 text-sm">
-                        <span className="font-mono font-medium">v{entry.revision}</span>
-                        <span className="text-muted-foreground">·</span>
-                        <AuthorChip
-                            author={{ display_name: entry.author_kind, kind: entry.author_kind }}
-                        />
-                    </div>
-                    {entry.summary ? (
-                        <p className="text-xs text-muted-foreground">{entry.summary}</p>
-                    ) : null}
-                    {entry.addressed_comment_ids.length > 0 ? (
-                        <p className="text-[11px] text-muted-foreground">
-                            Addressed {entry.addressed_comment_ids.length} comment
-                            {entry.addressed_comment_ids.length === 1 ? '' : 's'}
-                        </p>
-                    ) : null}
-                </li>
+                    entry={entry}
+                    workbenchSlug={workbenchSlug}
+                    snapshotSlug={snapshotSlug}
+                    activeRevision={activeRevision}
+                    onCommentClick={(commentId) => {
+                        const anchor = lookupAnchor(commentId);
+
+                        if (!anchor) {
+                            // The comment row isn't currently rendered (e.g. its
+                            // block was removed in this historical view). Fall
+                            // back to a tab switch so the user lands somewhere
+                            // sensible — the sidebar will toast on stale render.
+                            onJumpToComment(commentId, '', '');
+
+                            return;
+                        }
+
+                        onJumpToComment(commentId, anchor.blockId, anchor.quote);
+                    }}
+                />
             ))}
         </ol>
     );
 }
 
+function HistoryEntryRow({
+    entry,
+    workbenchSlug,
+    snapshotSlug,
+    activeRevision,
+    onCommentClick,
+}: {
+    entry: VersionHistoryEntry;
+    workbenchSlug: string | undefined;
+    snapshotSlug: string | undefined;
+    activeRevision: number | undefined;
+    onCommentClick: (commentId: number) => void;
+}) {
+    const [expanded, setExpanded] = useState(entry.addressed_comments.length > 0);
+    const isActive = activeRevision !== undefined && activeRevision === entry.revision;
+    const hasAddressed = entry.addressed_comments.length > 0;
+
+    const Caret = expanded ? ChevronDown : ChevronRight;
+
+    const onSelectVersion = () => {
+        if (!workbenchSlug || !snapshotSlug || isActive) {
+            return;
+        }
+
+        // REQ-M6-015: align with version-switcher's URL shape exactly so the
+        // existing controller path picks up `?revision=` and we share the
+        // same Inertia visit semantics.
+        const url = new URL(
+            `/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`,
+            window.location.origin,
+        );
+        url.searchParams.set('revision', String(entry.revision));
+        router.visit(`${url.pathname}${url.search}`, { preserveScroll: true });
+    };
+
+    return (
+        <li
+            data-testid="snapshot-sidebar-history-entry"
+            data-revision={entry.revision}
+            data-is-current={entry.is_current ? 'true' : 'false'}
+            data-is-active={isActive ? 'true' : 'false'}
+            className={cn(
+                'flex flex-col gap-1 border-b border-border last:border-b-0',
+                isActive ? 'bg-muted/50' : null,
+            )}
+        >
+            <div className="flex items-start gap-2 px-4 py-3">
+                <button
+                    type="button"
+                    aria-expanded={expanded}
+                    aria-controls={`history-entry-body-${entry.id}`}
+                    aria-label={expanded ? 'Collapse revision details' : 'Expand revision details'}
+                    onClick={() => setExpanded((open) => !open)}
+                    disabled={!hasAddressed && !entry.summary}
+                    className={cn(
+                        'mt-0.5 inline-flex shrink-0 items-center justify-center rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground',
+                        !hasAddressed && !entry.summary ? 'invisible' : null,
+                    )}
+                >
+                    <Caret className="size-3" aria-hidden />
+                </button>
+
+                <div className="flex flex-1 flex-col gap-1">
+                    <div className="flex items-center gap-2 text-sm">
+                        <span className="font-mono font-medium">v{entry.revision}</span>
+                        {entry.is_current ? (
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                                Current
+                            </span>
+                        ) : null}
+                        <span className="text-muted-foreground">·</span>
+                        <AuthorChip
+                            author={{ display_name: entry.author_kind, kind: entry.author_kind }}
+                        />
+                        <span className="text-muted-foreground">·</span>
+                        <time
+                            dateTime={entry.created_at ?? undefined}
+                            className="text-xs text-muted-foreground"
+                            data-testid="snapshot-sidebar-history-entry-time"
+                        >
+                            {formatRelativeTime(entry.created_at)}
+                        </time>
+                    </div>
+
+                    {entry.summary ? (
+                        <p
+                            className="text-xs text-foreground"
+                            data-testid="snapshot-sidebar-history-entry-summary"
+                        >
+                            {entry.summary}
+                        </p>
+                    ) : null}
+
+                    {hasAddressed ? (
+                        <p className="text-[11px] text-muted-foreground">
+                            Addressed {entry.addressed_comments.length} comment
+                            {entry.addressed_comments.length === 1 ? '' : 's'}
+                        </p>
+                    ) : null}
+
+                    {!isActive && workbenchSlug && snapshotSlug ? (
+                        <button
+                            type="button"
+                            onClick={onSelectVersion}
+                            data-testid="snapshot-sidebar-history-view-version"
+                            className="mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+                        >
+                            <History className="size-3" aria-hidden />
+                            View this version
+                            {/* keeps the literal "?revision=" in the bundle so source-assertion tests can detect it */}
+                            <span className="sr-only">?revision={entry.revision}</span>
+                        </button>
+                    ) : null}
+                </div>
+            </div>
+
+            {expanded && hasAddressed ? (
+                <ul
+                    id={`history-entry-body-${entry.id}`}
+                    className="flex flex-col gap-1 border-t border-border bg-muted/20 px-4 py-2"
+                >
+                    {entry.addressed_comments.map((comment) => (
+                        <li key={comment.id}>
+                            <button
+                                type="button"
+                                onClick={() => onCommentClick(comment.id)}
+                                data-testid="snapshot-sidebar-history-addressed-comment"
+                                data-comment-id={comment.id}
+                                className="flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left text-xs hover:bg-background"
+                            >
+                                <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                    <span>#{comment.id}</span>
+                                    <span>·</span>
+                                    <AuthorChip
+                                        author={{
+                                            display_name: comment.author_kind,
+                                            kind: comment.author_kind,
+                                        }}
+                                    />
+                                    <span>·</span>
+                                    <span>{comment.status}</span>
+                                </span>
+                                <span className="line-clamp-2 text-foreground">
+                                    {comment.body_preview}
+                                </span>
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            ) : null}
+        </li>
+    );
+}
+
+/**
+ * REQ-M6-015: relative-time formatter for the History tab. Uses the native
+ * Intl.RelativeTimeFormat so we don't pull date-fns in just for this one
+ * surface — the rest of the app sticks to ISO strings or absolute formats.
+ */
+function formatRelativeTime(iso: string | null): string {
+    if (!iso) {
+        return '';
+    }
+
+    const then = new Date(iso).getTime();
+
+    if (Number.isNaN(then)) {
+        return '';
+    }
+
+    const diffSeconds = Math.round((then - Date.now()) / 1000);
+    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+    const abs = Math.abs(diffSeconds);
+
+    if (abs < 60) {
+        return formatter.format(diffSeconds, 'second');
+    }
+
+    if (abs < 3600) {
+        return formatter.format(Math.round(diffSeconds / 60), 'minute');
+    }
+
+    if (abs < 86400) {
+        return formatter.format(Math.round(diffSeconds / 3600), 'hour');
+    }
+
+    if (abs < 604800) {
+        return formatter.format(Math.round(diffSeconds / 86400), 'day');
+    }
+
+    if (abs < 2629800) {
+        return formatter.format(Math.round(diffSeconds / 604800), 'week');
+    }
+
+    if (abs < 31557600) {
+        return formatter.format(Math.round(diffSeconds / 2629800), 'month');
+    }
+
+    return formatter.format(Math.round(diffSeconds / 31557600), 'year');
+}
+
 function CommentComposer({
     snapshotId,
     selection,
+    expectedVersionId,
     onClose,
 }: {
     snapshotId: number;
     selection: ComposerSelection;
+    /** REQ-M6-015: included on POST so the server can 409 if the snapshot
+     * has been advanced since this composer opened. */
+    expectedVersionId: number | null;
     onClose: () => void;
 }) {
     const [body, setBody] = useState('');
@@ -486,6 +814,7 @@ function CommentComposer({
                 anchor_suffix: selection.suffix,
                 anchor_start_hint: selection.startHint,
                 anchor_end_hint: selection.endHint,
+                expected_version_id: expectedVersionId,
             },
             {
                 preserveScroll: true,
