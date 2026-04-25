@@ -23,6 +23,10 @@ export type HighlightCommentSummary = {
     block_id: string;
     status: 'open' | 'resolved' | 'wontfix' | 'stale';
     body: string;
+    /** REQ-M6-033: kind drives styling alongside status. */
+    kind: 'comment' | 'suggestion';
+    /** REQ-M6-033: empty string on a suggestion = deletion. */
+    proposed_text?: string;
     anchor: {
         quote: string;
         prefix?: string;
@@ -42,11 +46,40 @@ type Props = {
 
 const OVERLAY_ATTR = 'data-comment-overlay';
 
-const STATUS_CLASSES: Record<string, string> = {
-    open: 'bg-yellow-200/40 dark:bg-yellow-900/40',
-    resolved: 'bg-slate-300/40 dark:bg-slate-700/40 line-through decoration-slate-500',
-    wontfix: 'bg-zinc-300/30 dark:bg-zinc-700/30 line-through opacity-60',
-};
+// REQ-M6-033: a deletion is a suggestion whose proposed_text is the empty
+// string. Surfaced as a small helper so styling + tooltip can branch on it.
+function isDeletion(comment: HighlightCommentSummary): boolean {
+    return comment.kind === 'suggestion' && (comment.proposed_text ?? '') === '';
+}
+
+// REQ-M6-033: styling branches on (status, kind, proposed_text emptiness).
+//   - kind=comment, status=open                  → yellow
+//   - kind=suggestion, status=open, deletion     → red strike
+//   - kind=suggestion, status=open, non-deletion → indigo
+//   - status=resolved                            → muted slate strike
+//   - status=wontfix                             → grey strike
+function classForComment(comment: HighlightCommentSummary): string | null {
+    if (comment.status === 'resolved') {
+        return 'bg-slate-300/40 dark:bg-slate-700/40 line-through decoration-slate-500';
+    }
+
+    if (comment.status === 'wontfix') {
+        return 'bg-zinc-300/30 dark:bg-zinc-700/30 line-through opacity-60';
+    }
+
+    if (comment.status === 'open') {
+        if (comment.kind === 'suggestion') {
+            return isDeletion(comment)
+                ? 'bg-red-200/40 dark:bg-red-900/40 line-through decoration-red-500'
+                : 'bg-indigo-200/40 dark:bg-indigo-900/40';
+        }
+
+        return 'bg-yellow-200/40 dark:bg-yellow-900/40';
+    }
+
+    // status === 'stale' — nothing to render; the anchor doesn't resolve.
+    return null;
+}
 
 export function CommentHighlightOverlay({
     comments,
@@ -67,7 +100,7 @@ export function CommentHighlightOverlay({
             (c) =>
                 c.anchor.resolved_in_current_version === true &&
                 c.status !== 'stale' &&
-                STATUS_CLASSES[c.status] !== undefined,
+                classForComment(c) !== null,
         );
 
         for (const comment of eligible) {
@@ -90,14 +123,31 @@ export function CommentHighlightOverlay({
                 continue;
             }
 
+            const cls = classForComment(comment);
+
+            if (cls === null) {
+                continue;
+            }
+
             const mark = document.createElement('mark');
             mark.setAttribute(OVERLAY_ATTR, 'true');
             mark.setAttribute('data-comment-id', String(comment.id));
             mark.setAttribute('data-status', comment.status);
-            mark.className = `${STATUS_CLASSES[comment.status]} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
+            mark.setAttribute('data-kind', comment.kind);
 
+            // REQ-M6-033: surface the deletion variant for downstream tests
+            // and styling debugging. Empty string (the deletion sentinel) is
+            // explicitly distinct from a missing attribute.
+            if (comment.kind === 'suggestion') {
+                mark.setAttribute('data-deletion', isDeletion(comment) ? 'true' : 'false');
+            }
+
+            mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
+
+            // REQ-M6-033: tooltip surfaces the comment kind alongside the
+            // existing author + first-line body.
             const firstLine = (comment.body.split(/\r?\n/)[0] ?? '').trim();
-            const tooltipLabel = `${comment.author.display_name}: ${firstLine}`;
+            const tooltipLabel = `${comment.author.display_name} (${comment.kind}): ${firstLine}`;
             mark.title = tooltipLabel;
             mark.setAttribute('aria-label', tooltipLabel);
             mark.setAttribute('data-tooltip', tooltipLabel);

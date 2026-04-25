@@ -212,8 +212,11 @@ it('REQ-M6-017: snapshot-sidebar wires optimistic create/reply/reaction/status f
 
     expect($source)
         ->toContain('useOptimisticComments')
-        // Composer fires an optimistic add before POSTing.
-        ->toContain('addOptimisticComment')
+        // REQ-M6-030: the in-sidebar composer is gone, so addOptimisticComment
+        // is no longer wired up here — the floating pill (REQ-M6-027) POSTs
+        // new root comments directly and the optimistic-create flow now
+        // lives in the pill, not the sidebar. Reply / reaction / status
+        // helpers still ride on the sidebar's hook.
         // Reply box exists and uses the optimistic helper.
         ->toContain('addOptimisticReply')
         // Reaction toggle helper.

@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Copy, MessageSquare, PenLine } from 'lucide-react';
+import { Copy, MessageSquare, PenLine, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -54,6 +54,26 @@ import { cn } from '@/lib/utils';
  * visibly highlighted while the user types. Submit POSTs to
  * `/snapshots/{snapshot}/comments` and reloads only the `comments` prop;
  * Cancel/Escape removes the synthetic mark and resets to idle.
+ *
+ * REQ-M6-031: a fourth icon-only Delete button (Trash2) lives next to
+ * Comment / Suggest edit / Copy. Tapping Delete fires off a
+ * `kind = suggestion` POST with `proposed_text = ''` (empty string represents
+ * deletion of the selected text); the pill collapses immediately on submit
+ * — no expanded composer is shown for the Delete path. Cross-block and
+ * read-only restrictions match Comment + Suggest.
+ *
+ * REQ-M6-032: the Suggest-edit composer drops the secondary "comment body"
+ * textarea — only the `proposed_text` textarea is rendered. The submitted
+ * Comment row's `body` is left blank (`''`); the controller substitutes
+ * `''` server-side. Pure suggestions therefore carry their content in
+ * `proposed_text` only.
+ *
+ * REQ-M6-034: the scroll listener that mimics Medium / Notion (close on
+ * scroll) is restricted to `mode === 'idle'` only. Once the user is
+ * actively composing a comment or suggestion the synthetic highlight
+ * persists through scroll; persistent overlay highlights (REQ-M6-028)
+ * are likewise unaffected because the overlay's `useLayoutEffect`
+ * dependencies do not include any scroll-derived state.
  */
 
 type Mode = 'idle' | 'composing-comment' | 'composing-suggestion';
@@ -176,7 +196,12 @@ export function CommentSelectionPill({
     }, [selection, composing, onClose, resetComposer]);
 
     useEffect(() => {
-        if (!selection || composing) {
+        // REQ-M6-034: the close-on-scroll behaviour (mimicking Medium /
+        // Notion) is intentionally restricted to `mode === 'idle'`. Once
+        // the user is actively composing a comment or suggestion, scroll
+        // must NOT tear down the synthetic <mark data-pending-anchor> — the
+        // composer remains anchored and the highlight stays.
+        if (!selection || mode !== 'idle') {
             return;
         }
 
@@ -187,7 +212,7 @@ export function CommentSelectionPill({
         window.addEventListener('scroll', onScroll, { passive: true });
 
         return () => window.removeEventListener('scroll', onScroll);
-    }, [selection, composing, onClose]);
+    }, [selection, mode, onClose]);
 
     useEffect(() => {
         if (!composing) {
@@ -316,6 +341,48 @@ export function CommentSelectionPill({
         onClose();
     };
 
+    // REQ-M6-031: Delete posts a kind=suggestion comment with
+    // proposed_text='' (empty string represents deletion). No expanded
+    // composer is shown; the pill collapses on submit. Body is left blank
+    // — the controller substitutes ''.
+    const handleDelete = () => {
+        if (snapshotId === undefined) {
+            return;
+        }
+
+        const info = captureForAction();
+
+        if (!info || info.blockId === null) {
+            return;
+        }
+
+        // Clear the live selection so the OS bubble vanishes.
+        window.getSelection()?.removeAllRanges();
+
+        router.post(
+            `/snapshots/${snapshotId}/comments`,
+            {
+                block_id: info.blockId,
+                kind: 'suggestion',
+                body: '',
+                proposed_text: '',
+                anchor_quote: info.quote,
+                anchor_prefix: info.prefix,
+                anchor_suffix: info.suffix,
+                anchor_start_hint: info.startHint,
+                anchor_end_hint: info.endHint,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['comments'],
+                onFinish: () => {
+                    onClose();
+                },
+            },
+        );
+    };
+
     const handleSubmit = () => {
         const info = captured;
 
@@ -325,19 +392,22 @@ export function CommentSelectionPill({
             return;
         }
 
-        if (body.trim().length === 0) {
+        const kind = mode === 'composing-suggestion' ? 'suggestion' : 'comment';
+
+        // REQ-M6-032: suggestion composer no longer captures a body — only
+        // proposed_text is required for kind=suggestion. Comment composer
+        // continues to require its body.
+        if (kind === 'comment' && body.trim().length === 0) {
             setError('Body is required.');
 
             return;
         }
 
-        if (mode === 'composing-suggestion' && proposedText.trim().length === 0) {
+        if (kind === 'suggestion' && proposedText.trim().length === 0) {
             setError('Proposed text is required for a suggestion.');
 
             return;
         }
-
-        const kind = mode === 'composing-suggestion' ? 'suggestion' : 'comment';
 
         setSubmitting(true);
         setError(null);
@@ -347,7 +417,9 @@ export function CommentSelectionPill({
             {
                 block_id: info.blockId,
                 kind,
-                body: body.trim(),
+                // REQ-M6-032: suggestions submit an empty body; the server
+                // substitutes `''` so the NOT NULL constraint still holds.
+                body: kind === 'suggestion' ? '' : body.trim(),
                 proposed_text: kind === 'suggestion' ? proposedText.trim() : undefined,
                 anchor_quote: info.quote,
                 anchor_prefix: info.prefix,
@@ -430,6 +502,15 @@ export function CommentSelectionPill({
                             onClick={handleCopy}
                             testId="comment-selection-pill-copy"
                         />
+
+                        <PillButton
+                            label="Delete"
+                            icon={<Trash2 className="size-4" aria-hidden />}
+                            disabled={crossesBlocks || readOnly}
+                            disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
+                            onClick={handleDelete}
+                            testId="comment-selection-pill-delete"
+                        />
                     </>
                 ) : (
                     <ComposerBody
@@ -481,7 +562,11 @@ function ComposerBody({
     }, []);
 
     const shortcutLabel = metaKeyShortcutLabel();
-    const submitDisabled = submitting || body.trim().length === 0
+    // REQ-M6-032: suggestion composers no longer capture a body — only
+    // proposed_text is required. Comment composers still require their body.
+    const submitDisabled =
+        submitting
+        || (!isSuggestion && body.trim().length === 0)
         || (isSuggestion && proposedText.trim().length === 0);
 
     // REQ-M6-029: ⌘+Enter / Ctrl+Enter submits from inside the composer's
@@ -505,37 +590,36 @@ function ComposerBody({
             data-composer-kind={isSuggestion ? 'suggestion' : 'comment'}
         >
             <label className="text-xs font-medium text-muted-foreground">
-                {isSuggestion ? 'Suggestion' : 'Comment'}
+                {isSuggestion ? 'Proposed text' : 'Comment'}
             </label>
-            <textarea
-                ref={bodyRef}
-                value={body}
-                onChange={(e) => onBodyChange(e.target.value)}
-                onKeyDown={onKeyDown}
-                disabled={submitting}
-                placeholder={isSuggestion ? 'Why this change?' : 'Add a comment'}
-                rows={3}
-                data-testid="comment-selection-pill-body"
-                className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none disabled:opacity-60"
-            />
-
+            {/* REQ-M6-032: suggestion composers render only the proposed_text
+                textarea — the prior 'comment body' textarea is dropped, and
+                the resulting Comment row's body falls back to '' server-side. */}
             {isSuggestion ? (
-                <>
-                    <label className="text-xs font-medium text-muted-foreground">
-                        Proposed text
-                    </label>
-                    <textarea
-                        value={proposedText}
-                        onChange={(e) => onProposedTextChange(e.target.value)}
-                        onKeyDown={onKeyDown}
-                        disabled={submitting}
-                        placeholder="Replacement text"
-                        rows={3}
-                        data-testid="comment-selection-pill-proposed"
-                        className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none disabled:opacity-60"
-                    />
-                </>
-            ) : null}
+                <textarea
+                    ref={bodyRef}
+                    value={proposedText}
+                    onChange={(e) => onProposedTextChange(e.target.value)}
+                    onKeyDown={onKeyDown}
+                    disabled={submitting}
+                    placeholder="Replacement text"
+                    rows={3}
+                    data-testid="comment-selection-pill-proposed"
+                    className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none disabled:opacity-60"
+                />
+            ) : (
+                <textarea
+                    ref={bodyRef}
+                    value={body}
+                    onChange={(e) => onBodyChange(e.target.value)}
+                    onKeyDown={onKeyDown}
+                    disabled={submitting}
+                    placeholder="Add a comment"
+                    rows={3}
+                    data-testid="comment-selection-pill-body"
+                    className="w-full resize-none rounded-md border border-border bg-background px-2 py-1.5 text-sm focus:border-primary focus:outline-none disabled:opacity-60"
+                />
+            )}
 
             {error ? (
                 <p

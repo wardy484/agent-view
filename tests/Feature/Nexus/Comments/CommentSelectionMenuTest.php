@@ -105,9 +105,13 @@ it('REQ-M6-013: report-view tags markdown blocks with data-comment-block-id and 
         // Container ref is what the hook listens against.
         ->toContain('useRef')
         ->toContain('containerRef')
-        // Comment / Suggest callbacks are wired by REQ-M6-014's openComposer
-        // bridge — the floating menu still surfaces them via SelectionInfo.
-        ->toContain('openComposer')
+        // REQ-M6-030: openComposer plumbing was removed — the floating pill
+        // hosts its inline composer (REQ-M6-027) and POSTs new comments
+        // itself. The Comment / Suggest callbacks remain on the pill for
+        // observability and historical-mode gating; we just don't pin the
+        // legacy bridge name any more.
+        ->toContain('handleComment')
+        ->toContain('handleSuggest')
         // Escape / dismiss path clears the browser selection.
         ->toContain('clearSelection');
 });

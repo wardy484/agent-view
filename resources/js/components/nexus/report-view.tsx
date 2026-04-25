@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -16,13 +16,11 @@ import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { SnapshotSidebar } from '@/components/nexus/snapshot-sidebar';
 import type {
     CommentSummary,
-    ComposerSelection,
     VersionHistoryEntry,
 } from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { useMarkdownSelection } from '@/hooks/use-markdown-selection';
-import type { SelectionInfo } from '@/hooks/use-markdown-selection';
 import { cn } from '@/lib/utils';
 
 /**
@@ -106,7 +104,6 @@ export function ReportView({
 
     const containerRef = useRef<HTMLDivElement>(null);
     const selection = useMarkdownSelection(containerRef);
-    const [composerSelection, setComposerSelection] = useState<ComposerSelection | null>(null);
 
     const blockOrder = useMemo(
         () =>
@@ -141,33 +138,13 @@ export function ReportView({
         }
     };
 
-    // REQ-M6-014: opening the composer carries the SelectionInfo into the
-    // sidebar. Cross-block selections are rejected (blockId === null) — the
-    // selection menu disables those actions, so we only need a defensive
-    // guard here for keyboard-only invocation paths.
-    //
-    // REQ-M6-015: in historical view we suppress composer creation entirely
-    // so a stray keyboard shortcut can't open one even though the floating
-    // menu's Comment / Suggest buttons are also disabled.
-    const openComposer = (kind: 'comment' | 'suggestion') => (info: SelectionInfo) => {
-        if (info.blockId === null || isHistoricalView) {
-            return;
-        }
-
-        setComposerSelection({
-            blockId: info.blockId,
-            quote: info.quote,
-            prefix: info.prefix,
-            suffix: info.suffix,
-            startHint: info.startHint,
-            endHint: info.endHint,
-            kind,
-        });
-        clearSelection();
-    };
-
-    const handleComment = openComposer('comment');
-    const handleSuggest = openComposer('suggestion');
+    // REQ-M6-030: the in-sidebar composer is gone — the floating pill
+    // (REQ-M6-027 / REQ-M6-031) hosts the composer inline and POSTs new
+    // root comments itself. The parent's onComment / onSuggest hooks are
+    // retained as no-ops so the pill's API stays stable and so any future
+    // observer (analytics, focus management) can still receive the event.
+    const handleComment = () => {};
+    const handleSuggest = () => {};
 
     const sidebarVisible = comments !== undefined && comments !== null && snapshotId !== undefined;
 
@@ -252,8 +229,6 @@ export function ReportView({
             comments={comments ?? []}
             versionHistory={versionHistory ?? []}
             blockOrder={blockOrder}
-            composerSelection={composerSelection}
-            onComposerClose={() => setComposerSelection(null)}
             isHistoricalView={isHistoricalView}
             workbenchSlug={workbenchSlug}
             snapshotSlug={snapshotSlug}
