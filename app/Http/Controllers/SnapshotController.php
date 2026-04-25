@@ -329,9 +329,15 @@ class SnapshotController extends Controller
         foreach ($blocks as $block) {
             $type = is_string($block['type'] ?? null) ? $block['type'] : '';
 
+            $blockId = is_string($block['id'] ?? null) ? $block['id'] : null;
+
             if ($type === 'markdown') {
+                // REQ-M6-026: forward the block id so the frontend can stamp
+                // `data-comment-block-id` on the rendered markdown wrapper
+                // and the floating selection pill can resolve its anchor.
                 $resolved[] = [
                     'type' => 'markdown',
+                    'id' => $blockId,
                     'body' => is_string($block['body'] ?? null) ? $block['body'] : '',
                 ];
 
@@ -343,7 +349,6 @@ class SnapshotController extends Controller
             }
 
             $snapshotId = is_int($block['snapshot_id'] ?? null) ? (int) $block['snapshot_id'] : null;
-            $blockId = is_string($block['id'] ?? null) ? $block['id'] : null;
             $pin = $blockId === null ? null : $pins->get($blockId);
             $pinnedVersion = $pin === null ? null : $pinnedVersions->get($pin->embedded_version_id);
             $pinnedSnapshot = $pinnedVersion?->snapshot;
@@ -351,6 +356,7 @@ class SnapshotController extends Controller
             if ($pinnedSnapshot === null || $pinnedVersion === null) {
                 $resolved[] = [
                     'type' => 'embed',
+                    'id' => $blockId,
                     'snapshot_id' => $snapshotId,
                     'restricted' => true,
                 ];
@@ -364,6 +370,7 @@ class SnapshotController extends Controller
             if (! $this->policy->view($request->user(), $pinnedSnapshot)) {
                 $resolved[] = [
                     'type' => 'embed',
+                    'id' => $blockId,
                     'snapshot_id' => (int) $pinnedSnapshot->id,
                     'restricted' => true,
                 ];
@@ -375,6 +382,7 @@ class SnapshotController extends Controller
 
             $resolved[] = [
                 'type' => 'embed',
+                'id' => $blockId,
                 'snapshot_id' => (int) $pinnedSnapshot->id,
                 'snapshot_slug' => $pinnedSnapshot->slug,
                 'workbench_slug' => $pinnedSnapshot->workbench?->slug,
