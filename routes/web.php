@@ -5,6 +5,12 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
+use App\Http\Controllers\Snapshots\CommentAcceptanceController;
+use App\Http\Controllers\Snapshots\CommentController;
+use App\Http\Controllers\Snapshots\CommentReactionController;
+use App\Http\Controllers\Snapshots\CommentReplyController;
+use App\Http\Controllers\Snapshots\CommentStatusController;
+use App\Http\Controllers\Snapshots\SnapshotSidebarController;
 use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -61,6 +67,44 @@ Route::middleware(['web', 'auth'])
         Route::post('/share-token/rotate', [SnapshotShareController::class, 'rotateToken'])->name('share-token.rotate');
         Route::post('/shares', [SnapshotShareController::class, 'storeShare'])->name('shares.store');
         Route::delete('/shares/{share}', [SnapshotShareController::class, 'destroyShare'])->name('shares.destroy');
+    });
+
+// REQ-M6-008: owner-only acceptance of a suggestion comment. Resolves the
+// anchor against the snapshot's current revision, patches the body with
+// `proposed_text`, mints a new report revision, and atomically resolves the
+// comment as user-applied. Stale anchors return HTTP 409.
+Route::middleware(['web', 'auth'])
+    ->post('/snapshots/{snapshot}/comments/{comment}/accept', CommentAcceptanceController::class)
+    ->name('snapshots.comments.accept');
+
+// REQ-M6-016: polling delta endpoint for the snapshot sidebar. Returns the
+// projected comments + version history payload, or a tiny `no_change: true`
+// body when the caller's `?since=` cursor matches the current
+// `comments_revision`. Authorisation reuses SnapshotPolicy@view.
+Route::middleware(['web', 'auth'])
+    ->get('/snapshots/{snapshot}/sidebar', [SnapshotSidebarController::class, 'show'])
+    ->name('snapshots.sidebar.show');
+
+// REQ-M6-014: snapshot owner / share grantee creates a root review comment.
+// Replies and resolutions ride on dedicated MCP tools (REQ-M6-010..011) or
+// later M6 endpoints; this is the only path the React review UI uses to file
+// new threads.
+Route::middleware(['web', 'auth'])
+    ->post('/snapshots/{snapshot}/comments', [CommentController::class, 'store'])
+    ->name('snapshots.comments.store');
+
+// REQ-M6-017: optimistic-UI write endpoints for the sidebar Reply box,
+// reaction buttons, and status dropdown. Each is a thin controller that
+// delegates to existing services / policies and returns a redirect-back
+// (Inertia partial reload), so the React optimistic queue can reconcile
+// against the polling refresh of the `comments` prop.
+Route::middleware(['web', 'auth'])
+    ->prefix('/snapshots/{snapshot}/comments/{comment}')
+    ->name('snapshots.comments.')
+    ->group(function (): void {
+        Route::post('/replies', [CommentReplyController::class, 'store'])->name('replies.store');
+        Route::post('/reactions', [CommentReactionController::class, 'toggle'])->name('reactions.toggle');
+        Route::patch('/status', [CommentStatusController::class, 'update'])->name('status.update');
     });
 
 require __DIR__.'/settings.php';

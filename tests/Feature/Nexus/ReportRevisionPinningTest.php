@@ -19,7 +19,7 @@ it('REQ-M5-003: snapshot_embeds table exists with the expected columns and index
         'report_version_id',
         'embedded_snapshot_id',
         'embedded_version_id',
-        'block_index',
+        'block_id',
         'created_at',
     ]))->toBeTrue();
 });
@@ -46,11 +46,14 @@ it('REQ-M5-003: append() pins each embed to the embedded snapshot.current_versio
 
     $embeds = DB::table('snapshot_embeds')->where('report_version_id', $reportV1->id)->get();
 
+    $blocks = $reportV1->refresh()->data_payload['blocks'];
+    $embedBlock = collect($blocks)->firstWhere('type', 'embed');
+
     expect($embeds)->toHaveCount(1)
         ->and($embeds[0]->report_snapshot_id)->toBe($report->id)
         ->and($embeds[0]->embedded_snapshot_id)->toBe($table->id)
         ->and($embeds[0]->embedded_version_id)->toBe($tableV1->id)
-        ->and($embeds[0]->block_index)->toBe(1);
+        ->and($embeds[0]->block_id)->toBe($embedBlock['id']);
 });
 
 it('REQ-M5-003: a later report revision pins to the embed snapshot version current at that moment', function (): void {
@@ -132,14 +135,20 @@ it('REQ-M5-003: every embed block in a single report append gets its own snapsho
 
     $embeds = DB::table('snapshot_embeds')
         ->where('report_version_id', $reportV1->id)
-        ->orderBy('block_index')
+        ->orderBy('id')
         ->get();
+
+    $blocks = $reportV1->refresh()->data_payload['blocks'];
+    $embedBlockIds = collect($blocks)
+        ->where('type', 'embed')
+        ->pluck('id')
+        ->all();
 
     expect($embeds)->toHaveCount(2)
         ->and([$embeds[0]->embedded_snapshot_id, $embeds[1]->embedded_snapshot_id])
         ->toBe([$a->id, $b->id])
         ->and([$embeds[0]->embedded_version_id, $embeds[1]->embedded_version_id])
         ->toBe([$aV1->id, $bV1->id])
-        ->and([$embeds[0]->block_index, $embeds[1]->block_index])
-        ->toBe([1, 3]);
+        ->and([$embeds[0]->block_id, $embeds[1]->block_id])
+        ->toBe($embedBlockIds);
 });

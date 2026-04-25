@@ -1,17 +1,26 @@
 import { ExternalLink } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { CommentSelectionMenu } from '@/components/nexus/comment-selection-menu';
 import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
+import { SnapshotSidebar } from '@/components/nexus/snapshot-sidebar';
+import type {
+    CommentSummary,
+    ComposerSelection,
+    VersionHistoryEntry,
+} from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
+import { useMarkdownSelection } from '@/hooks/use-markdown-selection';
+import type { SelectionInfo } from '@/hooks/use-markdown-selection';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,6 +39,8 @@ import { cn } from '@/lib/utils';
 export type MarkdownBlock = {
     type: 'markdown';
     body: string;
+    /** REQ-M6-001 stable block id (uuid v4); optional for legacy payloads. */
+    id?: string;
 };
 
 export type ResolvedEmbedBlock = {
@@ -58,13 +69,50 @@ type Props = {
     payload: ReportViewPayload;
     className?: string;
     fullBleed?: boolean;
+    /** REQ-M6-014: pass-through for the sidebar's Comments tab. */
+    snapshotId?: number;
+    comments?: CommentSummary[] | null;
+    versionHistory?: VersionHistoryEntry[] | null;
+    /** REQ-M6-015: when true the page is rendering a historical revision —
+     * disable the floating selection menu's write actions and the composer. */
+    isHistoricalView?: boolean;
+    workbenchSlug?: string;
+    snapshotSlug?: string;
+    /** REQ-M6-015: revision currently being rendered (for the History tab). */
+    activeRevision?: number;
 };
 
-export function ReportView({ payload, className, fullBleed = false }: Props) {
+export function ReportView({
+    payload,
+    className,
+    fullBleed = false,
+    snapshotId,
+    comments,
+    versionHistory,
+    isHistoricalView = false,
+    workbenchSlug,
+    snapshotSlug,
+    activeRevision,
+}: Props) {
     // Server inlines the resolved blocks; fall back to raw blocks so the
     // component still renders something useful if resolved_blocks is missing
     // (e.g. direct consumers outside the snapshot page).
-    const blocks = payload.resolved_blocks ?? payload.blocks ?? [];
+    const blocks = useMemo(
+        () => payload.resolved_blocks ?? payload.blocks ?? [],
+        [payload.resolved_blocks, payload.blocks],
+    );
+
+    const containerRef = useRef<HTMLDivElement>(null);
+    const selection = useMarkdownSelection(containerRef);
+    const [composerSelection, setComposerSelection] = useState<ComposerSelection | null>(null);
+
+    const blockOrder = useMemo(
+        () =>
+            blocks
+                .filter((block): block is MarkdownBlock => block.type === 'markdown' && Boolean(block.id))
+                .map((block) => block.id as string),
+        [blocks],
+    );
 
     if (blocks.length === 0) {
         return (
@@ -80,34 +128,114 @@ export function ReportView({ payload, className, fullBleed = false }: Props) {
         );
     }
 
-    return (
+    // REQ-M6-013: clear the active browser selection so the floating menu
+    // unmounts. The hook's `selectionchange` listener picks up the empty
+    // range and resets state.
+    const clearSelection = () => {
+        const sel = window.getSelection();
+
+        if (sel) {
+            sel.removeAllRanges();
+        }
+    };
+
+    // REQ-M6-014: opening the composer carries the SelectionInfo into the
+    // sidebar. Cross-block selections are rejected (blockId === null) — the
+    // selection menu disables those actions, so we only need a defensive
+    // guard here for keyboard-only invocation paths.
+    //
+    // REQ-M6-015: in historical view we suppress composer creation entirely
+    // so a stray keyboard shortcut can't open one even though the floating
+    // menu's Comment / Suggest buttons are also disabled.
+    const openComposer = (kind: 'comment' | 'suggestion') => (info: SelectionInfo) => {
+        if (info.blockId === null || isHistoricalView) {
+            return;
+        }
+
+        setComposerSelection({
+            blockId: info.blockId,
+            quote: info.quote,
+            prefix: info.prefix,
+            suffix: info.suffix,
+            startHint: info.startHint,
+            endHint: info.endHint,
+            kind,
+        });
+        clearSelection();
+    };
+
+    const handleComment = openComposer('comment');
+    const handleSuggest = openComposer('suggestion');
+
+    const sidebarVisible = comments !== undefined && comments !== null && snapshotId !== undefined;
+
+    const reportBody = (
         <div
+            ref={containerRef}
             data-testid="nexus-report-view"
             data-block-count={blocks.length}
             className={cn(
-                'mx-auto flex w-full flex-col gap-6',
+                'relative mx-auto flex w-full flex-col gap-6',
                 fullBleed ? 'max-w-4xl px-6 py-10' : 'max-w-3xl',
                 className,
             )}
         >
             {blocks.map((block, index) =>
                 block.type === 'markdown' ? (
-                    <MarkdownBlockView key={index} body={block.body} />
+                    <MarkdownBlockView
+                        key={block.id ?? index}
+                        id={block.id}
+                        body={block.body}
+                    />
                 ) : (
                     <EmbedBlockView key={index} block={block} />
                 ),
             )}
+
+            <CommentSelectionMenu
+                selection={selection}
+                onComment={handleComment}
+                onSuggest={handleSuggest}
+                onClose={clearSelection}
+                readOnly={isHistoricalView}
+            />
+        </div>
+    );
+
+    if (!sidebarVisible) {
+        return reportBody;
+    }
+
+    return (
+        <div
+            className="flex w-full flex-col gap-0 lg:flex-row lg:items-start"
+            data-testid="nexus-report-with-sidebar"
+        >
+            <div className="flex-1 min-w-0">{reportBody}</div>
+            <SnapshotSidebar
+                snapshotId={snapshotId as number}
+                comments={comments ?? []}
+                versionHistory={versionHistory ?? []}
+                blockOrder={blockOrder}
+                composerSelection={composerSelection}
+                onComposerClose={() => setComposerSelection(null)}
+                isHistoricalView={isHistoricalView}
+                workbenchSlug={workbenchSlug}
+                snapshotSlug={snapshotSlug}
+                activeRevision={activeRevision}
+            />
         </div>
     );
 }
 
-function MarkdownBlockView({ body }: { body: string }) {
+function MarkdownBlockView({ id, body }: { id?: string; body: string }) {
     const components = useMemo<Components>(() => buildMarkdownComponents(), []);
 
     return (
         <section
             data-testid="nexus-report-block"
             data-block-type="markdown"
+            data-comment-block-id={id}
             className="report-prose text-base leading-relaxed text-foreground"
         >
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

@@ -6,6 +6,7 @@ import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
+import { NewRevisionBanner } from '@/components/nexus/new-revision-banner';
 import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
 import { ReportView } from '@/components/nexus/report-view';
 import type { ReportViewPayload } from '@/components/nexus/report-view';
@@ -13,10 +14,13 @@ import { ShareDialog } from '@/components/nexus/share-dialog';
 import type { SnapshotShareSummary, SnapshotVisibility } from '@/components/nexus/share-dialog';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
+import type { CommentSummary, VersionHistoryEntry } from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { useRevisionBanner } from '@/hooks/use-revision-banner';
+import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -30,6 +34,10 @@ type Snapshot = {
     slug: string;
     title: string | null;
     current_version_id: number | null;
+    // REQ-M6-016: monotonic counter on the snapshot row, bumped by every
+    // comment / reply / reaction / resolution write. Drives the polling
+    // loop's `?since=` cursor and the future M6-018 push banner.
+    comments_revision?: number;
 };
 
 type Version = {
@@ -61,6 +69,14 @@ type Props = {
     visibility?: SnapshotVisibility;
     share_url?: string | null;
     shares?: SnapshotShareSummary[];
+    // REQ-M6-014: sidebar feeds. `comments` is null for unauthenticated link
+    // viewers and for non-report views; `versionHistory` follows the same
+    // gating so the History tab stays consistent.
+    comments?: CommentSummary[] | null;
+    versionHistory?: VersionHistoryEntry[] | null;
+    // REQ-M6-015: true when ?revision= resolved to a non-current revision.
+    // Drives the sidebar's read-only banner + composer suppression.
+    is_historical_view?: boolean;
 };
 
 /**
@@ -85,6 +101,9 @@ export default function SnapshotPage(props: Props) {
         visibility = 'private',
         share_url = null,
         shares = [],
+        comments = null,
+        versionHistory = null,
+        is_historical_view = false,
     } = props;
     const isPreview = mode === 'preview';
     // Shared content (public links or shared-with viewers) defaults to
@@ -92,6 +111,33 @@ export default function SnapshotPage(props: Props) {
     // workbench chrome. Owners still start in the normal app shell.
     const isSharedView = is_public_link || !is_owner;
     const [isFullscreen, setIsFullscreen] = useState(isSharedView);
+
+    // REQ-M6-016: poll the sidebar props every 8 seconds while the tab is
+    // foregrounded. Only authenticated viewers on a current (non-historical)
+    // revision opt in — public-link guests and historical views never poll.
+    const shouldPoll = isAuthenticated && !is_public_link && !is_historical_view;
+    useSidebarPolling(
+        props.snapshot.id,
+        props.version.revision,
+        props.snapshot.comments_revision ?? 0,
+        !shouldPoll,
+    );
+
+    // REQ-M6-018: capture the *initial* rendered revision once on mount via
+    // a lazy useState initialiser so partial reloads that bring down a higher
+    // `version.revision` don't silently mutate the comparison baseline. The
+    // banner state diff-compares this captured value against the live prop.
+    // (Lazy useState is the React-recommended ref-shaped pattern that's also
+    // safe to read during render — useRef would lint as "ref accessed in
+    // render".)
+    const [renderedRevision] = useState<number>(() => props.version.revision);
+    const showBanner = isAuthenticated && !is_public_link && !is_historical_view;
+    const banner = useRevisionBanner(
+        renderedRevision,
+        props.version.revision,
+        props.snapshot.slug,
+        props.workbench.slug,
+    );
 
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
@@ -133,6 +179,9 @@ export default function SnapshotPage(props: Props) {
             visibility={visibility}
             shareUrl={share_url}
             shares={shares}
+            comments={comments}
+            versionHistory={versionHistory}
+            isHistoricalView={is_historical_view}
         />
     );
 
@@ -143,6 +192,17 @@ export default function SnapshotPage(props: Props) {
             <Head title={`${heading} — ${props.workbench.name}`} />
 
             {showHomeButton ? <PreviewHomeButton isAuthenticated={isAuthenticated} /> : null}
+
+            {showBanner && banner.show ? (
+                <NewRevisionBanner
+                    renderedRevision={renderedRevision}
+                    latestRevision={props.version.revision}
+                    onView={() => {
+                        banner.onView();
+                    }}
+                    onDismiss={banner.onDismiss}
+                />
+            ) : null}
 
             {showAppShell ? <AppLayout>{body}</AppLayout> : body}
         </>
@@ -163,6 +223,9 @@ type BodyProps = {
     visibility: SnapshotVisibility;
     shareUrl: string | null;
     shares: SnapshotShareSummary[];
+    comments: CommentSummary[] | null;
+    versionHistory: VersionHistoryEntry[] | null;
+    isHistoricalView: boolean;
 };
 
 function SnapshotBody({
@@ -179,6 +242,9 @@ function SnapshotBody({
     visibility,
     shareUrl,
     shares,
+    comments,
+    versionHistory,
+    isHistoricalView,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
@@ -189,7 +255,11 @@ function SnapshotBody({
 
     if (!showWorkbenchHeader) {
         // Preview / fullscreen: render the view edge-to-edge with no chrome.
-        return <main data-testid="nexus-snapshot-body">{renderView(version, fullBleed)}</main>;
+        return (
+            <main data-testid="nexus-snapshot-body">
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
+            </main>
+        );
     }
 
     return (
@@ -238,12 +308,23 @@ function SnapshotBody({
                 ) : null}
             </header>
 
-            <main data-testid="nexus-snapshot-body">{renderView(version, fullBleed)}</main>
+            <main data-testid="nexus-snapshot-body">
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
+            </main>
         </div>
     );
 }
 
-function renderView(version: Version, fullBleed: boolean) {
+function renderView(
+    version: Version,
+    fullBleed: boolean,
+    snapshotId: number,
+    comments: CommentSummary[] | null,
+    versionHistory: VersionHistoryEntry[] | null,
+    isHistoricalView: boolean,
+    workbenchSlug: string,
+    snapshotSlug: string,
+) {
     if (version.view_type === 'table') {
         return <TableView payload={version.data_payload as TableViewPayload} fullBleed={fullBleed} />;
     }
@@ -277,7 +358,19 @@ function renderView(version: Version, fullBleed: boolean) {
                 (version.data_payload as ReportViewPayload).resolved_blocks,
         };
 
-        return <ReportView payload={reportPayload} fullBleed={fullBleed} />;
+        return (
+            <ReportView
+                payload={reportPayload}
+                fullBleed={fullBleed}
+                snapshotId={snapshotId}
+                comments={comments}
+                versionHistory={versionHistory}
+                isHistoricalView={isHistoricalView}
+                workbenchSlug={workbenchSlug}
+                snapshotSlug={snapshotSlug}
+                activeRevision={version.revision}
+            />
+        );
     }
 
     return (

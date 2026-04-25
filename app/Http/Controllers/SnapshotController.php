@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\SnapshotVisibility;
+use App\Models\Comment;
 use App\Models\Snapshot;
 use App\Models\SnapshotShare;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
+use App\Nexus\Comments\CommentProjection;
+use App\Nexus\Comments\CommentStaleUpdater;
 use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -78,8 +81,48 @@ class SnapshotController extends Controller
             'metadata' => $version->metadata,
         ];
 
+        // REQ-M6-015: a viewer is browsing a historical revision when an
+        // explicit ?revision= resolved to anything other than the snapshot's
+        // current_version_id. The page enters read-only mode in that case.
+        $isHistoricalView = $snapshot->current_version_id !== null
+            && (int) $version->id !== (int) $snapshot->current_version_id;
+
+        // REQ-M6-014: comments + versionHistory props are only computed for
+        // authenticated viewers on report views. Link-token viewers go through
+        // PublicSnapshotController, which omits both props entirely.
+        $comments = null;
+        $versionHistory = null;
+
         if ($version->view_type === 'report') {
             $versionPayload['resolved_blocks'] = $this->resolveReportBlocks($request, $version);
+
+            // REQ-M6-012: comments are scoped to markdown blocks on report
+            // views, so the lazy stale updater only runs for that view_type.
+            // The snapshot's currentVersion drives resolution — pin it to the
+            // freshly-loaded relation so we don't issue an extra query.
+            $snapshot->setRelation('currentVersion', $snapshot->current_version_id === $version->id
+                ? $version
+                : $snapshot->currentVersion);
+
+            // REQ-M6-015: only sync status against the current revision —
+            // historical renders are read-time projections and must never
+            // mutate persistent state based on a back-in-time view.
+            if (! $isHistoricalView) {
+                CommentStaleUpdater::syncStatusForRender($snapshot);
+            }
+
+            if ($isAuthenticated) {
+                // REQ-M6-014: serialise every root comment for the sidebar.
+                // Re-uses the CommentProjection service the MCP tool consumes
+                // so the agent-facing JSON and the UI prop stay in lockstep.
+                //
+                // REQ-M6-015: when viewing a historical revision, anchors
+                // resolve against THAT version, not the latest, so the
+                // sidebar matches what the reader sees on the page.
+                $projectionVersion = $isHistoricalView ? $version : $snapshot->currentVersion;
+                $comments = CommentProjection::forSnapshot($snapshot, $projectionVersion);
+                $versionHistory = $this->resolveVersionHistory($snapshot, $versions, (int) $version->id);
+            }
         }
 
         return Inertia::render('snapshot', [
@@ -92,6 +135,10 @@ class SnapshotController extends Controller
                 'slug' => $snapshot->slug,
                 'title' => $snapshot->title,
                 'current_version_id' => $snapshot->current_version_id,
+                // REQ-M6-016: expose the monotonic counter so the polling
+                // hook can pass it as `?since=` and short-circuit when the
+                // comments graph hasn't moved.
+                'comments_revision' => (int) $snapshot->comments_revision,
             ],
             'version' => $versionPayload,
             // REQ-M4-006: non-owners never see the full revision history — the
@@ -131,7 +178,112 @@ class SnapshotController extends Controller
                     ->values()
                     ->all()
                 : [],
+            // REQ-M6-014: comments + versionHistory power the snapshot sidebar.
+            // Both are null for non-report views and for unauthenticated link
+            // viewers (consistent with REQ-M4-006 read-only stance).
+            'comments' => $comments,
+            'versionHistory' => $versionHistory,
+            // REQ-M6-015: signals the React layer to hide the comment composer
+            // and the floating selection menu's write actions, and to surface
+            // a "viewing historical revision" banner inside the sidebar.
+            'is_historical_view' => $isHistoricalView,
         ]);
+    }
+
+    /**
+     * REQ-M6-014 / REQ-M6-015: version-history projection for the sidebar's
+     * History tab. Each row carries the revision, view_type, author_kind,
+     * optional `summary` from metadata, an `is_current` flag, and the full
+     * list of comments whose `addressed_on_version_id` matches that
+     * revision (id, body preview, author kind, status). Order is newest-first
+     * to match the version-switcher and the natural "what changed last"
+     * reading direction.
+     *
+     * Comments are eager-loaded once and indexed by version id to avoid an
+     * N+1 fan-out across versions.
+     *
+     * @param  Collection<int, SnapshotVersion>  $versions
+     * @return list<array<string, mixed>>
+     */
+    private function resolveVersionHistory(Snapshot $snapshot, Collection $versions, int $activeVersionId): array
+    {
+        // REQ-M6-015: pull every addressed comment for this snapshot in one
+        // shot (id, addressed_on_version_id, body, author_kind, status) so we
+        // can group by version without per-version queries.
+        $byVersion = Comment::query()
+            ->where('snapshot_id', $snapshot->id)
+            ->whereNotNull('addressed_on_version_id')
+            ->orderBy('id')
+            ->get(['id', 'addressed_on_version_id', 'body', 'author_kind', 'status'])
+            ->groupBy('addressed_on_version_id');
+
+        // Pull metadata in one extra query keyed by version id — the listing
+        // collection above purposely keeps its columns lean for the switcher.
+        $metadataByVersion = SnapshotVersion::query()
+            ->whereIn('id', $versions->pluck('id'))
+            ->get(['id', 'metadata'])
+            ->keyBy('id');
+
+        return $versions
+            ->map(function (SnapshotVersion $candidate) use ($byVersion, $metadataByVersion, $activeVersionId): array {
+                $metadataRow = $metadataByVersion->get($candidate->id);
+                $metadata = is_array($metadataRow?->metadata) ? $metadataRow->metadata : [];
+                $summary = is_string($metadata['summary'] ?? null) ? (string) $metadata['summary'] : null;
+                $authorKind = is_string($metadata['author_kind'] ?? null)
+                    ? (string) $metadata['author_kind']
+                    : 'agent';
+
+                $addressed = $byVersion->get($candidate->id, collect());
+
+                return [
+                    'id' => (int) $candidate->id,
+                    'revision' => (int) $candidate->revision,
+                    'view_type' => $candidate->view_type,
+                    'author_kind' => $authorKind,
+                    'summary' => $summary,
+                    'is_current' => (int) $candidate->id === $activeVersionId,
+                    // REQ-M6-015: ids alone (back-compat with REQ-M6-014 prop
+                    // shape) plus the richer per-comment row consumed by the
+                    // History tab's expand-row UI.
+                    'addressed_comment_ids' => $addressed
+                        ->pluck('id')
+                        ->map(fn ($id): int => (int) $id)
+                        ->values()
+                        ->all(),
+                    'addressed_comments' => $addressed
+                        ->map(fn (Comment $comment): array => [
+                            'id' => (int) $comment->id,
+                            'body_preview' => $this->commentBodyPreview((string) $comment->body),
+                            'author_kind' => $comment->author_kind->value,
+                            'status' => $comment->status->value,
+                        ])
+                        ->values()
+                        ->all(),
+                    'created_at' => $candidate->created_at?->toIso8601String(),
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    /**
+     * REQ-M6-015: comment-body preview shown next to each addressed-comment
+     * row in the History tab. We keep it short (≤80 chars) so the sidebar
+     * stays scannable, and append an ellipsis when we truncated.
+     */
+    private function commentBodyPreview(string $body): string
+    {
+        $trimmed = trim($body);
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (mb_strlen($trimmed) <= 80) {
+            return $trimmed;
+        }
+
+        return mb_substr($trimmed, 0, 79).'…';
     }
 
     /**
@@ -155,12 +307,12 @@ class SnapshotController extends Controller
             return [];
         }
 
-        // Pull every pinned embed for this report revision in one query so
-        // we can index by block_index without N+1 lookups.
+        // REQ-M6-002: pull every pinned embed for this report revision in one
+        // query so we can index by block_id (stable UUID) without N+1 lookups.
         $pins = DB::table('snapshot_embeds')
             ->where('report_version_id', $version->id)
-            ->get(['block_index', 'embedded_snapshot_id', 'embedded_version_id'])
-            ->keyBy('block_index');
+            ->get(['block_id', 'embedded_snapshot_id', 'embedded_version_id'])
+            ->keyBy('block_id');
 
         $embeddedVersionIds = $pins->pluck('embedded_version_id')->all();
 
@@ -174,7 +326,7 @@ class SnapshotController extends Controller
 
         $resolved = [];
 
-        foreach ($blocks as $index => $block) {
+        foreach ($blocks as $block) {
             $type = is_string($block['type'] ?? null) ? $block['type'] : '';
 
             if ($type === 'markdown') {
@@ -191,7 +343,8 @@ class SnapshotController extends Controller
             }
 
             $snapshotId = is_int($block['snapshot_id'] ?? null) ? (int) $block['snapshot_id'] : null;
-            $pin = $pins->get($index);
+            $blockId = is_string($block['id'] ?? null) ? $block['id'] : null;
+            $pin = $blockId === null ? null : $pins->get($blockId);
             $pinnedVersion = $pin === null ? null : $pinnedVersions->get($pin->embedded_version_id);
             $pinnedSnapshot = $pinnedVersion?->snapshot;
 
