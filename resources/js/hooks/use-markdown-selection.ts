@@ -18,7 +18,7 @@ import type { SelectionInfo } from '@/lib/selection-helpers';
  *
  * REQ-M6-022: this hook now only powers reactive enable/disable feedback
  * for the toolbar's visual state. The actual click handlers in
- * `comment-selection-toolbar.tsx` re-read the live selection via
+ * `comment-selection-pill.tsx` re-read the live selection via
  * `captureSelection` at tap time — eliminating the touch timing race.
  * The 50ms `selectionchange` debounce has been replaced with a single
  * `requestAnimationFrame` coalesce (≤1 update per frame) so reactive

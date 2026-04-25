@@ -4,7 +4,7 @@
  * `findBlockAncestor` and `offsetWithinBlock` were originally inlined in
  * `use-markdown-selection.ts` (REQ-M6-013 / REQ-M6-021). This module is a
  * pure refactor: behaviour is unchanged. They are extracted so that
- * `comment-selection-toolbar.tsx` can call `captureSelection` at click
+ * `comment-selection-pill.tsx` can call `captureSelection` at click
  * time without depending on the hook's React state — which is the fix for
  * the iOS/Android touch race described in REQ-M6-022.
  *

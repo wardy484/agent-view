@@ -4,8 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import { CommentSelectionMenu } from '@/components/nexus/comment-selection-menu';
-import { CommentSelectionToolbar } from '@/components/nexus/comment-selection-toolbar';
+import { CommentSelectionPill } from '@/components/nexus/comment-selection-pill';
 import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
@@ -179,10 +178,6 @@ export function ReportView({
             className={cn(
                 'relative mx-auto flex w-full flex-col gap-6',
                 fullBleed ? 'max-w-4xl px-6 py-10' : 'max-w-3xl',
-                // REQ-M6-022: leave 80px (5rem) gap below the last
-                // paragraph on mobile so the always-visible toolbar
-                // (~72px tall + safe-area) never covers content.
-                'pb-20 lg:pb-0',
                 className,
             )}
         >
@@ -198,28 +193,19 @@ export function ReportView({
                 ),
             )}
 
-            {/* REQ-M6-021: floating selection menu is desktop-only; touch
-                screens get the sticky bottom toolbar instead. */}
-            <div className="hidden lg:block">
-                <CommentSelectionMenu
-                    selection={selection}
-                    onComment={handleComment}
-                    onSuggest={handleSuggest}
-                    onClose={clearSelection}
-                    readOnly={isHistoricalView}
-                />
-            </div>
-
-            <div className="lg:hidden">
-                <CommentSelectionToolbar
-                    selection={selection}
-                    containerRef={containerRef}
-                    onComment={handleComment}
-                    onSuggest={handleSuggest}
-                    onClose={clearSelection}
-                    readOnly={isHistoricalView}
-                />
-            </div>
+            {/* REQ-M6-023: a single floating pill for both desktop and
+                touch. It positions ABOVE the selection on lg+ and BELOW on
+                smaller screens so the OS selection bubble (which sits
+                above the highlight on Android Chrome / iOS Safari) does
+                not fight for the same space. */}
+            <CommentSelectionPill
+                selection={selection}
+                containerRef={containerRef}
+                onComment={handleComment}
+                onSuggest={handleSuggest}
+                onClose={clearSelection}
+                readOnly={isHistoricalView}
+            />
         </div>
     );
 
