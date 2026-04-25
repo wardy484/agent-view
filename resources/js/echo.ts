@@ -23,16 +23,29 @@ declare global {
 // pusher-js mounts itself onto `window.Pusher` when present — Echo expects it.
 window.Pusher = Pusher;
 
-const reverbHost = import.meta.env.VITE_REVERB_HOST ?? window.location.hostname;
-const reverbPort = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
-const reverbScheme = import.meta.env.VITE_REVERB_SCHEME ?? 'https';
+const reverbKey = import.meta.env.VITE_REVERB_APP_KEY;
 
-window.Echo = new Echo({
-    broadcaster: 'reverb',
-    key: import.meta.env.VITE_REVERB_APP_KEY,
-    wsHost: reverbHost,
-    wsPort: reverbPort,
-    wssPort: reverbPort,
-    forceTLS: reverbScheme === 'https',
-    enabledTransports: ['ws', 'wss'],
-});
+// REQ-M7-003 contract: this module must never throw at import time. If the
+// Reverb app key is absent (local dev without a configured Reverb server,
+// or environments where the broadcast layer is intentionally disabled),
+// skip Echo initialisation entirely. Page-level subscribers fall back to
+// the polling path from REQ-M6-016.
+if (reverbKey) {
+    const reverbHost = import.meta.env.VITE_REVERB_HOST ?? window.location.hostname;
+    const reverbPort = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
+    const reverbScheme = import.meta.env.VITE_REVERB_SCHEME ?? 'https';
+
+    try {
+        window.Echo = new Echo({
+            broadcaster: 'reverb',
+            key: reverbKey,
+            wsHost: reverbHost,
+            wsPort: reverbPort,
+            wssPort: reverbPort,
+            forceTLS: reverbScheme === 'https',
+            enabledTransports: ['ws', 'wss'],
+        });
+    } catch (err) {
+        console.warn('[echo] failed to initialise; broadcasting disabled', err);
+    }
+}
