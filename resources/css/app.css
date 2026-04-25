@@ -2199,3 +2199,20 @@
 .mkt-page .foot-bottom .social a:hover {
     color: var(--fg-0);
 }
+
+/* REQ-M6-018: one-shot pulse for the new-revision banner. Reuses Tailwind's
+   pulse keyframe but stops after a single iteration so the banner draws
+   attention on appearance without blinking forever. */
+@keyframes nexus-pulse-once {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.animate-pulse-once {
+    animation: nexus-pulse-once 1.2s cubic-bezier(0.4, 0, 0.6, 1) 1;
+}

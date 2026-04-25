@@ -6,6 +6,7 @@ import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
+import { NewRevisionBanner } from '@/components/nexus/new-revision-banner';
 import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
 import { ReportView } from '@/components/nexus/report-view';
 import type { ReportViewPayload } from '@/components/nexus/report-view';
@@ -18,6 +19,7 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { useRevisionBanner } from '@/hooks/use-revision-banner';
 import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
@@ -121,6 +123,22 @@ export default function SnapshotPage(props: Props) {
         !shouldPoll,
     );
 
+    // REQ-M6-018: capture the *initial* rendered revision once on mount via
+    // a lazy useState initialiser so partial reloads that bring down a higher
+    // `version.revision` don't silently mutate the comparison baseline. The
+    // banner state diff-compares this captured value against the live prop.
+    // (Lazy useState is the React-recommended ref-shaped pattern that's also
+    // safe to read during render — useRef would lint as "ref accessed in
+    // render".)
+    const [renderedRevision] = useState<number>(() => props.version.revision);
+    const showBanner = isAuthenticated && !is_public_link && !is_historical_view;
+    const banner = useRevisionBanner(
+        renderedRevision,
+        props.version.revision,
+        props.snapshot.slug,
+        props.workbench.slug,
+    );
+
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
     useEffect(() => {
@@ -174,6 +192,17 @@ export default function SnapshotPage(props: Props) {
             <Head title={`${heading} — ${props.workbench.name}`} />
 
             {showHomeButton ? <PreviewHomeButton isAuthenticated={isAuthenticated} /> : null}
+
+            {showBanner && banner.show ? (
+                <NewRevisionBanner
+                    renderedRevision={renderedRevision}
+                    latestRevision={props.version.revision}
+                    onView={() => {
+                        banner.onView();
+                    }}
+                    onDismiss={banner.onDismiss}
+                />
+            ) : null}
 
             {showAppShell ? <AppLayout>{body}</AppLayout> : body}
         </>
