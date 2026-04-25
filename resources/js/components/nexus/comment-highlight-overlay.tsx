@@ -108,22 +108,25 @@ export function CommentHighlightOverlay({
         }
 
         let rafId: number | null = null;
+        let pollId: ReturnType<typeof setTimeout> | null = null;
         let observer: MutationObserver | null = null;
+        const pollStart = Date.now();
+        let unmounted = false;
 
-        const wrapPass = () => {
-            // REQ-M6-036: briefly disconnect the observer so the overlay's
-            // own DOM mutations (the marks it inserts and the unwrap pass
-            // that precedes them) don't re-trigger schedule() in a
-            // feedback loop. We reconnect at the end so subsequent
+        const wrapPass = (): number => {
+            if (unmounted) {
+                return 0;
+            }
+
+            // REQ-M6-036 / REQ-M6-038: briefly disconnect the observer so
+            // the overlay's own DOM mutations don't re-trigger schedule()
+            // in a feedback loop. Reconnect at the end so subsequent
             // react-markdown commits still drive a re-wrap.
             if (observer) {
                 observer.disconnect();
             }
 
             // Idempotent re-run: unwrap any prior overlay marks before walking.
-            // REQ-M6-035: a single comment may have produced many sibling
-            // marks; unwrapMarks handles them all and re-coalesces adjacent
-            // text nodes via parent.normalize().
             unwrapOverlayMarks(container);
 
             const eligible = comments.filter(
@@ -132,6 +135,8 @@ export function CommentHighlightOverlay({
                     c.status !== 'stale' &&
                     classForComment(c) !== null,
             );
+
+            let wrapped = 0;
 
             for (const comment of eligible) {
                 const block = container.querySelector<HTMLElement>(
@@ -164,11 +169,7 @@ export function CommentHighlightOverlay({
                 const firstLine = (comment.body.split(/\r?\n/)[0] ?? '').trim();
                 const tooltipLabel = `${comment.author.display_name} (${comment.kind}): ${firstLine}`;
 
-                // REQ-M6-035: per-text-node wrapping. wrapRangeWithMarks emits
-                // one inline <mark> per text-node sub-range, all sharing the
-                // same data-comment-id so the click handler + tooltip stay
-                // consistent across siblings. The DOM-shifting Range APIs that
-                // caused the layout regression this REQ fixes are not used.
+                // REQ-M6-035: per-text-node wrapping.
                 const marks = wrapRangeWithMarks(range, () => {
                     const mark = document.createElement('mark');
                     mark.setAttribute(OVERLAY_ATTR, 'true');
@@ -176,9 +177,6 @@ export function CommentHighlightOverlay({
                     mark.setAttribute('data-status', comment.status);
                     mark.setAttribute('data-kind', comment.kind);
 
-                    // REQ-M6-033: surface the deletion variant for downstream
-                    // tests and styling debugging. Empty string (the deletion
-                    // sentinel) is explicitly distinct from a missing attribute.
                     if (comment.kind === 'suggestion') {
                         mark.setAttribute(
                             'data-deletion',
@@ -200,46 +198,89 @@ export function CommentHighlightOverlay({
                     return mark;
                 });
 
-                void marks;
+                if (marks.length > 0) {
+                    wrapped += marks.length;
+                }
             }
 
-            // Reconnect so subsequent react-markdown commits still trigger
-            // a re-wrap on the next paint.
-            if (observer) {
+            if (observer && !unmounted) {
                 observer.observe(container, { childList: true, subtree: true });
             }
+
+            return wrapped;
         };
 
-        const apply = () => {
-            rafId = null;
-            wrapPass();
+        // REQ-M6-038 (a): immediate synchronous wrap. If react-markdown's
+        // children have already committed (typical for SSR / fast hydration),
+        // this nails first paint with no extra frame delay.
+        let wrapped = wrapPass();
+
+        // REQ-M6-038 (b): next-frame retry. react-markdown often commits its
+        // children on the very next microtask, so a single rAF picks them up.
+        if (wrapped === 0) {
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                wrapped = wrapPass();
+            });
+        }
+
+        // REQ-M6-038 (c): 250ms poll up to 5s, or until any wrap succeeds.
+        // Covers slow hydration / async react-markdown commits / Inertia v3
+        // deferred-prop arrival on production builds where the rAF alone
+        // wasn't reliably winning the race against the user's perception.
+        const startPoll = (): void => {
+            pollId = setTimeout(() => {
+                pollId = null;
+
+                if (unmounted) {
+                    return;
+                }
+
+                const w = wrapPass();
+
+                if (w > 0) {
+                    return; // success — observer takes over from here
+                }
+
+                if (Date.now() - pollStart > 5000) {
+                    return; // give up; observer remains active
+                }
+
+                startPoll();
+            }, 250);
         };
 
-        const schedule = () => {
+        startPoll();
+
+        // REQ-M6-036: long-lived MutationObserver for any subsequent DOM
+        // mutations (polling reloads, historical-revision navigation, agent
+        // push). Schedules a re-wrap on the next animation frame so bursts
+        // coalesce.
+        observer = new MutationObserver(() => {
             if (rafId !== null) {
                 return;
             }
 
-            rafId = requestAnimationFrame(apply);
-        };
-
-        // REQ-M6-036: first paint may already have committed react-markdown's
-        // children for SSR / fast hydration; schedule an initial wrap so we
-        // don't depend on the observer firing.
-        schedule();
-
-        // REQ-M6-036: react-markdown commits children async — observe the
-        // container and re-wrap on every batched paint. childList + subtree
-        // catch every new descendant. requestAnimationFrame coalesces
-        // bursts to one re-wrap per paint.
-        observer = new MutationObserver(schedule);
+            rafId = requestAnimationFrame(() => {
+                rafId = null;
+                wrapPass();
+            });
+        });
         observer.observe(container, { childList: true, subtree: true });
 
         return () => {
-            // Cleanup on unmount or before re-run.
+            // Cleanup on unmount or before re-run. REQ-M6-038: tear down all
+            // three trigger types (rAF, timeout, observer).
+            unmounted = true;
+
             if (rafId !== null) {
                 cancelAnimationFrame(rafId);
                 rafId = null;
+            }
+
+            if (pollId !== null) {
+                clearTimeout(pollId);
+                pollId = null;
             }
 
             if (observer) {
