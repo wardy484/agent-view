@@ -32,6 +32,13 @@ import { cn } from '@/lib/utils';
  *
  * On scroll, the selection rect goes stale immediately; the pill clears
  * the selection rather than chasing the rect (matches Medium / Notion).
+ *
+ * REQ-M6-024: the pill uses `position: fixed` rather than `position:
+ * absolute`. The report container has a `position: relative` ancestor,
+ * which would otherwise resolve `absolute` coordinates against the
+ * container's own offset parent and push the pill off-screen. With
+ * `fixed`, `getBoundingClientRect()` already returns viewport-relative
+ * coordinates — no document-scroll offsets needed.
  */
 
 type Props = {
@@ -156,15 +163,15 @@ export function CommentSelectionPill({
     // bubble on Android Chrome / iOS Safari sits above the highlight, so
     // BELOW keeps our pill out of its way.
     const top = isWide
-        ? rect.top + window.scrollY - measuredHeight - PILL_GAP
-        : rect.bottom + window.scrollY + PILL_GAP;
+        ? rect.top - measuredHeight - PILL_GAP
+        : rect.bottom + PILL_GAP;
 
     // Centre over the selection horizontally, then clamp to the viewport.
     const viewportWidth =
         typeof window !== 'undefined' ? window.innerWidth : measuredWidth + VIEWPORT_PADDING * 2;
-    const idealLeft = rect.left + window.scrollX + rect.width / 2 - measuredWidth / 2;
-    const maxLeft = viewportWidth - measuredWidth - VIEWPORT_PADDING + window.scrollX;
-    const left = Math.max(VIEWPORT_PADDING + window.scrollX, Math.min(idealLeft, maxLeft));
+    const idealLeft = rect.left + rect.width / 2 - measuredWidth / 2;
+    const maxLeft = viewportWidth - measuredWidth - VIEWPORT_PADDING;
+    const left = Math.max(VIEWPORT_PADDING, Math.min(idealLeft, maxLeft));
 
     // REQ-M6-023: re-read window.getSelection() at click time. The OS
     // selection bubble has finalised the selection by the time the user
@@ -217,7 +224,7 @@ export function CommentSelectionPill({
                 data-cross-block={crossesBlocks ? 'true' : 'false'}
                 data-position={isWide ? 'above' : 'below'}
                 className={cn(
-                    'absolute z-50 flex h-10 items-center gap-1 rounded-full border border-border bg-popover px-1 text-popover-foreground shadow-md',
+                    'fixed z-50 flex h-10 items-center gap-1 rounded-full border border-border bg-popover px-1 text-popover-foreground shadow-md',
                 )}
                 style={{ top, left }}
             >
