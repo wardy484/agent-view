@@ -1,9 +1,10 @@
 import { ExternalLink } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { CommentSelectionMenu } from '@/components/nexus/comment-selection-menu';
 import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
@@ -12,6 +13,8 @@ import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
+import { useMarkdownSelection } from '@/hooks/use-markdown-selection';
+import type { SelectionInfo } from '@/hooks/use-markdown-selection';
 import { cn } from '@/lib/utils';
 
 /**
@@ -30,6 +33,8 @@ import { cn } from '@/lib/utils';
 export type MarkdownBlock = {
     type: 'markdown';
     body: string;
+    /** REQ-M6-001 stable block id (uuid v4); optional for legacy payloads. */
+    id?: string;
 };
 
 export type ResolvedEmbedBlock = {
@@ -66,6 +71,9 @@ export function ReportView({ payload, className, fullBleed = false }: Props) {
     // (e.g. direct consumers outside the snapshot page).
     const blocks = payload.resolved_blocks ?? payload.blocks ?? [];
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const selection = useMarkdownSelection(containerRef);
+
     if (blocks.length === 0) {
         return (
             <div
@@ -80,34 +88,69 @@ export function ReportView({ payload, className, fullBleed = false }: Props) {
         );
     }
 
+    // REQ-M6-013: clear the active browser selection so the floating menu
+    // unmounts. The hook's `selectionchange` listener picks up the empty
+    // range and resets state.
+    const clearSelection = () => {
+        const sel = window.getSelection();
+
+        if (sel) {
+            sel.removeAllRanges();
+        }
+    };
+
+    // TODO(REQ-M6-014..017): wire these callbacks to the comment endpoints.
+    // For now they only console.log so the menu's interaction surface is
+    // testable end-to-end without a backend.
+    const handleComment = (info: SelectionInfo) => {
+        console.log('comment requested', info);
+    };
+
+    const handleSuggest = (info: SelectionInfo) => {
+        console.log('suggestion requested', info);
+    };
+
     return (
         <div
+            ref={containerRef}
             data-testid="nexus-report-view"
             data-block-count={blocks.length}
             className={cn(
-                'mx-auto flex w-full flex-col gap-6',
+                'relative mx-auto flex w-full flex-col gap-6',
                 fullBleed ? 'max-w-4xl px-6 py-10' : 'max-w-3xl',
                 className,
             )}
         >
             {blocks.map((block, index) =>
                 block.type === 'markdown' ? (
-                    <MarkdownBlockView key={index} body={block.body} />
+                    <MarkdownBlockView
+                        key={block.id ?? index}
+                        id={block.id}
+                        body={block.body}
+                    />
                 ) : (
                     <EmbedBlockView key={index} block={block} />
                 ),
             )}
+
+            <CommentSelectionMenu
+                selection={selection}
+                onComment={handleComment}
+                onSuggest={handleSuggest}
+                onClose={clearSelection}
+            />
         </div>
     );
 }
 
-function MarkdownBlockView({ body }: { body: string }) {
+function MarkdownBlockView({ id, body }: { id?: string; body: string }) {
     const components = useMemo<Components>(() => buildMarkdownComponents(), []);
 
     return (
         <section
             data-testid="nexus-report-block"
             data-block-type="markdown"
+            data-comment-block-id={id}
             className="report-prose text-base leading-relaxed text-foreground"
         >
             <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
