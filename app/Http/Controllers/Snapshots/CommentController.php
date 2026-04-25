@@ -26,11 +26,24 @@ class CommentController extends Controller
     {
         Gate::authorize('create', [Comment::class, $snapshot]);
 
+        $kind = $request->input('kind');
+
         $validated = $request->validate([
             'block_id' => ['required', 'string', 'uuid'],
             'kind' => ['required', 'in:comment,suggestion'],
-            'body' => ['required', 'string', 'max:5000'],
-            'proposed_text' => ['nullable', 'required_if:kind,suggestion', 'string', 'max:10000'],
+            // REQ-M6-032: suggestions no longer require a body. Pure
+            // suggestions ship without a textarea (the pill composer collapses
+            // to one field in suggestion mode), so the controller substitutes
+            // `''` server-side. Comments still require a non-empty body.
+            'body' => $kind === 'suggestion'
+                ? ['nullable', 'string', 'max:5000']
+                : ['required', 'string', 'max:5000'],
+            // REQ-M6-031: an empty `proposed_text` represents deletion of the
+            // selected text. Postgres' CHECK constraint only rejects NULL on
+            // suggestions, so empty string is a valid sentinel. We accept
+            // nullable here and substitute '' below when missing on a
+            // suggestion (so the CHECK passes).
+            'proposed_text' => ['nullable', 'string', 'max:10000'],
             'anchor_quote' => ['required', 'string', 'max:2000'],
             'anchor_prefix' => ['nullable', 'string', 'max:200'],
             'anchor_suffix' => ['nullable', 'string', 'max:200'],
@@ -56,15 +69,25 @@ class CommentController extends Controller
             abort(409, 'Snapshot has been advanced since this comment was started.');
         }
 
+        $isSuggestion = $validated['kind'] === 'suggestion';
+
+        // REQ-M6-032: pure suggestions arrive with no body — substitute ''.
+        $body = $validated['body'] ?? ($isSuggestion ? '' : '');
+        // REQ-M6-031: an empty proposed_text on a suggestion = deletion.
+        // The DB CHECK rejects NULL on suggestion, so coerce missing → ''.
+        $proposedText = $isSuggestion
+            ? ($validated['proposed_text'] ?? '')
+            : ($validated['proposed_text'] ?? null);
+
         Comment::query()->create([
             'snapshot_id' => $snapshot->id,
             'block_id' => $validated['block_id'],
             'parent_comment_id' => null,
-            'kind' => $validated['kind'] === 'suggestion'
+            'kind' => $isSuggestion
                 ? CommentKind::Suggestion->value
                 : CommentKind::Comment->value,
-            'body' => $validated['body'],
-            'proposed_text' => $validated['proposed_text'] ?? null,
+            'body' => $body,
+            'proposed_text' => $proposedText,
             'anchor_quote' => $validated['anchor_quote'],
             'anchor_prefix' => $validated['anchor_prefix'] ?? '',
             'anchor_suffix' => $validated['anchor_suffix'] ?? '',

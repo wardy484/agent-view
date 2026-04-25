@@ -280,9 +280,9 @@ it('REQ-M6-014: report-view mounts the sidebar and wires onComment/onSuggest to 
 
     expect($source)
         ->toContain('SnapshotSidebar')
-        ->toContain('composerSelection')
-        ->toContain("openComposer('comment')")
-        ->toContain("openComposer('suggestion')")
+        // REQ-M6-030: composerSelection / openComposer plumbing was removed —
+        // the floating pill is the sole authoring surface for new root
+        // comments. The sidebar now receives only display-side props.
         // Two-column layout collapses on narrow screens via Tailwind lg:.
         ->toContain('lg:flex-row')
         ->toContain('blockOrder');

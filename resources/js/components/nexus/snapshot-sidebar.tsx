@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, Smile, User as UserIcon, X } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, Smile, User as UserIcon } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -85,6 +85,11 @@ export type VersionHistoryEntry = {
     created_at: string | null;
 };
 
+// REQ-M6-030: ComposerSelection is no longer threaded through the sidebar.
+// The floating pill (REQ-M6-027) is the sole authoring surface for new root
+// comments; the sidebar only hosts list, replies, reactions, status controls,
+// and the historical-view banner. The export remains for back-compat with
+// any caller that still references the type, but new code should not import it.
 export type ComposerSelection = {
     blockId: string;
     quote: string;
@@ -100,12 +105,10 @@ type Props = {
     comments: CommentSummary[];
     versionHistory: VersionHistoryEntry[];
     blockOrder: string[];
-    composerSelection: ComposerSelection | null;
-    onComposerClose: () => void;
     /**
      * REQ-M6-015: when true the page is rendering a historical revision, so
-     * the comment composer is hidden, the floating selection menu's write
-     * actions are disabled, and the sidebar surfaces a read-only banner.
+     * the floating selection menu's write actions are disabled and the
+     * sidebar surfaces a read-only banner.
      */
     isHistoricalView?: boolean;
     /** REQ-M6-015: workbench + snapshot slug used to build version-switcher
@@ -124,8 +127,6 @@ export function SnapshotSidebar({
     comments,
     versionHistory,
     blockOrder,
-    composerSelection,
-    onComposerClose,
     isHistoricalView = false,
     workbenchSlug,
     snapshotSlug,
@@ -141,7 +142,6 @@ export function SnapshotSidebar({
     const {
         comments: optimisticComments,
         pending,
-        addOptimisticComment,
         addOptimisticReply,
         toggleOptimisticReaction,
         flipOptimisticStatus,
@@ -195,12 +195,9 @@ export function SnapshotSidebar({
                 <CommentsTab
                     snapshotId={snapshotId}
                     grouped={grouped}
-                    composerSelection={composerSelection}
-                    onComposerClose={onComposerClose}
                     isHistoricalView={isHistoricalView}
                     activeRevision={activeRevision}
                     pendingClientIds={pendingClientIds}
-                    addOptimisticComment={addOptimisticComment}
                     addOptimisticReply={addOptimisticReply}
                     toggleOptimisticReaction={toggleOptimisticReaction}
                     flipOptimisticStatus={flipOptimisticStatus}
@@ -316,12 +313,9 @@ function groupCommentsByBlock(
 function CommentsTab({
     snapshotId,
     grouped,
-    composerSelection,
-    onComposerClose,
     isHistoricalView,
     activeRevision,
     pendingClientIds,
-    addOptimisticComment,
     addOptimisticReply,
     toggleOptimisticReaction,
     flipOptimisticStatus,
@@ -329,21 +323,14 @@ function CommentsTab({
 }: {
     snapshotId: number;
     grouped: GroupedComments;
-    composerSelection: ComposerSelection | null;
-    onComposerClose: () => void;
     isHistoricalView: boolean;
     activeRevision: number | undefined;
     pendingClientIds: Map<number, string>;
-    addOptimisticComment: ReturnType<typeof useOptimisticComments>['addOptimisticComment'];
     addOptimisticReply: ReturnType<typeof useOptimisticComments>['addOptimisticReply'];
     toggleOptimisticReaction: ReturnType<typeof useOptimisticComments>['toggleOptimisticReaction'];
     flipOptimisticStatus: ReturnType<typeof useOptimisticComments>['flipOptimisticStatus'];
     rollback: ReturnType<typeof useOptimisticComments>['rollback'];
 }) {
-    // REQ-M6-015: composer is suppressed entirely when viewing a historical
-    // revision — historical anchors must not accumulate new threads.
-    const showComposer = composerSelection !== null && !isHistoricalView;
-
     return (
         <div className="flex flex-1 flex-col overflow-y-auto">
             {isHistoricalView ? (
@@ -365,18 +352,12 @@ function CommentsTab({
                 </div>
             ) : null}
 
-            {showComposer ? (
-                <CommentComposer
-                    snapshotId={snapshotId}
-                    selection={composerSelection!}
-                    expectedVersionId={null}
-                    onClose={onComposerClose}
-                    addOptimisticComment={addOptimisticComment}
-                    rollback={rollback}
-                />
-            ) : null}
+            {/* REQ-M6-030: the in-sidebar create-new-comment composer is
+                removed. The floating pill (REQ-M6-027) is the sole authoring
+                surface for new root comments. The sidebar continues to host
+                replies, reactions, and status controls. */}
 
-            {grouped.length === 0 && !showComposer && !isHistoricalView ? (
+            {grouped.length === 0 && !isHistoricalView ? (
                 <div
                     data-testid="snapshot-sidebar-comments-empty"
                     className="flex flex-1 flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground"
@@ -1104,152 +1085,8 @@ function formatRelativeTime(iso: string | null): string {
     return formatter.format(Math.round(diffSeconds / 31557600), 'year');
 }
 
-function CommentComposer({
-    snapshotId,
-    selection,
-    expectedVersionId,
-    onClose,
-    addOptimisticComment,
-    rollback,
-}: {
-    snapshotId: number;
-    selection: ComposerSelection;
-    /** REQ-M6-015: included on POST so the server can 409 if the snapshot
-     * has been advanced since this composer opened. */
-    expectedVersionId: number | null;
-    onClose: () => void;
-    addOptimisticComment: ReturnType<typeof useOptimisticComments>['addOptimisticComment'];
-    rollback: ReturnType<typeof useOptimisticComments>['rollback'];
-}) {
-    const [body, setBody] = useState('');
-    const [proposedText, setProposedText] = useState(selection.quote);
-    const [submitting, setSubmitting] = useState(false);
-
-    const submit = (event: React.FormEvent) => {
-        event.preventDefault();
-
-        if (body.trim().length === 0) {
-            return;
-        }
-
-        setSubmitting(true);
-
-        // REQ-M6-017: insert the optimistic row before the network round-trip.
-        // The polling tick (or the redirect-back partial reload) will project
-        // the canonical row a moment later; the hook reconciles by matching
-        // (block_id, body, kind) and drops the optimistic copy. On error we
-        // rollback explicitly via the clientId we stored.
-        const trimmedBody = body.trim();
-        const clientId = addOptimisticComment({
-            blockId: selection.blockId,
-            body: trimmedBody,
-            kind: selection.kind,
-            proposedText: selection.kind === 'suggestion' ? proposedText : null,
-            anchor: {
-                quote: selection.quote,
-                prefix: selection.prefix,
-                suffix: selection.suffix,
-            },
-            author: { display_name: 'You', kind: 'user' },
-        });
-
-        router.post(
-            `/snapshots/${snapshotId}/comments`,
-            {
-                block_id: selection.blockId,
-                kind: selection.kind,
-                body: trimmedBody,
-                proposed_text: selection.kind === 'suggestion' ? proposedText : null,
-                anchor_quote: selection.quote,
-                anchor_prefix: selection.prefix,
-                anchor_suffix: selection.suffix,
-                anchor_start_hint: selection.startHint,
-                anchor_end_hint: selection.endHint,
-                expected_version_id: expectedVersionId,
-            },
-            {
-                preserveScroll: true,
-                onError: () => {
-                    rollback(clientId);
-                    toast.error('Could not post comment');
-                },
-                onFinish: () => {
-                    setSubmitting(false);
-                    setBody('');
-                    onClose();
-                },
-            },
-        );
-    };
-
-    return (
-        <form
-            onSubmit={submit}
-            data-testid="snapshot-sidebar-composer"
-            data-composer-kind={selection.kind}
-            className="flex flex-col gap-2 border-b border-border bg-muted/30 p-4"
-        >
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">
-                    {selection.kind === 'suggestion' ? 'Suggest edit' : 'New comment'}
-                </h3>
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close composer"
-                    className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                >
-                    <X className="size-4" aria-hidden />
-                </button>
-            </div>
-
-            <p className="text-xs italic text-muted-foreground">“{selection.quote}”</p>
-
-            <textarea
-                data-testid="snapshot-sidebar-composer-body"
-                value={body}
-                onChange={(event) => setBody(event.target.value)}
-                placeholder={
-                    selection.kind === 'suggestion'
-                        ? 'Why are you suggesting this change?'
-                        : 'Leave a comment…'
-                }
-                rows={3}
-                className="w-full rounded-md border border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-
-            {selection.kind === 'suggestion' ? (
-                <textarea
-                    data-testid="snapshot-sidebar-composer-proposed"
-                    value={proposedText}
-                    onChange={(event) => setProposedText(event.target.value)}
-                    placeholder="Replacement text"
-                    rows={2}
-                    className="w-full rounded-md border border-border bg-background p-2 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-            ) : null}
-
-            <div className="flex items-center justify-end gap-2">
-                <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                >
-                    Cancel
-                </Button>
-                <Button
-                    type="submit"
-                    size="sm"
-                    disabled={submitting || body.trim().length === 0}
-                    data-testid="snapshot-sidebar-composer-submit"
-                >
-                    {submitting ? 'Posting…' : selection.kind === 'suggestion' ? 'Suggest' : 'Comment'}
-                </Button>
-            </div>
-        </form>
-    );
-}
+// REQ-M6-030: the in-sidebar CommentComposer is removed; the floating
+// pill (REQ-M6-027) is the sole authoring surface for new root comments.
 
 const HIGHLIGHT_CLASS = 'comment-highlight';
 const HIGHLIGHT_DURATION_MS = 2000;

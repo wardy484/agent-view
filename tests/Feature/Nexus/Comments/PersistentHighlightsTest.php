@@ -50,9 +50,11 @@ it('REQ-M6-028: overlay walks comments and wraps anchors with status-tagged mark
         ->toContain('anchor.prefix')
         ->toContain('anchor.suffix')
         // Open / resolved / wontfix all carry styling; stale renders nothing.
-        ->toContain('open:')
-        ->toContain('resolved:')
-        ->toContain('wontfix:')
+        // REQ-M6-033 replaced the static STATUS_CLASSES map with a kind-aware
+        // classForComment() helper that branches on (status, kind, deletion).
+        ->toContain("comment.status === 'resolved'")
+        ->toContain("comment.status === 'wontfix'")
+        ->toContain("comment.status === 'open'")
         // Stale anchors must not produce a mark.
         ->toContain("c.status !== 'stale'")
         ->toContain('resolved_in_current_version === true');
