@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Enums\SnapshotVisibility;
+use App\Models\Comment;
 use App\Models\Snapshot;
 use App\Models\SnapshotShare;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
+use App\Nexus\Comments\CommentProjection;
 use App\Nexus\Comments\CommentStaleUpdater;
 use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
@@ -79,6 +81,12 @@ class SnapshotController extends Controller
             'metadata' => $version->metadata,
         ];
 
+        // REQ-M6-014: comments + versionHistory props are only computed for
+        // authenticated viewers on report views. Link-token viewers go through
+        // PublicSnapshotController, which omits both props entirely.
+        $comments = null;
+        $versionHistory = null;
+
         if ($version->view_type === 'report') {
             $versionPayload['resolved_blocks'] = $this->resolveReportBlocks($request, $version);
 
@@ -90,6 +98,14 @@ class SnapshotController extends Controller
                 ? $version
                 : $snapshot->currentVersion);
             CommentStaleUpdater::syncStatusForRender($snapshot);
+
+            if ($isAuthenticated) {
+                // REQ-M6-014: serialise every root comment for the sidebar.
+                // Re-uses the CommentProjection service the MCP tool consumes
+                // so the agent-facing JSON and the UI prop stay in lockstep.
+                $comments = CommentProjection::forSnapshot($snapshot, $snapshot->currentVersion);
+                $versionHistory = $this->resolveVersionHistory($snapshot, $versions);
+            }
         }
 
         return Inertia::render('snapshot', [
@@ -141,7 +157,66 @@ class SnapshotController extends Controller
                     ->values()
                     ->all()
                 : [],
+            // REQ-M6-014: comments + versionHistory power the snapshot sidebar.
+            // Both are null for non-report views and for unauthenticated link
+            // viewers (consistent with REQ-M4-006 read-only stance).
+            'comments' => $comments,
+            'versionHistory' => $versionHistory,
         ]);
+    }
+
+    /**
+     * REQ-M6-014: minimal version-history projection for the sidebar's History
+     * tab. Each row carries the revision, view_type, author_kind, optional
+     * `summary` from metadata, and the ids of every comment whose
+     * `addressed_on_version_id` matches — the full History UI will render
+     * these in a follow-up REQ. Order is newest-first to match the
+     * version-switcher and the natural "what changed last" reading direction.
+     *
+     * @param  Collection<int, SnapshotVersion>  $versions
+     * @return list<array<string, mixed>>
+     */
+    private function resolveVersionHistory(Snapshot $snapshot, Collection $versions): array
+    {
+        $byVersion = Comment::query()
+            ->where('snapshot_id', $snapshot->id)
+            ->whereNotNull('addressed_on_version_id')
+            ->get(['id', 'addressed_on_version_id'])
+            ->groupBy('addressed_on_version_id');
+
+        // Pull metadata in one extra query keyed by version id — the listing
+        // collection above purposely keeps its columns lean for the switcher.
+        $metadataByVersion = SnapshotVersion::query()
+            ->whereIn('id', $versions->pluck('id'))
+            ->get(['id', 'metadata'])
+            ->keyBy('id');
+
+        return $versions
+            ->map(function (SnapshotVersion $candidate) use ($byVersion, $metadataByVersion): array {
+                $metadataRow = $metadataByVersion->get($candidate->id);
+                $metadata = is_array($metadataRow?->metadata) ? $metadataRow->metadata : [];
+                $summary = is_string($metadata['summary'] ?? null) ? (string) $metadata['summary'] : null;
+                $authorKind = is_string($metadata['author_kind'] ?? null)
+                    ? (string) $metadata['author_kind']
+                    : 'agent';
+
+                return [
+                    'id' => (int) $candidate->id,
+                    'revision' => (int) $candidate->revision,
+                    'view_type' => $candidate->view_type,
+                    'author_kind' => $authorKind,
+                    'summary' => $summary,
+                    'addressed_comment_ids' => $byVersion
+                        ->get($candidate->id, collect())
+                        ->pluck('id')
+                        ->map(fn ($id): int => (int) $id)
+                        ->values()
+                        ->all(),
+                    'created_at' => $candidate->created_at?->toIso8601String(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

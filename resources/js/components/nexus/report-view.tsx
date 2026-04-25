@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react';
-import { useMemo, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -11,6 +11,12 @@ import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
+import { SnapshotSidebar } from '@/components/nexus/snapshot-sidebar';
+import type {
+    CommentSummary,
+    ComposerSelection,
+    VersionHistoryEntry,
+} from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { useMarkdownSelection } from '@/hooks/use-markdown-selection';
@@ -63,16 +69,39 @@ type Props = {
     payload: ReportViewPayload;
     className?: string;
     fullBleed?: boolean;
+    /** REQ-M6-014: pass-through for the sidebar's Comments tab. */
+    snapshotId?: number;
+    comments?: CommentSummary[] | null;
+    versionHistory?: VersionHistoryEntry[] | null;
 };
 
-export function ReportView({ payload, className, fullBleed = false }: Props) {
+export function ReportView({
+    payload,
+    className,
+    fullBleed = false,
+    snapshotId,
+    comments,
+    versionHistory,
+}: Props) {
     // Server inlines the resolved blocks; fall back to raw blocks so the
     // component still renders something useful if resolved_blocks is missing
     // (e.g. direct consumers outside the snapshot page).
-    const blocks = payload.resolved_blocks ?? payload.blocks ?? [];
+    const blocks = useMemo(
+        () => payload.resolved_blocks ?? payload.blocks ?? [],
+        [payload.resolved_blocks, payload.blocks],
+    );
 
     const containerRef = useRef<HTMLDivElement>(null);
     const selection = useMarkdownSelection(containerRef);
+    const [composerSelection, setComposerSelection] = useState<ComposerSelection | null>(null);
+
+    const blockOrder = useMemo(
+        () =>
+            blocks
+                .filter((block): block is MarkdownBlock => block.type === 'markdown' && Boolean(block.id))
+                .map((block) => block.id as string),
+        [blocks],
+    );
 
     if (blocks.length === 0) {
         return (
@@ -99,18 +128,33 @@ export function ReportView({ payload, className, fullBleed = false }: Props) {
         }
     };
 
-    // TODO(REQ-M6-014..017): wire these callbacks to the comment endpoints.
-    // For now they only console.log so the menu's interaction surface is
-    // testable end-to-end without a backend.
-    const handleComment = (info: SelectionInfo) => {
-        console.log('comment requested', info);
+    // REQ-M6-014: opening the composer carries the SelectionInfo into the
+    // sidebar. Cross-block selections are rejected (blockId === null) — the
+    // selection menu disables those actions, so we only need a defensive
+    // guard here for keyboard-only invocation paths.
+    const openComposer = (kind: 'comment' | 'suggestion') => (info: SelectionInfo) => {
+        if (info.blockId === null) {
+            return;
+        }
+
+        setComposerSelection({
+            blockId: info.blockId,
+            quote: info.quote,
+            prefix: info.prefix,
+            suffix: info.suffix,
+            startHint: info.startHint,
+            endHint: info.endHint,
+            kind,
+        });
+        clearSelection();
     };
 
-    const handleSuggest = (info: SelectionInfo) => {
-        console.log('suggestion requested', info);
-    };
+    const handleComment = openComposer('comment');
+    const handleSuggest = openComposer('suggestion');
 
-    return (
+    const sidebarVisible = comments !== undefined && comments !== null && snapshotId !== undefined;
+
+    const reportBody = (
         <div
             ref={containerRef}
             data-testid="nexus-report-view"
@@ -138,6 +182,27 @@ export function ReportView({ payload, className, fullBleed = false }: Props) {
                 onComment={handleComment}
                 onSuggest={handleSuggest}
                 onClose={clearSelection}
+            />
+        </div>
+    );
+
+    if (!sidebarVisible) {
+        return reportBody;
+    }
+
+    return (
+        <div
+            className="flex w-full flex-col gap-0 lg:flex-row lg:items-start"
+            data-testid="nexus-report-with-sidebar"
+        >
+            <div className="flex-1 min-w-0">{reportBody}</div>
+            <SnapshotSidebar
+                snapshotId={snapshotId as number}
+                comments={comments ?? []}
+                versionHistory={versionHistory ?? []}
+                blockOrder={blockOrder}
+                composerSelection={composerSelection}
+                onComposerClose={() => setComposerSelection(null)}
             />
         </div>
     );

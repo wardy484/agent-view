@@ -6,6 +6,7 @@ use App\Http\Controllers\FollowUpController;
 use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
 use App\Http\Controllers\Snapshots\CommentAcceptanceController;
+use App\Http\Controllers\Snapshots\CommentController;
 use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -71,5 +72,13 @@ Route::middleware(['web', 'auth'])
 Route::middleware(['web', 'auth'])
     ->post('/snapshots/{snapshot}/comments/{comment}/accept', CommentAcceptanceController::class)
     ->name('snapshots.comments.accept');
+
+// REQ-M6-014: snapshot owner / share grantee creates a root review comment.
+// Replies and resolutions ride on dedicated MCP tools (REQ-M6-010..011) or
+// later M6 endpoints; this is the only path the React review UI uses to file
+// new threads.
+Route::middleware(['web', 'auth'])
+    ->post('/snapshots/{snapshot}/comments', [CommentController::class, 'store'])
+    ->name('snapshots.comments.store');
 
 require __DIR__.'/settings.php';

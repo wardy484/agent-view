@@ -13,6 +13,7 @@ import { ShareDialog } from '@/components/nexus/share-dialog';
 import type { SnapshotShareSummary, SnapshotVisibility } from '@/components/nexus/share-dialog';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
+import type { CommentSummary, VersionHistoryEntry } from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
@@ -61,6 +62,11 @@ type Props = {
     visibility?: SnapshotVisibility;
     share_url?: string | null;
     shares?: SnapshotShareSummary[];
+    // REQ-M6-014: sidebar feeds. `comments` is null for unauthenticated link
+    // viewers and for non-report views; `versionHistory` follows the same
+    // gating so the History tab stays consistent.
+    comments?: CommentSummary[] | null;
+    versionHistory?: VersionHistoryEntry[] | null;
 };
 
 /**
@@ -85,6 +91,8 @@ export default function SnapshotPage(props: Props) {
         visibility = 'private',
         share_url = null,
         shares = [],
+        comments = null,
+        versionHistory = null,
     } = props;
     const isPreview = mode === 'preview';
     // Shared content (public links or shared-with viewers) defaults to
@@ -133,6 +141,8 @@ export default function SnapshotPage(props: Props) {
             visibility={visibility}
             shareUrl={share_url}
             shares={shares}
+            comments={comments}
+            versionHistory={versionHistory}
         />
     );
 
@@ -163,6 +173,8 @@ type BodyProps = {
     visibility: SnapshotVisibility;
     shareUrl: string | null;
     shares: SnapshotShareSummary[];
+    comments: CommentSummary[] | null;
+    versionHistory: VersionHistoryEntry[] | null;
 };
 
 function SnapshotBody({
@@ -179,6 +191,8 @@ function SnapshotBody({
     visibility,
     shareUrl,
     shares,
+    comments,
+    versionHistory,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
@@ -189,7 +203,11 @@ function SnapshotBody({
 
     if (!showWorkbenchHeader) {
         // Preview / fullscreen: render the view edge-to-edge with no chrome.
-        return <main data-testid="nexus-snapshot-body">{renderView(version, fullBleed)}</main>;
+        return (
+            <main data-testid="nexus-snapshot-body">
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory)}
+            </main>
+        );
     }
 
     return (
@@ -238,12 +256,20 @@ function SnapshotBody({
                 ) : null}
             </header>
 
-            <main data-testid="nexus-snapshot-body">{renderView(version, fullBleed)}</main>
+            <main data-testid="nexus-snapshot-body">
+                {renderView(version, fullBleed, snapshot.id, comments, versionHistory)}
+            </main>
         </div>
     );
 }
 
-function renderView(version: Version, fullBleed: boolean) {
+function renderView(
+    version: Version,
+    fullBleed: boolean,
+    snapshotId: number,
+    comments: CommentSummary[] | null,
+    versionHistory: VersionHistoryEntry[] | null,
+) {
     if (version.view_type === 'table') {
         return <TableView payload={version.data_payload as TableViewPayload} fullBleed={fullBleed} />;
     }
@@ -277,7 +303,15 @@ function renderView(version: Version, fullBleed: boolean) {
                 (version.data_payload as ReportViewPayload).resolved_blocks,
         };
 
-        return <ReportView payload={reportPayload} fullBleed={fullBleed} />;
+        return (
+            <ReportView
+                payload={reportPayload}
+                fullBleed={fullBleed}
+                snapshotId={snapshotId}
+                comments={comments}
+                versionHistory={versionHistory}
+            />
+        );
     }
 
     return (

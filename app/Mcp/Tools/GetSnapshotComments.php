@@ -8,7 +8,7 @@ use App\Mcp\Support\McpCallLogger;
 use App\Models\Comment;
 use App\Models\Snapshot;
 use App\Models\User;
-use App\Nexus\Comments\AnchorResolver;
+use App\Nexus\Comments\CommentProjection;
 use App\Nexus\Comments\CommentStaleUpdater;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
@@ -118,48 +118,7 @@ class GetSnapshotComments extends Tool
         }
 
         $currentVersion = $snapshot->currentVersion;
-        $comments = $query->get()->map(function (Comment $comment) use ($currentVersion): array {
-            $resolved = $currentVersion !== null
-                ? AnchorResolver::resolve($comment, $currentVersion)
-                : null;
-
-            $payload = [
-                'id' => (int) $comment->id,
-                'block_id' => (string) $comment->block_id,
-                'status' => $comment->status->value,
-                'anchor' => [
-                    'quote' => (string) $comment->anchor_quote,
-                    'prefix' => (string) ($comment->anchor_prefix ?? ''),
-                    'suffix' => (string) ($comment->anchor_suffix ?? ''),
-                    'resolved_in_current_version' => $resolved?->status === 'open',
-                ],
-                'body' => (string) $comment->body,
-                'kind' => $comment->kind->value,
-                'author' => [
-                    'display_name' => $comment->author?->name ?? 'Unknown',
-                    'kind' => $comment->author_kind->value,
-                ],
-                'created_at' => $comment->created_at?->toIso8601String(),
-                'created_on_revision' => $comment->createdOnVersion?->revision,
-                'addressed_on_revision' => $comment->addressedOnVersion?->revision,
-                'thread' => $comment->replies->map(fn (Comment $reply): array => [
-                    'id' => (int) $reply->id,
-                    'body' => (string) $reply->body,
-                    'author' => [
-                        'display_name' => $reply->author?->name ?? 'Unknown',
-                        'kind' => $reply->author_kind->value,
-                    ],
-                    'created_at' => $reply->created_at?->toIso8601String(),
-                ])->all(),
-                'reactions_summary' => $comment->reactionsSummary(),
-            ];
-
-            if ($comment->kind->value === 'suggestion') {
-                $payload['proposed_text'] = (string) ($comment->proposed_text ?? '');
-            }
-
-            return $payload;
-        })->all();
+        $comments = CommentProjection::projectMany($query->get(), $currentVersion);
 
         $structured = [
             'snapshot_id' => (int) $snapshot->id,

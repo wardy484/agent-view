@@ -91,8 +91,9 @@ it('REQ-M6-013: report-view tags markdown blocks with data-comment-block-id and 
         // Container ref is what the hook listens against.
         ->toContain('useRef')
         ->toContain('containerRef')
-        // Backend wire-up for Comment / Suggest is deferred to later REQs.
-        ->toContain('TODO(REQ-M6-014..017')
+        // Comment / Suggest callbacks are wired by REQ-M6-014's openComposer
+        // bridge — the floating menu still surfaces them via SelectionInfo.
+        ->toContain('openComposer')
         // Escape / dismiss path clears the browser selection.
         ->toContain('clearSelection');
 });
