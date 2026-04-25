@@ -161,3 +161,22 @@ it('REQ-M6-023: report-view no longer applies pb-20 padding hack', function (): 
         ->not->toContain('pb-20 lg:pb-0')
         ->not->toContain('pb-20');
 });
+
+it('REQ-M6-024: pill uses position: fixed and viewport-relative coordinates', function (): void {
+    $path = resource_path('js/components/nexus/comment-selection-pill.tsx');
+    $source = (string) file_get_contents($path);
+
+    expect($source)
+        // Pill must render with position: fixed so its coordinates are
+        // viewport-relative — unaffected by the report container's
+        // position: relative ancestor.
+        ->toContain('fixed z-50')
+        ->not->toContain('absolute z-50')
+        // Viewport-relative coords come straight from getBoundingClientRect();
+        // no document-relative offsets should be applied.
+        ->not->toContain('window.scrollY')
+        ->not->toContain('window.scrollX');
+
+    $spec = (string) file_get_contents(base_path('docs/nexus-spec.md'));
+    expect($spec)->toContain('**REQ-M6-024**');
+});
