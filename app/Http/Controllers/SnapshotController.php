@@ -9,6 +9,7 @@ use App\Models\Snapshot;
 use App\Models\SnapshotShare;
 use App\Models\SnapshotVersion;
 use App\Models\Workbench;
+use App\Nexus\Comments\CommentStaleUpdater;
 use App\Policies\SnapshotPolicy;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -80,6 +81,15 @@ class SnapshotController extends Controller
 
         if ($version->view_type === 'report') {
             $versionPayload['resolved_blocks'] = $this->resolveReportBlocks($request, $version);
+
+            // REQ-M6-012: comments are scoped to markdown blocks on report
+            // views, so the lazy stale updater only runs for that view_type.
+            // The snapshot's currentVersion drives resolution — pin it to the
+            // freshly-loaded relation so we don't issue an extra query.
+            $snapshot->setRelation('currentVersion', $snapshot->current_version_id === $version->id
+                ? $version
+                : $snapshot->currentVersion);
+            CommentStaleUpdater::syncStatusForRender($snapshot);
         }
 
         return Inertia::render('snapshot', [

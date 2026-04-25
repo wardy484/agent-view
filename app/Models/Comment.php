@@ -69,6 +69,21 @@ class Comment extends Model
     }
 
     /**
+     * REQ-M6-012: `created_on_version_id` is immutable once a comment row
+     * exists. The column anchors a thread to the revision it was filed
+     * against; mutating it after creation would silently shift comment
+     * provenance and break the stale/auto-revive contract.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (Comment $comment): void {
+            if ($comment->isDirty('created_on_version_id')) {
+                throw new \LogicException('Comment::created_on_version_id is immutable');
+            }
+        });
+    }
+
+    /**
      * @return BelongsTo<Snapshot, $this>
      */
     public function snapshot(): BelongsTo

@@ -206,8 +206,12 @@ it('REQ-M6-009: anchor.resolved_in_current_version reflects AnchorResolver outco
 
     Sanctum::actingAs($base['owner']);
 
+    // REQ-M6-012: lazy stale updater fires before the read, so a comment
+    // whose anchor no longer resolves flips status=open → stale and would
+    // be filtered out by the default status=open. Pass status=all to see it.
     NexusServer::tool(GetSnapshotComments::class, [
         'snapshot_id' => $base['snapshot']->id,
+        'status' => 'all',
     ])->assertOk()
         ->assertStructuredContent(function (AssertableJson $json): void {
             $json->has('comments', 1)

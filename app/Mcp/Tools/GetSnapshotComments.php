@@ -9,6 +9,7 @@ use App\Models\Comment;
 use App\Models\Snapshot;
 use App\Models\User;
 use App\Nexus\Comments\AnchorResolver;
+use App\Nexus\Comments\CommentStaleUpdater;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -87,6 +88,11 @@ class GetSnapshotComments extends Tool
                 return Response::error('include_resolved_since must be a valid ISO 8601 timestamp.');
             }
         }
+
+        // REQ-M6-012: flip `open ↔ stale` lazily before reading the rows back
+        // so callers always see the most recent staleness against the current
+        // revision. Terminal states (resolved, wontfix) are untouched.
+        CommentStaleUpdater::syncStatusForRender($snapshot);
 
         $query = Comment::query()
             ->roots()
