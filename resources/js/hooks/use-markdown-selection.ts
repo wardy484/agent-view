@@ -1,10 +1,17 @@
 import { useEffect, useState } from 'react';
 
 /**
- * REQ-M6-013: tracks the user's text selection inside a container that hosts
- * markdown blocks. Each markdown block in the report renderer is wrapped in
- * an element carrying `data-comment-block-id="<uuid>"`; this hook walks up
- * from the selection's start/end nodes to find that ancestor.
+ * REQ-M6-013 / REQ-M6-021: tracks the user's text selection inside a
+ * container that hosts markdown blocks. Each markdown block in the report
+ * renderer is wrapped in an element carrying `data-comment-block-id="<uuid>"`;
+ * this hook walks up from the selection's start/end nodes to find that
+ * ancestor.
+ *
+ * REQ-M6-021: in addition to `mouseup` and `keyup` (desktop), the hook
+ * subscribes to `selectionchange` on `document` and `pointerup` on the
+ * container so that touch selections on iOS/Android register reliably.
+ * `selectionchange` is scoped: we only debounce-recompute when the current
+ * selection's anchor node lives inside the container ref.
  *
  * If the selection's start and end share the same `data-comment-block-id`,
  * the resulting `SelectionInfo.blockId` is that ID. Otherwise `blockId` is
@@ -165,20 +172,66 @@ export function useMarkdownSelection(
             });
         };
 
+        // REQ-M6-021: iOS/Android fire `selectionchange` (not `mouseup`) when
+        // a touch drag selection ends, and emit them many times per gesture.
+        // Debounce with a short timeout and only react when the current
+        // selection's anchor sits inside the container — otherwise an
+        // unrelated selection elsewhere on the page would clobber our state.
+        let selectionChangeTimer: ReturnType<typeof setTimeout> | null = null;
+
         const onSelectionChange = () => {
-            // selectionchange fires on every keystroke; debounce via raf so we
-            // don't thrash React state on every micro-update.
-            requestAnimationFrame(compute);
+            const container = containerRef.current;
+
+            if (!container) {
+                return;
+            }
+
+            const sel = window.getSelection();
+
+            if (!sel || sel.rangeCount === 0) {
+                return;
+            }
+
+            const anchorNode = sel.anchorNode;
+
+            if (!anchorNode || !container.contains(anchorNode)) {
+                return;
+            }
+
+            if (selectionChangeTimer !== null) {
+                clearTimeout(selectionChangeTimer);
+            }
+
+            selectionChangeTimer = setTimeout(() => {
+                selectionChangeTimer = null;
+                compute();
+            }, 50);
         };
+
+        // REQ-M6-021: `pointerup` on the container fires reliably at the end
+        // of a touch drag on iOS/Android, where `mouseup` is unreliable.
+        const container = containerRef.current;
 
         document.addEventListener('selectionchange', onSelectionChange);
         document.addEventListener('mouseup', compute);
         document.addEventListener('keyup', compute);
 
+        if (container) {
+            container.addEventListener('pointerup', compute);
+        }
+
         return () => {
+            if (selectionChangeTimer !== null) {
+                clearTimeout(selectionChangeTimer);
+            }
+
             document.removeEventListener('selectionchange', onSelectionChange);
             document.removeEventListener('mouseup', compute);
             document.removeEventListener('keyup', compute);
+
+            if (container) {
+                container.removeEventListener('pointerup', compute);
+            }
         };
     }, [containerRef]);
 

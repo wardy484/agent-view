@@ -5,6 +5,7 @@ import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { CommentSelectionMenu } from '@/components/nexus/comment-selection-menu';
+import { CommentSelectionToolbar } from '@/components/nexus/comment-selection-toolbar';
 import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
@@ -193,13 +194,27 @@ export function ReportView({
                 ),
             )}
 
-            <CommentSelectionMenu
-                selection={selection}
-                onComment={handleComment}
-                onSuggest={handleSuggest}
-                onClose={clearSelection}
-                readOnly={isHistoricalView}
-            />
+            {/* REQ-M6-021: floating selection menu is desktop-only; touch
+                screens get the sticky bottom toolbar instead. */}
+            <div className="hidden lg:block">
+                <CommentSelectionMenu
+                    selection={selection}
+                    onComment={handleComment}
+                    onSuggest={handleSuggest}
+                    onClose={clearSelection}
+                    readOnly={isHistoricalView}
+                />
+            </div>
+
+            <div className="lg:hidden">
+                <CommentSelectionToolbar
+                    selection={selection}
+                    onComment={handleComment}
+                    onSuggest={handleSuggest}
+                    onClose={clearSelection}
+                    readOnly={isHistoricalView}
+                />
+            </div>
         </div>
     );
 
