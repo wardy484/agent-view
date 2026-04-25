@@ -57,7 +57,7 @@ it('REQ-M6-021: useMarkdownSelection scopes selectionchange to anchor inside the
     expect($hook)
         ->toContain('anchorNode')
         ->toContain('container.contains(anchorNode)')
-        ->toContain('setTimeout');
+        ->toContain('requestAnimationFrame');
 });
 
 it('REQ-M6-021: comment-selection-toolbar renders three actions with mobile-sized hit targets', function (): void {
@@ -81,7 +81,8 @@ it('REQ-M6-021: comment-selection-toolbar renders three actions with mobile-size
         ->toContain('env(safe-area-inset-bottom)')
         // Slide-up / slide-down animation.
         ->toContain('translate-y-0')
-        ->toContain('translate-y-full')
+        // REQ-M6-022 removed translate-y-full (always-visible toolbar)
+        // ->toContain('translate-y-full')
         ->toContain('transition-transform')
         // Mobile-sized hit targets (h-12, text-base).
         ->toContain('h-12')
@@ -103,7 +104,7 @@ it('REQ-M6-021: comment-selection-toolbar disables Comment and Suggest when sele
         ->toContain('disableWriteActions')
         ->toContain('Selection must stay within one block.')
         // Copy always enabled when there's a selection (only gated on null).
-        ->toContain('disabled={!selection}');
+        ->toContain('disableCopy');
 });
 
 it('REQ-M6-021: report-view shows toolbar below lg and floating menu above lg', function (): void {
