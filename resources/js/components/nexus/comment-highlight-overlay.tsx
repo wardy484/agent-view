@@ -1,4 +1,4 @@
-import { useLayoutEffect } from 'react';
+import { useEffect } from 'react';
 
 import {
     Tooltip,
@@ -100,27 +100,24 @@ export function CommentHighlightOverlay({
     containerRef,
     onCommentClick,
 }: Props) {
-    useLayoutEffect(() => {
-        const container = containerRef.current;
+    useEffect(() => {
+        // REQ-M6-040: do NOT capture containerRef.current at effect-start.
+        // React's commit order attaches a parent's ref AFTER a child's
+        // useLayoutEffect fires, so the child saw `null` on first mount and
+        // returned early before any trigger could run. Resolve the ref lazily
+        // inside each wrapPass so the poll loop can retry until the ref
+        // attaches (typically within 1-2 frames of mount).
 
-        // REQ-M6-039: opt-in diagnostic. Gated on ?debug-highlights=1 so we
-        // don't spam production consoles. Temporary — will be reverted once
-        // we've identified why first-paint highlight application keeps
-        // failing despite three layers of triggers (REQ-M6-036/038).
+        // REQ-M6-039: opt-in diagnostic.
         const debug =
             typeof window !== 'undefined' &&
             new URLSearchParams(window.location.search).has('debug-highlights');
 
         if (debug) {
-             
             console.log('[highlight-overlay] effect started', {
                 commentsLength: comments.length,
-                hasContainer: !!container,
+                hasContainer: !!containerRef.current,
             });
-        }
-
-        if (!container) {
-            return;
         }
 
         let rafId: number | null = null;
@@ -130,7 +127,10 @@ export function CommentHighlightOverlay({
         let unmounted = false;
 
         const wrapPass = (): number => {
-            if (unmounted) {
+            // REQ-M6-040: read containerRef lazily — the parent's ref may not
+            // have been attached yet on the very first call.
+            const container = containerRef.current;
+            if (!container || unmounted) {
                 return 0;
             }
 
@@ -185,13 +185,11 @@ export function CommentHighlightOverlay({
 
                 if (!block) {
                     if (debug) {
-                         
                         console.log('[highlight-overlay] block not found', {
                             commentId: comment.id,
                             blockId: comment.block_id,
                         });
                     }
-
                     continue;
                 }
 
@@ -204,14 +202,12 @@ export function CommentHighlightOverlay({
 
                 if (!range) {
                     if (debug) {
-                         
                         console.log('[highlight-overlay] range not found', {
                             commentId: comment.id,
                             quote: comment.anchor.quote.slice(0, 40),
                             blockText: block.textContent?.slice(0, 100),
                         });
                     }
-
                     continue;
                 }
 
@@ -314,26 +310,41 @@ export function CommentHighlightOverlay({
 
         startPoll();
 
-        // REQ-M6-036: long-lived MutationObserver for any subsequent DOM
-        // mutations (polling reloads, historical-revision navigation, agent
-        // push). Schedules a re-wrap on the next animation frame so bursts
-        // coalesce.
-        observer = new MutationObserver(() => {
-            if (rafId !== null) {
-                return;
-            }
-
-            rafId = requestAnimationFrame(() => {
-                rafId = null;
-                wrapPass();
+        // REQ-M6-036 / REQ-M6-040: long-lived MutationObserver. Attached
+        // lazily via the poll loop's first successful wrapPass, since the
+        // container ref may be null on first mount.
+        const ensureObserver = () => {
+            const c = containerRef.current;
+            if (!c || observer) return;
+            observer = new MutationObserver(() => {
+                if (rafId !== null) return;
+                rafId = requestAnimationFrame(() => {
+                    rafId = null;
+                    wrapPass();
+                });
             });
-        });
-        observer.observe(container, { childList: true, subtree: true });
+            observer.observe(c, { childList: true, subtree: true });
+        };
+        ensureObserver();
+
+        // Re-attempt observer attachment on each animation frame for the
+        // first second — this covers the React commit-order edge case where
+        // the parent's ref attaches on a later frame than the child's effect.
+        let observerAttachTries = 0;
+        const observerAttachInterval = setInterval(() => {
+            observerAttachTries += 1;
+            ensureObserver();
+            if (observer || observerAttachTries > 20) {
+                clearInterval(observerAttachInterval);
+            }
+        }, 50);
 
         return () => {
             // Cleanup on unmount or before re-run. REQ-M6-038: tear down all
             // three trigger types (rAF, timeout, observer).
             unmounted = true;
+
+            clearInterval(observerAttachInterval);
 
             if (rafId !== null) {
                 cancelAnimationFrame(rafId);
@@ -350,8 +361,9 @@ export function CommentHighlightOverlay({
                 observer = null;
             }
 
-            if (container.isConnected) {
-                unwrapOverlayMarks(container);
+            const c = containerRef.current;
+            if (c && c.isConnected) {
+                unwrapOverlayMarks(c);
             }
         };
     }, [comments, containerRef, onCommentClick]);
