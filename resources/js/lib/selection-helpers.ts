@@ -143,3 +143,64 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
         rect,
     };
 }
+
+
+/**
+ * REQ-M6-027: synthetic highlight management for the inline composer.
+ *
+ * When the pill expands into a composer, the live OS selection is dismissed
+ * (the user is about to type into a textarea) so we wrap the captured range
+ * in a `<mark data-pending-anchor>` element to keep the selected text
+ * visibly highlighted. The mark is unwrapped on Submit / Cancel / Escape.
+ *
+ * `surroundContents` throws when the range crosses partial element
+ * boundaries (e.g. a span of bold + plain text). The fallback splits the
+ * range across the boundary by extracting its contents and inserting a
+ * `<mark>` containing them — preserving the rendered text but losing
+ * inline formatting inside the mark, which is acceptable for a transient
+ * composer-only highlight.
+ */
+export const PENDING_ANCHOR_ATTR = 'data-pending-anchor';
+
+export function synthesizeHighlight(range: Range): HTMLElement | null {
+    const mark = document.createElement('mark');
+    mark.setAttribute(PENDING_ANCHOR_ATTR, 'true');
+    mark.className = 'rounded bg-amber-200/60 px-0.5 dark:bg-amber-900/50';
+
+    try {
+        range.surroundContents(mark);
+
+        return mark;
+    } catch {
+        try {
+            const contents = range.extractContents();
+            mark.appendChild(contents);
+            range.insertNode(mark);
+
+            return mark;
+        } catch {
+            return null;
+        }
+    }
+}
+
+export function removeSyntheticHighlight(): void {
+    const marks = document.querySelectorAll<HTMLElement>(
+        `mark[${PENDING_ANCHOR_ATTR}="true"]`,
+    );
+
+    marks.forEach((mark) => {
+        const parent = mark.parentNode;
+
+        if (!parent) {
+            return;
+        }
+
+        while (mark.firstChild) {
+            parent.insertBefore(mark.firstChild, mark);
+        }
+
+        parent.removeChild(mark);
+        parent.normalize();
+    });
+}

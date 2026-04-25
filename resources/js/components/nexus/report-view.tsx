@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { CommentHighlightOverlay } from '@/components/nexus/comment-highlight-overlay';
 import { CommentSelectionPill } from '@/components/nexus/comment-selection-pill';
 import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
@@ -205,7 +206,34 @@ export function ReportView({
                 onSuggest={handleSuggest}
                 onClose={clearSelection}
                 readOnly={isHistoricalView}
+                snapshotId={snapshotId}
             />
+
+            {/* REQ-M6-028: persistent highlights for resolved-anchor comments. */}
+            {comments && comments.length > 0 ? (
+                <CommentHighlightOverlay
+                    comments={comments}
+                    containerRef={containerRef}
+                    onCommentClick={(commentId) => {
+                        const tabBtn = document.querySelector<HTMLElement>(
+                            '[data-testid="snapshot-sidebar-tab-comments"]',
+                        );
+                        tabBtn?.click();
+
+                        window.setTimeout(() => {
+                            const card = document.querySelector<HTMLElement>(
+                                `[data-comment-id="${commentId}"]`,
+                            );
+
+                            if (card) {
+                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                const jumpBtn = card.querySelector<HTMLElement>('button');
+                                jumpBtn?.click();
+                            }
+                        }, 0);
+                    }}
+                />
+            ) : null}
         </div>
     );
 
