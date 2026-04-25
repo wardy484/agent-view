@@ -48,15 +48,27 @@ it('REQ-M6-013: comment-selection-menu component file ships with the three actio
 });
 
 it('REQ-M6-013: useMarkdownSelection hook captures block_id, quote, prefix, suffix, and rect', function (): void {
-    $path = resource_path('js/hooks/use-markdown-selection.ts');
+    $hookPath = resource_path('js/hooks/use-markdown-selection.ts');
+    $helpersPath = resource_path('js/lib/selection-helpers.ts');
 
-    expect(file_exists($path))->toBeTrue();
+    expect(file_exists($hookPath))->toBeTrue();
+    expect(file_exists($helpersPath))->toBeTrue();
 
-    $source = (string) file_get_contents($path);
+    $hook = (string) file_get_contents($hookPath);
+    // REQ-M6-022 split the helpers out of the hook into a shared module
+    // (`selection-helpers.ts`); the SelectionInfo shape and DOM walk now
+    // live there. The hook re-exports the type for back-compat.
+    $helpers = (string) file_get_contents($helpersPath);
 
-    expect($source)
-        ->toContain('export type SelectionInfo')
+    expect($hook)
         ->toContain('export function useMarkdownSelection')
+        // Listens to the standard selection events.
+        ->toContain('selectionchange')
+        ->toContain('mouseup')
+        ->toContain('keyup');
+
+    expect($helpers)
+        ->toContain('export type SelectionInfo')
         // Surfaces the SelectionInfo shape required by REQ-M6-013.
         ->toContain('blockId: string | null')
         ->toContain('quote: string')
@@ -68,11 +80,7 @@ it('REQ-M6-013: useMarkdownSelection hook captures block_id, quote, prefix, suff
         // Anchor-block lookup walks for the data attribute report-view sets.
         ->toContain('data-comment-block-id')
         // Cross-block selections nullify blockId so the menu can disable.
-        ->toContain('sameBlock ? startBlock.getAttribute(BLOCK_ATTR) : null')
-        // Listens to the standard selection events.
-        ->toContain('selectionchange')
-        ->toContain('mouseup')
-        ->toContain('keyup');
+        ->toContain('sameBlock ? startBlock.getAttribute(BLOCK_ATTR) : null');
 });
 
 it('REQ-M6-013: report-view tags markdown blocks with data-comment-block-id and mounts the floating menu', function (): void {
