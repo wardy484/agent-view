@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import ReactMarkdown, { type Components } from 'react-markdown';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import type {Components} from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { cn } from '@/lib/utils';
@@ -279,6 +280,7 @@ function buildMarkdownComponents(presentation: boolean): Components {
         hr: () => <hr className="my-6 border-neutral-300 dark:border-neutral-700" />,
         code: ({ className, children, ...rest }: MdProps) => {
             const isBlock = /language-/.test(className ?? '');
+
             if (isBlock) {
                 return (
                     <code
@@ -292,6 +294,7 @@ function buildMarkdownComponents(presentation: boolean): Components {
                     </code>
                 );
             }
+
             return (
                 <code
                     className="rounded bg-neutral-900/5 px-1.5 py-0.5 font-mono text-[0.9em] text-neutral-900 dark:bg-neutral-100/10 dark:text-neutral-100"
