@@ -103,91 +103,146 @@ export function CommentHighlightOverlay({
             return;
         }
 
-        // Idempotent re-run: unwrap any prior overlay marks before walking.
-        // REQ-M6-035: a single comment may have produced many sibling
-        // marks; unwrapMarks handles them all and re-coalesces adjacent
-        // text nodes via parent.normalize().
-        unwrapOverlayMarks(container);
+        let rafId: number | null = null;
+        let observer: MutationObserver | null = null;
 
-        const eligible = comments.filter(
-            (c) =>
-                c.anchor.resolved_in_current_version === true &&
-                c.status !== 'stale' &&
-                classForComment(c) !== null,
-        );
+        const wrapPass = () => {
+            // REQ-M6-036: briefly disconnect the observer so the overlay's
+            // own DOM mutations (the marks it inserts and the unwrap pass
+            // that precedes them) don't re-trigger schedule() in a
+            // feedback loop. We reconnect at the end so subsequent
+            // react-markdown commits still drive a re-wrap.
+            if (observer) {
+                observer.disconnect();
+            }
 
-        for (const comment of eligible) {
-            const block = container.querySelector<HTMLElement>(
-                `[data-comment-block-id="${comment.block_id}"]`,
+            // Idempotent re-run: unwrap any prior overlay marks before walking.
+            // REQ-M6-035: a single comment may have produced many sibling
+            // marks; unwrapMarks handles them all and re-coalesces adjacent
+            // text nodes via parent.normalize().
+            unwrapOverlayMarks(container);
+
+            const eligible = comments.filter(
+                (c) =>
+                    c.anchor.resolved_in_current_version === true &&
+                    c.status !== 'stale' &&
+                    classForComment(c) !== null,
             );
 
-            if (!block) {
-                continue;
-            }
+            for (const comment of eligible) {
+                const block = container.querySelector<HTMLElement>(
+                    `[data-comment-block-id="${comment.block_id}"]`,
+                );
 
-            const range = findAnchorRange(
-                block,
-                comment.anchor.quote,
-                comment.anchor.prefix ?? '',
-                comment.anchor.suffix ?? '',
-            );
-
-            if (!range) {
-                continue;
-            }
-
-            const cls = classForComment(comment);
-
-            if (cls === null) {
-                continue;
-            }
-
-            // REQ-M6-033: tooltip surfaces the comment kind alongside the
-            // existing author + first-line body.
-            const firstLine = (comment.body.split(/\r?\n/)[0] ?? '').trim();
-            const tooltipLabel = `${comment.author.display_name} (${comment.kind}): ${firstLine}`;
-
-            // REQ-M6-035: per-text-node wrapping. wrapRangeWithMarks emits
-            // one inline <mark> per text-node sub-range, all sharing the
-            // same data-comment-id so the click handler + tooltip stay
-            // consistent across siblings. The DOM-shifting Range APIs that
-            // caused the layout regression this REQ fixes are not used.
-            const marks = wrapRangeWithMarks(range, () => {
-                const mark = document.createElement('mark');
-                mark.setAttribute(OVERLAY_ATTR, 'true');
-                mark.setAttribute('data-comment-id', String(comment.id));
-                mark.setAttribute('data-status', comment.status);
-                mark.setAttribute('data-kind', comment.kind);
-
-                // REQ-M6-033: surface the deletion variant for downstream
-                // tests and styling debugging. Empty string (the deletion
-                // sentinel) is explicitly distinct from a missing attribute.
-                if (comment.kind === 'suggestion') {
-                    mark.setAttribute(
-                        'data-deletion',
-                        isDeletion(comment) ? 'true' : 'false',
-                    );
+                if (!block) {
+                    continue;
                 }
 
-                mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
-                mark.title = tooltipLabel;
-                mark.setAttribute('aria-label', tooltipLabel);
-                mark.setAttribute('data-tooltip', tooltipLabel);
+                const range = findAnchorRange(
+                    block,
+                    comment.anchor.quote,
+                    comment.anchor.prefix ?? '',
+                    comment.anchor.suffix ?? '',
+                );
 
-                mark.addEventListener('click', (event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    onCommentClick(comment.id);
+                if (!range) {
+                    continue;
+                }
+
+                const cls = classForComment(comment);
+
+                if (cls === null) {
+                    continue;
+                }
+
+                // REQ-M6-033: tooltip surfaces the comment kind alongside the
+                // existing author + first-line body.
+                const firstLine = (comment.body.split(/\r?\n/)[0] ?? '').trim();
+                const tooltipLabel = `${comment.author.display_name} (${comment.kind}): ${firstLine}`;
+
+                // REQ-M6-035: per-text-node wrapping. wrapRangeWithMarks emits
+                // one inline <mark> per text-node sub-range, all sharing the
+                // same data-comment-id so the click handler + tooltip stay
+                // consistent across siblings. The DOM-shifting Range APIs that
+                // caused the layout regression this REQ fixes are not used.
+                const marks = wrapRangeWithMarks(range, () => {
+                    const mark = document.createElement('mark');
+                    mark.setAttribute(OVERLAY_ATTR, 'true');
+                    mark.setAttribute('data-comment-id', String(comment.id));
+                    mark.setAttribute('data-status', comment.status);
+                    mark.setAttribute('data-kind', comment.kind);
+
+                    // REQ-M6-033: surface the deletion variant for downstream
+                    // tests and styling debugging. Empty string (the deletion
+                    // sentinel) is explicitly distinct from a missing attribute.
+                    if (comment.kind === 'suggestion') {
+                        mark.setAttribute(
+                            'data-deletion',
+                            isDeletion(comment) ? 'true' : 'false',
+                        );
+                    }
+
+                    mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
+                    mark.title = tooltipLabel;
+                    mark.setAttribute('aria-label', tooltipLabel);
+                    mark.setAttribute('data-tooltip', tooltipLabel);
+
+                    mark.addEventListener('click', (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        onCommentClick(comment.id);
+                    });
+
+                    return mark;
                 });
 
-                return mark;
-            });
+                void marks;
+            }
 
-            void marks;
-        }
+            // Reconnect so subsequent react-markdown commits still trigger
+            // a re-wrap on the next paint.
+            if (observer) {
+                observer.observe(container, { childList: true, subtree: true });
+            }
+        };
+
+        const apply = () => {
+            rafId = null;
+            wrapPass();
+        };
+
+        const schedule = () => {
+            if (rafId !== null) {
+                return;
+            }
+
+            rafId = requestAnimationFrame(apply);
+        };
+
+        // REQ-M6-036: first paint may already have committed react-markdown's
+        // children for SSR / fast hydration; schedule an initial wrap so we
+        // don't depend on the observer firing.
+        schedule();
+
+        // REQ-M6-036: react-markdown commits children async — observe the
+        // container and re-wrap on every batched paint. childList + subtree
+        // catch every new descendant. requestAnimationFrame coalesces
+        // bursts to one re-wrap per paint.
+        observer = new MutationObserver(schedule);
+        observer.observe(container, { childList: true, subtree: true });
 
         return () => {
             // Cleanup on unmount or before re-run.
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+            }
+
             if (container.isConnected) {
                 unwrapOverlayMarks(container);
             }
