@@ -303,11 +303,17 @@ export function CommentSelectionPill({
         }
 
         const range = sel.getRangeAt(0).cloneRange();
-        const mark = synthesizeHighlight(range);
+        // REQ-M6-035: synthesizeHighlight returns ONE mark per text-node
+        // sub-range. We anchor the rect to the first mark in document
+        // order; the others share the same `data-pending-anchor`
+        // attribute so removeSyntheticHighlight tears them all down.
+        const marks = synthesizeHighlight(range);
 
-        if (!mark) {
+        if (marks.length === 0) {
             return;
         }
+
+        const mark = marks[0];
 
         // Clear the live OS selection so the OS bubble vanishes.
         window.getSelection()?.removeAllRanges();
