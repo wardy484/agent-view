@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useClipboard } from '@/hooks/use-clipboard';
 import type { SelectionInfo } from '@/hooks/use-markdown-selection';
+import { metaKeyShortcutLabel } from '@/lib/platform';
 import {
     captureSelection,
     removeSyntheticHighlight,
@@ -479,6 +480,24 @@ function ComposerBody({
         bodyRef.current?.focus();
     }, []);
 
+    const shortcutLabel = metaKeyShortcutLabel();
+    const submitDisabled = submitting || body.trim().length === 0
+        || (isSuggestion && proposedText.trim().length === 0);
+
+    // REQ-M6-029: ⌘+Enter / Ctrl+Enter submits from inside the composer's
+    // textareas. Scoped to the textarea key handlers so the binding does
+    // not leak to the rest of the page.
+    const onKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+        if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+            if (submitDisabled) {
+                return;
+            }
+
+            event.preventDefault();
+            onSubmit();
+        }
+    };
+
     return (
         <div
             className="flex flex-col gap-2"
@@ -492,6 +511,7 @@ function ComposerBody({
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => onBodyChange(e.target.value)}
+                onKeyDown={onKeyDown}
                 disabled={submitting}
                 placeholder={isSuggestion ? 'Why this change?' : 'Add a comment'}
                 rows={3}
@@ -507,6 +527,7 @@ function ComposerBody({
                     <textarea
                         value={proposedText}
                         onChange={(e) => onProposedTextChange(e.target.value)}
+                        onKeyDown={onKeyDown}
                         disabled={submitting}
                         placeholder="Replacement text"
                         rows={3}
@@ -540,10 +561,20 @@ function ComposerBody({
                     type="button"
                     data-testid="comment-selection-pill-submit"
                     onClick={onSubmit}
-                    disabled={submitting}
-                    className="rounded-md bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+                    disabled={submitDisabled}
+                    className="inline-flex items-center rounded-md bg-primary px-3 py-1 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
                 >
-                    {submitting ? 'Posting…' : 'Submit'}
+                    <span>{submitting ? 'Posting…' : 'Submit'}</span>
+                    <kbd
+                        data-testid="comment-selection-pill-submit-kbd"
+                        aria-hidden
+                        className={cn(
+                            'ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground',
+                            submitDisabled && 'opacity-60',
+                        )}
+                    >
+                        {shortcutLabel}
+                    </kbd>
                 </button>
             </div>
         </div>
