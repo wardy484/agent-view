@@ -144,6 +144,34 @@ class Comment extends Model
     }
 
     /**
+     * REQ-M6-007: emoji reactions placed on this comment by users. Both root
+     * comments and replies may carry reactions.
+     *
+     * @return HasMany<CommentReaction, $this>
+     */
+    public function reactions(): HasMany
+    {
+        return $this->hasMany(CommentReaction::class);
+    }
+
+    /**
+     * REQ-M6-007: returns a `[emoji => count]` map for this comment's
+     * reactions. Used by the agent-facing comment listing tool to surface
+     * a compact reactions summary per thread node.
+     *
+     * @return array<string, int>
+     */
+    public function reactionsSummary(): array
+    {
+        return $this->reactions()
+            ->selectRaw('emoji, COUNT(*) AS reaction_count')
+            ->groupBy('emoji')
+            ->pluck('reaction_count', 'emoji')
+            ->map(fn ($count): int => (int) $count)
+            ->all();
+    }
+
+    /**
      * @return BelongsTo<User, $this>
      */
     public function author(): BelongsTo
