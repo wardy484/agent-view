@@ -5,6 +5,7 @@ namespace App\Mcp\Servers;
 use App\Mcp\Tools\GetFollowUpContext;
 use App\Mcp\Tools\GetSnapshotComments;
 use App\Mcp\Tools\PresentStructuredData;
+use App\Mcp\Tools\ReplyToComment;
 use App\Mcp\Tools\ResolveComments;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
@@ -21,6 +22,7 @@ class NexusServer extends Server
         GetFollowUpContext::class,
         GetSnapshotComments::class,
         ResolveComments::class,
+        ReplyToComment::class,
     ];
 
     protected array $resources = [
