@@ -68,23 +68,27 @@ function isDeletion(comment: HighlightCommentSummary): boolean {
 //   - kind=suggestion, status=open, non-deletion → indigo
 //   - status=resolved                            → muted slate strike
 //   - status=wontfix                             → grey strike
+//
+// REQ-M6-037: tints bumped from /40 to /60-/70 with a 2px dotted bottom
+// border so highlights remain visible on light and dark backgrounds even
+// when the tint blends with the page.
 function classForComment(comment: HighlightCommentSummary): string | null {
     if (comment.status === 'resolved') {
-        return 'bg-slate-300/40 dark:bg-slate-700/40 line-through decoration-slate-500';
+        return 'bg-slate-300/60 dark:bg-slate-700/60 line-through decoration-slate-500 border-b-2 border-dotted border-slate-400';
     }
 
     if (comment.status === 'wontfix') {
-        return 'bg-zinc-300/30 dark:bg-zinc-700/30 line-through opacity-60';
+        return 'bg-zinc-300/50 dark:bg-zinc-700/50 line-through opacity-70 border-b-2 border-dotted border-zinc-400';
     }
 
     if (comment.status === 'open') {
         if (comment.kind === 'suggestion') {
             return isDeletion(comment)
-                ? 'bg-red-200/40 dark:bg-red-900/40 line-through decoration-red-500'
-                : 'bg-indigo-200/40 dark:bg-indigo-900/40';
+                ? 'bg-red-200/70 dark:bg-red-900/60 line-through decoration-red-500 border-b-2 border-dotted border-red-400'
+                : 'bg-indigo-200/70 dark:bg-indigo-900/50 border-b-2 border-dotted border-indigo-400';
         }
 
-        return 'bg-yellow-200/40 dark:bg-yellow-900/40';
+        return 'bg-yellow-200/70 dark:bg-yellow-700/40 border-b-2 border-dotted border-yellow-500';
     }
 
     // status === 'stale' — nothing to render; the anchor doesn't resolve.

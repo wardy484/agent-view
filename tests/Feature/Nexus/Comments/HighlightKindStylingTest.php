@@ -24,15 +24,15 @@ it('REQ-M6-033: comment-highlight-overlay branches styling on (status, kind, pro
         // The class-for helper branches on kind + status.
         ->toContain('classForComment')
         // Open comments → yellow.
-        ->toContain('bg-yellow-200/40 dark:bg-yellow-900/40')
+        ->toContain('bg-yellow-200/70 dark:bg-yellow-700/40 border-b-2 border-dotted border-yellow-500')
         // Open suggestions (non-deletion) → indigo.
-        ->toContain('bg-indigo-200/40 dark:bg-indigo-900/40')
+        ->toContain('bg-indigo-200/70 dark:bg-indigo-900/50 border-b-2 border-dotted border-indigo-400')
         // Open suggestions (deletion) → red strike.
-        ->toContain('bg-red-200/40 dark:bg-red-900/40 line-through decoration-red-500')
+        ->toContain('bg-red-200/70 dark:bg-red-900/60 line-through decoration-red-500 border-b-2 border-dotted border-red-400')
         // Resolved → muted slate strike (existing).
-        ->toContain('bg-slate-300/40 dark:bg-slate-700/40 line-through decoration-slate-500')
+        ->toContain('bg-slate-300/60 dark:bg-slate-700/60 line-through decoration-slate-500 border-b-2 border-dotted border-slate-400')
         // Wontfix → grey strike (existing).
-        ->toContain('bg-zinc-300/30 dark:bg-zinc-700/30 line-through opacity-60')
+        ->toContain('bg-zinc-300/50 dark:bg-zinc-700/50 line-through opacity-70 border-b-2 border-dotted border-zinc-400')
         // The HighlightCommentSummary type now surfaces both kind and proposed_text.
         ->toContain("kind: 'comment' | 'suggestion'")
         ->toContain('proposed_text?: string')

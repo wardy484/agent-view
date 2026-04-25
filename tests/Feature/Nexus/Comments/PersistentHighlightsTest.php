@@ -65,9 +65,9 @@ it('REQ-M6-028: open status uses yellow tint, resolved uses slate + line-through
     $source = (string) file_get_contents($path);
 
     expect($source)
-        ->toContain('bg-yellow-200/40 dark:bg-yellow-900/40')
-        ->toContain('bg-slate-300/40 dark:bg-slate-700/40 line-through')
-        ->toContain('bg-zinc-300/30 dark:bg-zinc-700/30 line-through opacity-60');
+        ->toContain('bg-yellow-200/70 dark:bg-yellow-700/40 border-b-2 border-dotted border-yellow-500')
+        ->toContain('bg-slate-300/60 dark:bg-slate-700/60 line-through')
+        ->toContain('bg-zinc-300/50 dark:bg-zinc-700/50 line-through opacity-70');
 });
 
 it('REQ-M6-028: tooltip surfaces author display name + first body line', function (): void {
