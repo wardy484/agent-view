@@ -9,6 +9,7 @@ import { FlowchartView } from '@/components/nexus/flowchart-view';
 import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
+import { ResponsiveSidebar } from '@/components/nexus/responsive-sidebar';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
 import { SnapshotSidebar } from '@/components/nexus/snapshot-sidebar';
@@ -206,24 +207,46 @@ export function ReportView({
         return reportBody;
     }
 
+    // REQ-M6-020: count of open root comments drives the mobile trigger badge.
+    const openCommentCount = (comments ?? []).filter(
+        (comment) => comment.status === 'open',
+    ).length;
+
+    const sidebar = (
+        <SnapshotSidebar
+            snapshotId={snapshotId as number}
+            comments={comments ?? []}
+            versionHistory={versionHistory ?? []}
+            blockOrder={blockOrder}
+            composerSelection={composerSelection}
+            onComposerClose={() => setComposerSelection(null)}
+            isHistoricalView={isHistoricalView}
+            workbenchSlug={workbenchSlug}
+            snapshotSlug={snapshotSlug}
+            activeRevision={activeRevision}
+        />
+    );
+
+    // REQ-M6-020: below `lg` the sidebar collapses into a slide-in sheet
+    // triggered from the report column header. Above `lg` the sidebar
+    // renders inline on the right (the unchanged REQ-M6-014 layout).
     return (
         <div
             className="flex w-full flex-col gap-0 lg:flex-row lg:items-start"
             data-testid="nexus-report-with-sidebar"
         >
-            <div className="flex-1 min-w-0">{reportBody}</div>
-            <SnapshotSidebar
-                snapshotId={snapshotId as number}
-                comments={comments ?? []}
-                versionHistory={versionHistory ?? []}
-                blockOrder={blockOrder}
-                composerSelection={composerSelection}
-                onComposerClose={() => setComposerSelection(null)}
-                isHistoricalView={isHistoricalView}
-                workbenchSlug={workbenchSlug}
-                snapshotSlug={snapshotSlug}
-                activeRevision={activeRevision}
-            />
+            <div className="flex min-w-0 flex-1 flex-col">
+                <ResponsiveSidebar openCommentCount={openCommentCount}>
+                    {sidebar}
+                </ResponsiveSidebar>
+                {reportBody}
+            </div>
+            <div
+                data-testid="snapshot-sidebar-desktop-inline"
+                className="hidden shrink-0 lg:flex"
+            >
+                {sidebar}
+            </div>
         </div>
     );
 }
