@@ -119,7 +119,7 @@ class SnapshotVersioning
         $rows = [];
         $now = CarbonImmutable::now();
 
-        foreach (array_values($blocks) as $index => $block) {
+        foreach (array_values($blocks) as $block) {
             if (! is_array($block) || ($block['type'] ?? null) !== 'embed') {
                 continue;
             }
@@ -127,6 +127,16 @@ class SnapshotVersioning
             $embeddedSnapshotId = $block['snapshot_id'] ?? null;
 
             if (! is_int($embeddedSnapshotId)) {
+                continue;
+            }
+
+            // REQ-M6-002: pins are keyed by the block's stable UUID id, not
+            // its positional index. ReportViewSchema::validate() has already
+            // populated `id` (carried forward or freshly minted) for every
+            // block before SnapshotVersioning::append() reaches this point.
+            $blockId = $block['id'] ?? null;
+
+            if (! is_string($blockId) || $blockId === '') {
                 continue;
             }
 
@@ -147,7 +157,7 @@ class SnapshotVersioning
                 'report_version_id' => $reportVersion->id,
                 'embedded_snapshot_id' => (int) $embedded->id,
                 'embedded_version_id' => (int) $embedded->current_version_id,
-                'block_index' => $index,
+                'block_id' => $blockId,
                 'created_at' => $now,
             ];
         }

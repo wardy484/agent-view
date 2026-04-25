@@ -155,12 +155,12 @@ class SnapshotController extends Controller
             return [];
         }
 
-        // Pull every pinned embed for this report revision in one query so
-        // we can index by block_index without N+1 lookups.
+        // REQ-M6-002: pull every pinned embed for this report revision in one
+        // query so we can index by block_id (stable UUID) without N+1 lookups.
         $pins = DB::table('snapshot_embeds')
             ->where('report_version_id', $version->id)
-            ->get(['block_index', 'embedded_snapshot_id', 'embedded_version_id'])
-            ->keyBy('block_index');
+            ->get(['block_id', 'embedded_snapshot_id', 'embedded_version_id'])
+            ->keyBy('block_id');
 
         $embeddedVersionIds = $pins->pluck('embedded_version_id')->all();
 
@@ -174,7 +174,7 @@ class SnapshotController extends Controller
 
         $resolved = [];
 
-        foreach ($blocks as $index => $block) {
+        foreach ($blocks as $block) {
             $type = is_string($block['type'] ?? null) ? $block['type'] : '';
 
             if ($type === 'markdown') {
@@ -191,7 +191,8 @@ class SnapshotController extends Controller
             }
 
             $snapshotId = is_int($block['snapshot_id'] ?? null) ? (int) $block['snapshot_id'] : null;
-            $pin = $pins->get($index);
+            $blockId = is_string($block['id'] ?? null) ? $block['id'] : null;
+            $pin = $blockId === null ? null : $pins->get($blockId);
             $pinnedVersion = $pin === null ? null : $pinnedVersions->get($pin->embedded_version_id);
             $pinnedSnapshot = $pinnedVersion?->snapshot;
 
