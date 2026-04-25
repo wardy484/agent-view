@@ -135,6 +135,10 @@ class SnapshotController extends Controller
                 'slug' => $snapshot->slug,
                 'title' => $snapshot->title,
                 'current_version_id' => $snapshot->current_version_id,
+                // REQ-M6-016: expose the monotonic counter so the polling
+                // hook can pass it as `?since=` and short-circuit when the
+                // comments graph hasn't moved.
+                'comments_revision' => (int) $snapshot->comments_revision,
             ],
             'version' => $versionPayload,
             // REQ-M4-006: non-owners never see the full revision history — the

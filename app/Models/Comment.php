@@ -8,6 +8,7 @@ use App\Enums\CommentAuthorKind;
 use App\Enums\CommentKind;
 use App\Enums\CommentResolution;
 use App\Enums\CommentStatus;
+use App\Nexus\Comments\CommentsRevisionTracker;
 use Database\Factories\CommentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -80,6 +81,39 @@ class Comment extends Model
             if ($comment->isDirty('created_on_version_id')) {
                 throw new \LogicException('Comment::created_on_version_id is immutable');
             }
+        });
+
+        // REQ-M6-016: every comment-graph mutation moves the snapshot's
+        // `comments_revision` counter forward so the sidebar polling loop
+        // sees a delta. Updates only bump on status / resolution flips and
+        // body edits — silent metadata changes (e.g. timestamp touches) do
+        // not need to wake every connected tab.
+        static::created(function (Comment $comment): void {
+            CommentsRevisionTracker::bump($comment->snapshot_id);
+        });
+
+        static::updated(function (Comment $comment): void {
+            $watched = ['status', 'resolution', 'body', 'addressed_on_version_id', 'deleted_at'];
+
+            foreach ($watched as $column) {
+                if ($comment->wasChanged($column)) {
+                    CommentsRevisionTracker::bump($comment->snapshot_id);
+
+                    return;
+                }
+            }
+        });
+
+        static::deleted(function (Comment $comment): void {
+            CommentsRevisionTracker::bump($comment->snapshot_id);
+        });
+
+        static::restored(function (Comment $comment): void {
+            CommentsRevisionTracker::bump($comment->snapshot_id);
+        });
+
+        static::forceDeleted(function (Comment $comment): void {
+            CommentsRevisionTracker::bump($comment->snapshot_id);
         });
     }
 

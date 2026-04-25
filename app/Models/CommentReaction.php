@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\CommentReactionEmoji;
 use App\Nexus\Comments\CommentReactionService;
+use App\Nexus\Comments\CommentsRevisionTracker;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -40,6 +41,21 @@ class CommentReaction extends Model
             'emoji' => CommentReactionEmoji::class,
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * REQ-M6-016: reaction toggles are a sidebar-visible mutation, so they
+     * bump the snapshot's `comments_revision` via the parent comment.
+     */
+    protected static function booted(): void
+    {
+        static::created(function (CommentReaction $reaction): void {
+            CommentsRevisionTracker::bump($reaction->comment?->snapshot_id);
+        });
+
+        static::deleted(function (CommentReaction $reaction): void {
+            CommentsRevisionTracker::bump($reaction->comment?->snapshot_id);
+        });
     }
 
     /**

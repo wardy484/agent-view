@@ -18,6 +18,7 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
 
@@ -31,6 +32,10 @@ type Snapshot = {
     slug: string;
     title: string | null;
     current_version_id: number | null;
+    // REQ-M6-016: monotonic counter on the snapshot row, bumped by every
+    // comment / reply / reaction / resolution write. Drives the polling
+    // loop's `?since=` cursor and the future M6-018 push banner.
+    comments_revision?: number;
 };
 
 type Version = {
@@ -104,6 +109,17 @@ export default function SnapshotPage(props: Props) {
     // workbench chrome. Owners still start in the normal app shell.
     const isSharedView = is_public_link || !is_owner;
     const [isFullscreen, setIsFullscreen] = useState(isSharedView);
+
+    // REQ-M6-016: poll the sidebar props every 8 seconds while the tab is
+    // foregrounded. Only authenticated viewers on a current (non-historical)
+    // revision opt in — public-link guests and historical views never poll.
+    const shouldPoll = isAuthenticated && !is_public_link && !is_historical_view;
+    useSidebarPolling(
+        props.snapshot.id,
+        props.version.revision,
+        props.snapshot.comments_revision ?? 0,
+        !shouldPoll,
+    );
 
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.

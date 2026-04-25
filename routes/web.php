@@ -7,6 +7,7 @@ use App\Http\Controllers\PublicSnapshotController;
 use App\Http\Controllers\SnapshotController;
 use App\Http\Controllers\Snapshots\CommentAcceptanceController;
 use App\Http\Controllers\Snapshots\CommentController;
+use App\Http\Controllers\Snapshots\SnapshotSidebarController;
 use App\Http\Controllers\SnapshotShareController;
 use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
@@ -72,6 +73,14 @@ Route::middleware(['web', 'auth'])
 Route::middleware(['web', 'auth'])
     ->post('/snapshots/{snapshot}/comments/{comment}/accept', CommentAcceptanceController::class)
     ->name('snapshots.comments.accept');
+
+// REQ-M6-016: polling delta endpoint for the snapshot sidebar. Returns the
+// projected comments + version history payload, or a tiny `no_change: true`
+// body when the caller's `?since=` cursor matches the current
+// `comments_revision`. Authorisation reuses SnapshotPolicy@view.
+Route::middleware(['web', 'auth'])
+    ->get('/snapshots/{snapshot}/sidebar', [SnapshotSidebarController::class, 'show'])
+    ->name('snapshots.sidebar.show');
 
 // REQ-M6-014: snapshot owner / share grantee creates a root review comment.
 // Replies and resolutions ride on dedicated MCP tools (REQ-M6-010..011) or
