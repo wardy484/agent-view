@@ -10,11 +10,14 @@ use App\Enums\CommentResolution;
 use App\Enums\CommentStatus;
 use Database\Factories\CommentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 /**
  * REQ-M6-003: inline review comment on a report markdown block.
@@ -82,11 +85,62 @@ class Comment extends Model
     }
 
     /**
+     * REQ-M6-006: replies are returned inline with their parent ordered by
+     * `created_at ASC` within a thread.
+     *
      * @return HasMany<Comment, $this>
      */
     public function replies(): HasMany
     {
-        return $this->hasMany(self::class, 'parent_comment_id');
+        return $this->hasMany(self::class, 'parent_comment_id')
+            ->orderBy('created_at');
+    }
+
+    /**
+     * REQ-M6-006: only root comments (those with `parent_comment_id IS NULL`)
+     * carry anchors; replies are excluded from this scope so callers can fetch
+     * the top of each thread without filtering manually.
+     *
+     * @param  Builder<Comment>  $query
+     */
+    #[Scope]
+    protected function roots(Builder $query): void
+    {
+        $query->whereNull('parent_comment_id');
+    }
+
+    /**
+     * REQ-M6-006: convenience accessor — true when this comment is a reply
+     * to a root comment.
+     */
+    public function isReply(): bool
+    {
+        return $this->parent_comment_id !== null;
+    }
+
+    /**
+     * REQ-M6-006: convenience accessor — true when this comment is a root
+     * comment (i.e. anchored to a block, not nested under another comment).
+     */
+    public function isRoot(): bool
+    {
+        return $this->parent_comment_id === null;
+    }
+
+    /**
+     * REQ-M6-006: returns this root comment followed by its replies, ordered
+     * by `created_at ASC`. Calling this on a reply throws — only roots own a
+     * thread.
+     *
+     * @return Collection<int, Comment>
+     */
+    public function thread(): Collection
+    {
+        if ($this->isReply()) {
+            throw new \LogicException('thread() may only be called on a root comment.');
+        }
+
+        return collect([$this])->concat($this->replies()->get())->values();
     }
 
     /**
