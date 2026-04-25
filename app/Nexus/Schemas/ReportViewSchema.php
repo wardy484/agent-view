@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Nexus\Schemas;
 
 use App\Models\Snapshot;
+use Illuminate\Support\Str;
 
 /**
  * REQ-M5-001: structural validator for the Report view's `data_payload`.
@@ -29,6 +30,12 @@ use App\Models\Snapshot;
  * any embed in that case is cross-workbench by definition and is rejected
  * with the same dot-path error.
  *
+ * REQ-M6-001: each block carries a stable `id` field (UUID v4). Callers
+ * may supply explicit ids (validated as UUID strings) or omit them. When
+ * `$previousBlocks` is supplied, missing ids are best-effort carried
+ * forward from the previous version's block whose body (markdown) or
+ * snapshot_id (embed) sha1-matches; otherwise a fresh UUID is generated.
+ *
  * Validation throws {@see ReportViewSchemaException} with a clear,
  * dot-path message pointing at the first offending field.
  */
@@ -38,11 +45,12 @@ final class ReportViewSchema
 
     /**
      * @param  array<string, mixed>  $payload
+     * @param  array<int, array<string, mixed>>|null  $previousBlocks
      * @return array<string, mixed>
      *
      * @throws ReportViewSchemaException
      */
-    public static function validate(array $payload, ?int $workbenchId = null): array
+    public static function validate(array $payload, ?int $workbenchId = null, ?array $previousBlocks = null): array
     {
         $blocks = $payload['blocks'] ?? null;
 
@@ -53,6 +61,8 @@ final class ReportViewSchema
         }
 
         $embedIds = [];
+        $normalisedBlocks = [];
+        $carryIndex = self::buildCarryIndex($previousBlocks);
 
         foreach (array_values($blocks) as $index => $block) {
             if (! is_array($block)) {
@@ -75,25 +85,116 @@ final class ReportViewSchema
                         "data_payload.blocks[{$index}].body is required and must be a string.",
                     );
                 }
+            } else {
+                // type === 'embed'
+                if (! isset($block['snapshot_id']) || ! is_int($block['snapshot_id'])) {
+                    throw new ReportViewSchemaException(
+                        "data_payload.blocks[{$index}].snapshot_id is required and must be an int.",
+                    );
+                }
 
-                continue;
+                $embedIds[$index] = $block['snapshot_id'];
             }
 
-            // type === 'embed'
-            if (! isset($block['snapshot_id']) || ! is_int($block['snapshot_id'])) {
-                throw new ReportViewSchemaException(
-                    "data_payload.blocks[{$index}].snapshot_id is required and must be an int.",
-                );
-            }
+            $block['id'] = self::resolveBlockId($block, $index, $carryIndex);
 
-            $embedIds[$index] = $block['snapshot_id'];
+            $normalisedBlocks[] = $block;
         }
 
         if ($embedIds !== []) {
             self::validateEmbeds($embedIds, $workbenchId);
         }
 
+        $payload['blocks'] = $normalisedBlocks;
+
         return $payload;
+    }
+
+    /**
+     * Resolve the `id` for a single block:
+     *  - explicit UUID supplied: validate and return.
+     *  - explicit non-UUID supplied: throw.
+     *  - missing: try carry-forward from previous version, else fresh UUID.
+     *
+     * @param  array<string, mixed>  $block
+     * @param  array{markdown: array<string, string>, embed: array<int, string>}  $carryIndex
+     *
+     * @throws ReportViewSchemaException
+     */
+    private static function resolveBlockId(array $block, int $index, array $carryIndex): string
+    {
+        if (array_key_exists('id', $block)) {
+            $id = $block['id'];
+
+            if (! is_string($id) || ! Str::isUuid($id)) {
+                throw new ReportViewSchemaException(
+                    "data_payload.blocks[{$index}].id must be a UUID string when supplied.",
+                );
+            }
+
+            return $id;
+        }
+
+        if ($block['type'] === 'markdown') {
+            $fingerprint = sha1($block['body']);
+            $carried = $carryIndex['markdown'][$fingerprint] ?? null;
+
+            if ($carried !== null) {
+                return $carried;
+            }
+        } elseif ($block['type'] === 'embed') {
+            $snapshotId = (int) $block['snapshot_id'];
+            $carried = $carryIndex['embed'][$snapshotId] ?? null;
+
+            if ($carried !== null) {
+                return $carried;
+            }
+        }
+
+        return Str::uuid()->toString();
+    }
+
+    /**
+     * Build a lookup of {fingerprint -> block_id} from the previous version's
+     * blocks so we can carry ids forward by content match.
+     *
+     * @param  array<int, array<string, mixed>>|null  $previousBlocks
+     * @return array{markdown: array<string, string>, embed: array<int, string>}
+     */
+    private static function buildCarryIndex(?array $previousBlocks): array
+    {
+        $index = ['markdown' => [], 'embed' => []];
+
+        if ($previousBlocks === null) {
+            return $index;
+        }
+
+        foreach ($previousBlocks as $previous) {
+            if (! is_array($previous)) {
+                continue;
+            }
+
+            $previousId = $previous['id'] ?? null;
+            $previousType = $previous['type'] ?? null;
+
+            if (! is_string($previousId) || ! Str::isUuid($previousId)) {
+                continue;
+            }
+
+            if ($previousType === 'markdown' && isset($previous['body']) && is_string($previous['body'])) {
+                $fingerprint = sha1($previous['body']);
+                // First match wins so duplicate bodies don't shuffle ids around.
+                if (! isset($index['markdown'][$fingerprint])) {
+                    $index['markdown'][$fingerprint] = $previousId;
+                }
+            } elseif ($previousType === 'embed' && isset($previous['snapshot_id']) && is_int($previous['snapshot_id'])) {
+                if (! isset($index['embed'][$previous['snapshot_id']])) {
+                    $index['embed'][$previous['snapshot_id']] = $previousId;
+                }
+            }
+        }
+
+        return $index;
     }
 
     /**

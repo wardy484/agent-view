@@ -11,6 +11,7 @@ use App\Nexus\Renderers\KanbanPreviewRenderer;
 use App\Nexus\Renderers\ReportPreviewRenderer;
 use App\Nexus\Renderers\SlideDeckPreviewRenderer;
 use App\Nexus\Renderers\TablePreviewRenderer;
+use App\Nexus\Schemas\ReportViewSchema;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -44,6 +45,20 @@ class SnapshotVersioning
         ?array $metadata = null,
         ?string $previewHtml = null,
     ): SnapshotVersion {
+        // REQ-M6-001: for report payloads, normalise block ids by carrying
+        // forward from the previous version's blocks where bodies match by
+        // sha1. The MCP-layer call to ReportViewSchema::validate() runs
+        // structural checks but doesn't have the previous version handy;
+        // here we have, so we re-run validation with the carry-forward arg.
+        if ($viewType === 'report') {
+            $previousBlocks = self::previousReportBlocks($snapshot);
+            $dataPayload = ReportViewSchema::validate(
+                $dataPayload,
+                $snapshot->workbench_id,
+                $previousBlocks,
+            );
+        }
+
         // REQ-M1-012: render the preview at write-time so reads never re-render.
         $previewHtml ??= self::renderPreview($viewType, $dataPayload);
 
@@ -149,6 +164,34 @@ class SnapshotVersioning
     public static function isWriting(): bool
     {
         return self::$writing;
+    }
+
+    /**
+     * REQ-M6-001: load the previous version's report `blocks` so the
+     * validator can carry block ids forward by content fingerprint. Returns
+     * null on first revision (or when there is nothing usable to carry).
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private static function previousReportBlocks(Snapshot $snapshot): ?array
+    {
+        $currentVersionId = $snapshot->current_version_id;
+
+        if ($currentVersionId === null) {
+            return null;
+        }
+
+        $previous = SnapshotVersion::query()
+            ->whereKey($currentVersionId)
+            ->first(['id', 'view_type', 'data_payload']);
+
+        if ($previous === null || $previous->view_type !== 'report') {
+            return null;
+        }
+
+        $blocks = $previous->data_payload['blocks'] ?? null;
+
+        return is_array($blocks) ? $blocks : null;
     }
 
     /**

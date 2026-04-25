@@ -98,7 +98,10 @@ it('REQ-M5-002: validate() accepts an embed pointing at a same-workbench non-rep
         ],
     ];
 
-    expect(ReportViewSchema::validate($payload, $workbench->id))->toBe($payload);
+    $result = ReportViewSchema::validate($payload, $workbench->id);
+
+    expect($result['blocks'][0]['body'])->toBe('# Hi')
+        ->and($result['blocks'][1]['snapshot_id'])->toBe($table->id);
 });
 
 it('REQ-M5-002: MCP tool rejects a report embedding a snapshot from another workbench', function (): void {

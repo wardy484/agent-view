@@ -22,7 +22,11 @@ it('REQ-M5-001: validate() accepts a markdown-only report payload', function ():
         ],
     ];
 
-    expect(ReportViewSchema::validate($payload))->toBe($payload);
+    $result = ReportViewSchema::validate($payload);
+
+    expect($result['blocks'][0]['type'])->toBe('markdown')
+        ->and($result['blocks'][0]['body'])->toBe('# Q4 Summary')
+        ->and($result['blocks'][1]['body'])->toBe('## Pipeline');
 });
 
 it('REQ-M5-001: validate() accepts mixed markdown and embed blocks', function (): void {
@@ -48,7 +52,11 @@ it('REQ-M5-001: validate() accepts mixed markdown and embed blocks', function ()
         ],
     ];
 
-    expect(ReportViewSchema::validate($payload, $workbench->id))->toBe($payload);
+    $result = ReportViewSchema::validate($payload, $workbench->id);
+
+    expect($result['blocks'][0]['body'])->toBe('## Intro')
+        ->and($result['blocks'][1]['snapshot_id'])->toBe($target->id)
+        ->and($result['blocks'][2]['body'])->toBe('## Outro');
 });
 
 it('REQ-M5-001: validate() rejects a payload missing blocks', function (): void {
