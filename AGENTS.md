@@ -100,6 +100,56 @@ Never skip a step. Never invent requirements the spec doesn't list.
 - **Never implement features not in the spec.** If you need to, open a spec
   PR first, then resume the 7-step loop.
 
+## Spec-First Milestones (Shipping Style)
+
+Large milestones (≳5 new REQs) are shipped in two phases. This is an
+explicit exception to the "tests must be green before merge" rule.
+
+### Phase 1 — Spec PR (admin-merged red)
+
+1. Add the full milestone (every REQ-ID and its paragraph) to
+   `docs/nexus-spec.md` plus any agent-facing docs in `AGENTS.md`.
+2. Open a PR titled `spec: add Mn — <name>`. The body must list every
+   REQ-ID and warn that `spec:check` will be red until impl lands.
+3. Admin-merge despite a red `spec:check`. CI's other gates
+   (`pint`, `pnpm lint`, `pnpm type-check`, `php artisan test`) must
+   still pass — only `spec:check` is permitted to be red, and only for
+   the new milestone's IDs.
+4. `main` is now intentionally red on `spec:check` for the milestone's
+   REQs. Treat this as a debt counter that must be paid down.
+
+### Phase 2 — Implementation PRs (one per REQ)
+
+5. Run the standard 7-step loop. `php artisan spec:check --next
+   --milestone=Mn` walks REQ-IDs in dependency order.
+6. Each implementation PR closes one or more REQs by adding tests
+   referencing their IDs. Each PR's CI gate must show *fewer* missing
+   REQs than the parent commit had — never more.
+7. The milestone is "done" when `php artisan spec:check
+   --milestone=Mn` exits zero. Mark this in the milestone's first REQ
+   PR description if you want a tracking checkbox.
+
+### Rules for spec-first milestones
+
+- **No partial spec PRs.** A spec PR contains the full milestone or
+  none of it; do not drip-feed REQs across multiple spec PRs.
+- **No spec edits in implementation PRs.** If reality must diverge,
+  open a separate spec PR (Phase 1 of a tiny "milestone" if needed).
+- **Never abandon a milestone.** Once Phase 1 lands, Phase 2 must
+  finish. Aborting requires a follow-up spec PR that removes the
+  unfulfilled REQs and explains why.
+- **Spec-only PRs cannot also touch code.** Mixing the two breaks the
+  green/red ledger this style depends on.
+- **Still use worktrees.** Each Phase 2 PR runs in its own worktree
+  per the 7-step loop; the spec-first style does not change that.
+
+### When NOT to use this style
+
+- Small features (<5 REQs): just do the 7-step loop normally.
+- Bug fixes or refactors: those usually attach to existing REQs.
+- Anything where you can ship spec + tests + impl in one PR without
+  the PR getting unwieldy — prefer one PR.
+
 ## Directory Map
 
 ```
