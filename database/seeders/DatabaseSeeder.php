@@ -24,12 +24,12 @@ class DatabaseSeeder extends Seeder
 
         $this->call(DemoSnapshotSeeder::class);
 
-        // REQ-M11-001: the UI baseline fixtures are scoped to the testing
+        // REQ-M11-001: the browser test fixtures are scoped to the testing
         // environment so they only land in CI/local Pest runs and never
         // contaminate dev or production databases. Browser tests invoke
-        // the seeder directly via $this->seed(UiBaselineSeeder::class).
+        // the seeder directly via $this->seed(BrowserTestSeeder::class).
         if (app()->environment('testing')) {
-            $this->call(UiBaselineSeeder::class);
+            $this->call(BrowserTestSeeder::class);
         }
     }
 }

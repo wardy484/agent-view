@@ -18,13 +18,13 @@ use Illuminate\Database\Seeder;
  * its view type (`ui-baseline-<view_type>`).
  *
  * Distinct from {@see DemoSnapshotSeeder} so demo content can drift
- * independently from the UI baseline fixtures consumed by `tests/Browser/`.
+ * independently from the browser test fixtures consumed by `tests/Browser/`.
  *
  * Idempotent — `firstOrCreate` is used for both the workbench and snapshots,
  * and a new revision is only appended when a snapshot was just created. Safe
- * to re-run from a single Pest test that calls `$this->seed(UiBaselineSeeder::class)`.
+ * to re-run from a single Pest test that calls `$this->seed(BrowserTestSeeder::class)`.
  */
-class UiBaselineSeeder extends Seeder
+class BrowserTestSeeder extends Seeder
 {
     public function run(): void
     {

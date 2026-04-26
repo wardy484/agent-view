@@ -6,8 +6,8 @@ use App\Models\Snapshot;
 use App\Models\SnapshotVersion;
 use App\Models\User;
 use App\Models\Workbench;
+use Database\Seeders\BrowserTestSeeder;
 use Database\Seeders\DatabaseSeeder;
-use Database\Seeders\UiBaselineSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -26,7 +26,7 @@ it('REQ-M11-001: seeds one workbench and one snapshot per view_type idempotently
     $owner = User::query()->where('email', 'wardy484@gmail.com')->firstOrFail();
 
     // First run.
-    $this->seed(UiBaselineSeeder::class);
+    $this->seed(BrowserTestSeeder::class);
 
     $workbench = Workbench::query()->where('slug', 'ui-baseline')->firstOrFail();
     expect($workbench->owner_user_id)->toBe($owner->id);
@@ -60,7 +60,7 @@ it('REQ-M11-001: seeds one workbench and one snapshot per view_type idempotently
         ->count();
 
     // Second run — must not duplicate workbench, snapshots, or revisions.
-    $this->seed(UiBaselineSeeder::class);
+    $this->seed(BrowserTestSeeder::class);
 
     expect(Workbench::query()->where('slug', 'ui-baseline')->count())->toBe(1);
     expect(Snapshot::query()->where('workbench_id', $workbench->id)->count())->toBe(count($expectedSnapshots));
@@ -72,11 +72,11 @@ it('REQ-M11-001: seeds one workbench and one snapshot per view_type idempotently
     expect($versionCountAfterSecondRun)->toBe($versionCountAfterFirstRun);
 });
 
-it('REQ-M11-001: DatabaseSeeder registers UiBaselineSeeder only when APP_ENV is testing', function (): void {
+it('REQ-M11-001: DatabaseSeeder registers BrowserTestSeeder only when APP_ENV is testing', function (): void {
     expect(app()->environment('testing'))->toBeTrue();
 
     // Run the full DatabaseSeeder; it should idempotently seed both demo +
-    // ui-baseline content because we are in the testing environment.
+    // browser test content because we are in the testing environment.
     $this->seed(DatabaseSeeder::class);
 
     expect(Workbench::query()->where('slug', 'ui-baseline')->exists())->toBeTrue();

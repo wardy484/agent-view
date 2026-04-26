@@ -1,4 +1,4 @@
-name: UI Baseline
+name: Browser Tests
 
 on:
   pull_request:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   ui-baseline:
-    name: UI baseline (browser tests)
+    name: Browser tests
     runs-on: ubuntu-latest
 
     strategy:

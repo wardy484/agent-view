@@ -5,7 +5,7 @@ declare(strict_types=1);
 use App\Models\User;
 
 it('REQ-M11-007: empty dashboard surfaces workbench definition, mint CTA, and MCP endpoint without recents or workbenches list', function (): void {
-    // Fresh user with zero workbenches — distinct from the UiBaselineSeeder fixture user.
+    // Fresh user with zero workbenches — distinct from the BrowserTestSeeder fixture user.
     $user = User::factory()->create();
 
     $this->actingAs($user);

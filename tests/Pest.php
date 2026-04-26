@@ -1,6 +1,6 @@
 <?php
 
-use Database\Seeders\UiBaselineSeeder;
+use Database\Seeders\BrowserTestSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -22,7 +22,7 @@ pest()->extend(TestCase::class)
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->beforeEach(function (): void {
-        $this->seed(UiBaselineSeeder::class);
+        $this->seed(BrowserTestSeeder::class);
     })
     ->in('Browser');
 
