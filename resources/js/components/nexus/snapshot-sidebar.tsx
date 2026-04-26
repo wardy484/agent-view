@@ -1,5 +1,14 @@
 import { router } from '@inertiajs/react';
-import { Bot, ChevronDown, ChevronRight, History, Info, MessageCircle, Smile, User as UserIcon } from 'lucide-react';
+import {
+    Bot,
+    ChevronDown,
+    ChevronRight,
+    History,
+    Info,
+    MessageCircle,
+    Smile,
+    User as UserIcon,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -7,7 +16,10 @@ import remarkGfm from 'remark-gfm';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { temporaryRowIdFromClientId, useOptimisticComments } from '@/hooks/use-optimistic-comments';
+import {
+    temporaryRowIdFromClientId,
+    useOptimisticComments,
+} from '@/hooks/use-optimistic-comments';
 import { cn } from '@/lib/utils';
 
 /**
@@ -160,7 +172,10 @@ export function SnapshotSidebar({
             if (mutation.kind === 'comment') {
                 // Negative-id rows carry the optimistic clientId.
                 // The CommentCard reads `data-optimistic` to apply the pulse.
-                map.set(temporaryRowIdFromClientId(mutation.clientId), mutation.clientId);
+                map.set(
+                    temporaryRowIdFromClientId(mutation.clientId),
+                    mutation.clientId,
+                );
             }
         }
 
@@ -220,7 +235,10 @@ export function SnapshotSidebar({
                             );
 
                             if (card) {
-                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                card.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center',
+                                });
                             }
                         }, 0);
                     }}
@@ -263,7 +281,9 @@ function SidebarTab({
             <span
                 className={cn(
                     'inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full px-1.5 text-xs font-medium',
-                    active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground',
+                    active
+                        ? 'bg-primary/10 text-primary'
+                        : 'bg-muted text-muted-foreground',
                 )}
             >
                 {count}
@@ -326,9 +346,15 @@ function CommentsTab({
     isHistoricalView: boolean;
     activeRevision: number | undefined;
     pendingClientIds: Map<number, string>;
-    addOptimisticReply: ReturnType<typeof useOptimisticComments>['addOptimisticReply'];
-    toggleOptimisticReaction: ReturnType<typeof useOptimisticComments>['toggleOptimisticReaction'];
-    flipOptimisticStatus: ReturnType<typeof useOptimisticComments>['flipOptimisticStatus'];
+    addOptimisticReply: ReturnType<
+        typeof useOptimisticComments
+    >['addOptimisticReply'];
+    toggleOptimisticReaction: ReturnType<
+        typeof useOptimisticComments
+    >['toggleOptimisticReaction'];
+    flipOptimisticStatus: ReturnType<
+        typeof useOptimisticComments
+    >['flipOptimisticStatus'];
     rollback: ReturnType<typeof useOptimisticComments>['rollback'];
 }) {
     return (
@@ -344,10 +370,13 @@ function CommentsTab({
                         {activeRevision !== undefined ? (
                             <>
                                 {' '}
-                                <span className="font-mono font-semibold">v{activeRevision}</span>
+                                <span className="font-mono font-semibold">
+                                    v{activeRevision}
+                                </span>
                             </>
                         ) : null}
-                        . Read-only — switch to the latest revision to leave a new comment.
+                        . Read-only — switch to the latest revision to leave a
+                        new comment.
                     </span>
                 </div>
             ) : null}
@@ -413,9 +442,15 @@ function CommentCard({
     comment: CommentSummary;
     isOptimistic: boolean;
     isHistoricalView: boolean;
-    addOptimisticReply: ReturnType<typeof useOptimisticComments>['addOptimisticReply'];
-    toggleOptimisticReaction: ReturnType<typeof useOptimisticComments>['toggleOptimisticReaction'];
-    flipOptimisticStatus: ReturnType<typeof useOptimisticComments>['flipOptimisticStatus'];
+    addOptimisticReply: ReturnType<
+        typeof useOptimisticComments
+    >['addOptimisticReply'];
+    toggleOptimisticReaction: ReturnType<
+        typeof useOptimisticComments
+    >['toggleOptimisticReaction'];
+    flipOptimisticStatus: ReturnType<
+        typeof useOptimisticComments
+    >['flipOptimisticStatus'];
     rollback: ReturnType<typeof useOptimisticComments>['rollback'];
 }) {
     const [replyOpen, setReplyOpen] = useState(false);
@@ -434,11 +469,15 @@ function CommentCard({
     // REQ-M6-012's auto-revival), this flag flips back to false and the card
     // re-renders without the muted styling — no animation, no notification.
     const isStale =
-        comment.status === 'stale' || !comment.anchor.resolved_in_current_version;
+        comment.status === 'stale' ||
+        !comment.anchor.resolved_in_current_version;
     const staleTooltip = 'Anchor not found in current revision';
 
     const onJumpToAnchor = () => {
-        const ok = scrollToAndHighlightAnchor(comment.block_id, comment.anchor.quote);
+        const ok = scrollToAndHighlightAnchor(
+            comment.block_id,
+            comment.anchor.quote,
+        );
 
         if (!ok) {
             toast.error('Anchor not in current revision (stale)');
@@ -563,7 +602,7 @@ function CommentCard({
                     <AuthorChip author={comment.author} />
                     {comment.kind === 'suggestion' ? (
                         <span
-                            className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-blue-600 dark:text-blue-400"
+                            className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-blue-600 uppercase dark:text-blue-400"
                             data-testid="snapshot-sidebar-comment-suggestion-chip"
                         >
                             Suggestion
@@ -573,21 +612,23 @@ function CommentCard({
                         <span
                             data-testid="snapshot-sidebar-comment-anchor-lost-chip"
                             title={staleTooltip}
-                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                            className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-amber-700 uppercase dark:text-amber-300"
                         >
                             Anchor lost
                         </span>
                     ) : null}
                 </header>
 
-                <p className="text-xs italic text-muted-foreground">“{truncatedQuote}”</p>
+                <p className="text-xs text-muted-foreground italic">
+                    “{truncatedQuote}”
+                </p>
 
                 {isStale ? (
                     <p
                         data-testid="snapshot-sidebar-comment-stale-quote"
                         className="rounded-md border border-amber-500/30 bg-amber-500/5 px-2 py-1 text-[11px] text-muted-foreground"
                     >
-                        <span className="font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                        <span className="font-medium tracking-wide text-amber-700 uppercase dark:text-amber-300">
                             Original anchor:
                         </span>{' '}
                         <span className="italic">{comment.anchor.quote}</span>
@@ -595,7 +636,9 @@ function CommentCard({
                 ) : null}
 
                 <div className="text-sm text-foreground">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{comment.body}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {comment.body}
+                    </ReactMarkdown>
                 </div>
 
                 {comment.kind === 'suggestion' && comment.proposed_text ? (
@@ -603,27 +646,35 @@ function CommentCard({
                         className="rounded-md border border-border bg-muted/30 p-2 text-xs"
                         data-testid="snapshot-sidebar-comment-proposed-text"
                     >
-                        <span className="font-medium text-muted-foreground">Suggested:</span>{' '}
-                        <span className="font-mono">{comment.proposed_text}</span>
+                        <span className="font-medium text-muted-foreground">
+                            Suggested:
+                        </span>{' '}
+                        <span className="font-mono">
+                            {comment.proposed_text}
+                        </span>
                     </div>
                 ) : null}
             </button>
 
             {Object.keys(comment.reactions_summary).length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(comment.reactions_summary).map(([emoji, count]) => (
-                        <button
-                            type="button"
-                            key={emoji}
-                            disabled={actionsDisabled}
-                            onClick={() => onToggleReaction(emoji)}
-                            data-testid="snapshot-sidebar-reaction-chip"
-                            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-50"
-                        >
-                            <span>{emoji}</span>
-                            <span className="text-muted-foreground">{count}</span>
-                        </button>
-                    ))}
+                    {Object.entries(comment.reactions_summary).map(
+                        ([emoji, count]) => (
+                            <button
+                                type="button"
+                                key={emoji}
+                                disabled={actionsDisabled}
+                                onClick={() => onToggleReaction(emoji)}
+                                data-testid="snapshot-sidebar-reaction-chip"
+                                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:bg-muted disabled:opacity-50"
+                            >
+                                <span>{emoji}</span>
+                                <span className="text-muted-foreground">
+                                    {count}
+                                </span>
+                            </button>
+                        ),
+                    )}
                 </div>
             ) : null}
 
@@ -672,7 +723,11 @@ function CommentCard({
                         value={comment.status}
                         disabled={actionsDisabled || isStale}
                         title={isStale ? staleTooltip : undefined}
-                        onChange={(e) => onFlipStatus(e.target.value as CommentSummary['status'])}
+                        onChange={(e) =>
+                            onFlipStatus(
+                                e.target.value as CommentSummary['status'],
+                            )
+                        }
                         className="rounded border border-border bg-background px-1 py-0.5 text-muted-foreground hover:text-foreground disabled:opacity-50"
                     >
                         <option value="open">Open</option>
@@ -724,7 +779,7 @@ function CommentCard({
                         onChange={(e) => setReplyBody(e.target.value)}
                         rows={2}
                         placeholder="Write a reply…"
-                        className="w-full rounded border border-border bg-background p-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                        className="w-full rounded border border-border bg-background p-2 text-xs focus:ring-2 focus:ring-ring focus:outline-none"
                         data-testid="snapshot-sidebar-reply-body"
                     />
                     <div className="flex items-center justify-end gap-2">
@@ -752,22 +807,29 @@ function CommentCard({
 }
 
 function CommentStatusBadge({ status }: { status: CommentSummary['status'] }) {
-    const map: Record<CommentSummary['status'], { label: string; className: string }> = {
+    const map: Record<
+        CommentSummary['status'],
+        { label: string; className: string }
+    > = {
         open: {
             label: 'Open',
-            className: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+            className:
+                'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
         },
         resolved: {
             label: 'Resolved',
-            className: 'border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-300',
+            className:
+                'border-slate-400/40 bg-slate-500/10 text-slate-600 dark:text-slate-300',
         },
         stale: {
             label: 'Stale',
-            className: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+            className:
+                'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
         },
         wontfix: {
             label: "Won't fix",
-            className: 'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
+            className:
+                'border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-300',
         },
     };
 
@@ -776,7 +838,10 @@ function CommentStatusBadge({ status }: { status: CommentSummary['status'] }) {
     return (
         <Badge
             variant="outline"
-            className={cn('text-[10px] uppercase tracking-wide', tone.className)}
+            className={cn(
+                'text-[10px] tracking-wide uppercase',
+                tone.className,
+            )}
             data-testid="snapshot-sidebar-comment-status"
             data-status={status}
         >
@@ -791,7 +856,9 @@ function AuthorChip({ author }: { author: CommentAuthor }) {
     return (
         <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
             <Icon className="size-3" aria-hidden />
-            <span className="font-medium text-foreground">{author.display_name}</span>
+            <span className="font-medium text-foreground">
+                {author.display_name}
+            </span>
         </span>
     );
 }
@@ -807,14 +874,22 @@ function HistoryTab({
     workbenchSlug: string | undefined;
     snapshotSlug: string | undefined;
     activeRevision: number | undefined;
-    onJumpToComment: (commentId: number, blockId: string, quote: string) => void;
+    onJumpToComment: (
+        commentId: number,
+        blockId: string,
+        quote: string,
+    ) => void;
 }) {
     // REQ-M6-015: addressed comments need a quick lookup of their block_id +
     // anchor quote so we can scroll to them when the user clicks one inside a
     // history row. The Comments tab already holds that data; we read it from
     // the rendered DOM (data-comment-id) rather than threading another prop.
-    const lookupAnchor = (commentId: number): { blockId: string; quote: string } | null => {
-        const card = document.querySelector<HTMLElement>(`[data-comment-id="${commentId}"]`);
+    const lookupAnchor = (
+        commentId: number,
+    ): { blockId: string; quote: string } | null => {
+        const card = document.querySelector<HTMLElement>(
+            `[data-comment-id="${commentId}"]`,
+        );
 
         if (!card) {
             return null;
@@ -876,7 +951,11 @@ function HistoryTab({
                             return;
                         }
 
-                        onJumpToComment(commentId, anchor.blockId, anchor.quote);
+                        onJumpToComment(
+                            commentId,
+                            anchor.blockId,
+                            anchor.quote,
+                        );
                     }}
                 />
             ))}
@@ -897,8 +976,11 @@ function HistoryEntryRow({
     activeRevision: number | undefined;
     onCommentClick: (commentId: number) => void;
 }) {
-    const [expanded, setExpanded] = useState(entry.addressed_comments.length > 0);
-    const isActive = activeRevision !== undefined && activeRevision === entry.revision;
+    const [expanded, setExpanded] = useState(
+        entry.addressed_comments.length > 0,
+    );
+    const isActive =
+        activeRevision !== undefined && activeRevision === entry.revision;
     const hasAddressed = entry.addressed_comments.length > 0;
 
     const Caret = expanded ? ChevronDown : ChevronRight;
@@ -935,7 +1017,11 @@ function HistoryEntryRow({
                     type="button"
                     aria-expanded={expanded}
                     aria-controls={`history-entry-body-${entry.id}`}
-                    aria-label={expanded ? 'Collapse revision details' : 'Expand revision details'}
+                    aria-label={
+                        expanded
+                            ? 'Collapse revision details'
+                            : 'Expand revision details'
+                    }
                     onClick={() => setExpanded((open) => !open)}
                     disabled={!hasAddressed && !entry.summary}
                     className={cn(
@@ -948,15 +1034,20 @@ function HistoryEntryRow({
 
                 <div className="flex flex-1 flex-col gap-1">
                     <div className="flex items-center gap-2 text-sm">
-                        <span className="font-mono font-medium">v{entry.revision}</span>
+                        <span className="font-mono font-medium">
+                            v{entry.revision}
+                        </span>
                         {entry.is_current ? (
-                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">
+                            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium tracking-wide text-primary uppercase">
                                 Current
                             </span>
                         ) : null}
                         <span className="text-muted-foreground">·</span>
                         <AuthorChip
-                            author={{ display_name: entry.author_kind, kind: entry.author_kind }}
+                            author={{
+                                display_name: entry.author_kind,
+                                kind: entry.author_kind,
+                            }}
                         />
                         <span className="text-muted-foreground">·</span>
                         <time
@@ -994,7 +1085,9 @@ function HistoryEntryRow({
                             <History className="size-3" aria-hidden />
                             View this version
                             {/* keeps the literal "?revision=" in the bundle so source-assertion tests can detect it */}
-                            <span className="sr-only">?revision={entry.revision}</span>
+                            <span className="sr-only">
+                                ?revision={entry.revision}
+                            </span>
                         </button>
                     ) : null}
                 </div>
@@ -1055,7 +1148,9 @@ function formatRelativeTime(iso: string | null): string {
     }
 
     const diffSeconds = Math.round((then - Date.now()) / 1000);
-    const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+    const formatter = new Intl.RelativeTimeFormat(undefined, {
+        numeric: 'auto',
+    });
     const abs = Math.abs(diffSeconds);
 
     if (abs < 60) {
@@ -1096,8 +1191,13 @@ const HIGHLIGHT_DURATION_MS = 2000;
  * scrolls it into view, and applies a transient highlight. Returns true when
  * the anchor was found, false when stale (so the caller can toast).
  */
-export function scrollToAndHighlightAnchor(blockId: string, quote: string): boolean {
-    const block = document.querySelector<HTMLElement>(`[data-comment-block-id="${blockId}"]`);
+export function scrollToAndHighlightAnchor(
+    blockId: string,
+    quote: string,
+): boolean {
+    const block = document.querySelector<HTMLElement>(
+        `[data-comment-block-id="${blockId}"]`,
+    );
 
     if (!block) {
         return false;

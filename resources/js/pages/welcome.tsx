@@ -140,10 +140,10 @@ export default function Welcome() {
             const next = new Set(prev);
 
             if (next.has(id)) {
-next.delete(id);
-} else {
-next.add(id);
-}
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
 
             return next;
         });
@@ -154,8 +154,8 @@ next.add(id);
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-setSelected(new Set());
-}
+                setSelected(new Set());
+            }
         };
         window.addEventListener('keydown', onKey);
 
@@ -173,7 +173,7 @@ setSelected(new Set());
 
             {/* NAV */}
             <nav className="nav">
-                <div className="container nav-inner">
+                <div className="nav-inner container">
                     <a className="brand" href="#">
                         <NexusMark />
                         <span>nexus</span>
@@ -229,8 +229,7 @@ setSelected(new Set());
                                     href={register()}
                                     className="btn lg primary"
                                 >
-                                    Start free{' '}
-                                    <span className="arrow">→</span>
+                                    Start free <span className="arrow">→</span>
                                 </Link>
                                 <a href="#demo" className="btn lg">
                                     See the demo
@@ -311,8 +310,8 @@ setSelected(new Set());
                                         </h3>
                                         <p>
                                             Cache warmer shipped with stale
-                                            keyspace; pricing-read cascaded
-                                            into a burn.
+                                            keyspace; pricing-read cascaded into
+                                            a burn.
                                         </p>
                                         <div className="mini-grid">
                                             <div className="hp-card sel">
@@ -452,10 +451,7 @@ setSelected(new Set());
             </section>
 
             {/* LOGO BAR */}
-            <section
-                className="logobar"
-                style={{ padding: '36px 0 44px' }}
-            >
+            <section className="logobar" style={{ padding: '36px 0 44px' }}>
                 <div className="container">
                     <div className="header">
                         Weekend projects and side-projects using nexus
@@ -502,14 +498,12 @@ setSelected(new Set());
                     <div className="section-head">
                         <span className="kicker">How it works</span>
                         <h2>
-                            Three lines of JSON.{' '}
-                            <em>One shareable page.</em>
+                            Three lines of JSON. <em>One shareable page.</em>
                         </h2>
                         <p>
                             Your agent already knows how to produce structured
                             output. Nexus gives that output a home — with
-                            versions, links, and an interface humans don't
-                            hate.
+                            versions, links, and an interface humans don't hate.
                         </p>
                     </div>
 
@@ -538,10 +532,9 @@ setSelected(new Set());
                             </div>
                             <h3>Agent emits a snapshot</h3>
                             <p>
-                                POST structured JSON to a workbench. Pick a
-                                view type — table, kanban, deck, flowchart —
-                                Nexus handles rendering, links, and
-                                pagination.
+                                POST structured JSON to a workbench. Pick a view
+                                type — table, kanban, deck, flowchart — Nexus
+                                handles rendering, links, and pagination.
                             </p>
                             <span className="tag">POST /w/incidents</span>
                         </div>
@@ -608,8 +601,8 @@ setSelected(new Set());
                             <h3>Humans select, agents continue</h3>
                             <p>
                                 Pick any row, card, or slide-item. Send the
-                                selection back to the agent as a new prompt
-                                with full context. No copy-paste archaeology.
+                                selection back to the agent as a new prompt with
+                                full context. No copy-paste archaeology.
                             </p>
                             <span className="tag">⌘ + ↵</span>
                         </div>
@@ -657,8 +650,8 @@ setSelected(new Set());
                             <p>
                                 Switch how the same data renders without
                                 rewriting it. Table today, kanban tomorrow,
-                                slide deck for the weekly share-out — your
-                                agent emits the data once.
+                                slide deck for the weekly share-out — your agent
+                                emits the data once.
                             </p>
                             <div className="views-visual">
                                 <div className="view-tile deck">
@@ -728,8 +721,7 @@ setSelected(new Set());
                             <p>
                                 Every agent write is immutable. Diff two
                                 revisions, roll back, or branch a new one from
-                                any point. No more "where did that version
-                                go?"
+                                any point. No more "where did that version go?"
                             </p>
                             <div className="revs-mini">
                                 <div className="rmini-row cur">
@@ -740,8 +732,7 @@ setSelected(new Set());
                                             className="note"
                                             style={{ color: 'var(--fg-0)' }}
                                         >
-                                            Added follow-up owners +
-                                            estimates.
+                                            Added follow-up owners + estimates.
                                         </span>
                                     </div>
                                     <span className="time">+6 −0</span>
@@ -761,8 +752,7 @@ setSelected(new Set());
                                     <div className="lbl">
                                         rev <b>#05</b> · 11 min{' '}
                                         <span className="note">
-                                            Impact metrics from grafana
-                                            export.
+                                            Impact metrics from grafana export.
                                         </span>
                                     </div>
                                     <span className="time">+4 −0</span>
@@ -907,9 +897,8 @@ setSelected(new Set());
                             </div>
                             <h3>Share by URL</h3>
                             <p>
-                                Public, password, or team-scoped. Every
-                                snapshot is a link. Every revision has a
-                                permalink.
+                                Public, password, or team-scoped. Every snapshot
+                                is a link. Every revision has a permalink.
                             </p>
                         </div>
 
@@ -963,7 +952,7 @@ setSelected(new Set());
                         </p>
                     </div>
 
-                    <div className="demo-shell min-w-0 max-w-full overflow-hidden">
+                    <div className="demo-shell max-w-full min-w-0 overflow-hidden">
                         <div className="demo-head">
                             <div className="dots">
                                 <span />
@@ -979,7 +968,7 @@ setSelected(new Set());
                                 <button className="demo-tab">JSON</button>
                             </div>
                         </div>
-                        <div className="demo-body min-w-0 max-w-full overflow-x-auto">
+                        <div className="demo-body max-w-full min-w-0 overflow-x-auto">
                             <aside className="demo-side">
                                 <div className="sec">Slides</div>
                                 <div className="it">
@@ -1038,7 +1027,7 @@ setSelected(new Set());
                                             <button
                                                 key={c.id}
                                                 type="button"
-                                                className={`demo-card${isSel ? ' sel' : ''}`}
+                                                className={`demo-card${isSel ? 'sel' : ''}`}
                                                 onClick={() => toggleCard(c.id)}
                                             >
                                                 <div className="tick">
@@ -1065,7 +1054,7 @@ setSelected(new Set());
                                                     {c.val}
                                                 </span>
                                                 <span
-                                                    className={`dl${c.err ? ' err' : ''}`}
+                                                    className={`dl${c.err ? 'err' : ''}`}
                                                 >
                                                     {c.dl}
                                                 </span>
@@ -1075,7 +1064,7 @@ setSelected(new Set());
                                 </div>
 
                                 <div
-                                    className={`demo-selbar${selectedCount === 0 ? ' hidden' : ''}`}
+                                    className={`demo-selbar${selectedCount === 0 ? 'hidden' : ''}`}
                                 >
                                     <span className="n">{selectedCount}</span>
                                     <span className="txt">
@@ -1139,8 +1128,8 @@ setSelected(new Set());
                             <em>Just return a snapshot.</em>
                         </h2>
                         <p>
-                            One import, one function call. Works with any
-                            agent framework, any model provider.
+                            One import, one function call. Works with any agent
+                            framework, any model provider.
                         </p>
                     </div>
 
@@ -1154,14 +1143,13 @@ setSelected(new Set());
                                 <p>
                                     Install{' '}
                                     <code className="mono">nexus-sdk</code>.
-                                    It's 28KB. No peer deps. Works in Node,
-                                    Bun, Deno, and edge runtimes.
+                                    It's 28KB. No peer deps. Works in Node, Bun,
+                                    Deno, and edge runtimes.
                                 </p>
                             </div>
                             <div className="pt">
                                 <h4>
-                                    <span className="num">02</span> One API
-                                    call
+                                    <span className="num">02</span> One API call
                                 </h4>
                                 <p>
                                     Pass a workbench slug and a typed payload.
@@ -1179,9 +1167,8 @@ setSelected(new Set());
                                     <code className="mono">
                                         snapshot.onSelection
                                     </code>{' '}
-                                    to receive the cards the human picked,
-                                    typed and ready to pipe into your next
-                                    prompt.
+                                    to receive the cards the human picked, typed
+                                    and ready to pipe into your next prompt.
                                 </p>
                             </div>
                         </div>
@@ -1217,9 +1204,9 @@ setSelected(new Set());
                             Free to start. <em>Honest when you grow.</em>
                         </h2>
                         <p>
-                            No seats. No per-call gotchas. Priced on the
-                            number of workbenches and storage — the things you
-                            can actually feel.
+                            No seats. No per-call gotchas. Priced on the number
+                            of workbenches and storage — the things you can
+                            actually feel.
                         </p>
                     </div>
 
@@ -1280,10 +1267,7 @@ setSelected(new Set());
                                 ))}
                             </ul>
                             <div className="cta">
-                                <Link
-                                    href={register()}
-                                    className="btn primary"
-                                >
+                                <Link href={register()} className="btn primary">
                                     Start 14-day trial{' '}
                                     <span className="arrow">→</span>
                                 </Link>
@@ -1348,7 +1332,7 @@ setSelected(new Set());
                             return (
                                 <div
                                     key={item.q}
-                                    className={`faq${open ? ' open' : ''}`}
+                                    className={`faq${open ? 'open' : ''}`}
                                 >
                                     <button
                                         type="button"
@@ -1377,8 +1361,8 @@ setSelected(new Set());
                         Give your agents a <em>home page.</em>
                     </h2>
                     <p>
-                        Free forever plan. 90-second install. No credit card,
-                        no sales call, no dark patterns.
+                        Free forever plan. 90-second install. No credit card, no
+                        sales call, no dark patterns.
                     </p>
                     <div
                         style={{
@@ -1388,8 +1372,7 @@ setSelected(new Set());
                         }}
                     >
                         <Link href={register()} className="btn lg primary">
-                            Create a workbench{' '}
-                            <span className="arrow">→</span>
+                            Create a workbench <span className="arrow">→</span>
                         </Link>
                         <a href="#how" className="btn lg">
                             Read the docs
@@ -1417,18 +1400,16 @@ setSelected(new Set());
                                     e.preventDefault();
                                     const form =
                                         e.currentTarget as HTMLFormElement;
-                                    const input =
-                                        form.querySelector('input');
-                                    const button =
-                                        form.querySelector('button');
+                                    const input = form.querySelector('input');
+                                    const button = form.querySelector('button');
 
                                     if (input) {
-input.value = '';
-}
+                                        input.value = '';
+                                    }
 
                                     if (button) {
-button.textContent = '✓ subscribed';
-}
+                                        button.textContent = '✓ subscribed';
+                                    }
                                 }}
                             >
                                 <input

@@ -82,7 +82,10 @@ export function useSidebarPolling(
 
         return () => {
             stop();
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener(
+                'visibilitychange',
+                handleVisibilityChange,
+            );
         };
         // snapshotId / currentRevision / commentsRevision feed re-runs so
         // a background revision swap or a manual navigation re-arms the loop

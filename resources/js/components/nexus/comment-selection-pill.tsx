@@ -2,7 +2,12 @@ import { router } from '@inertiajs/react';
 import { Copy, MessageSquare, PenLine, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useClipboard } from '@/hooks/use-clipboard';
 import type { SelectionInfo } from '@/hooks/use-markdown-selection';
 import { metaKeyShortcutLabel } from '@/lib/platform';
@@ -117,12 +122,17 @@ export function CommentSelectionPill({
     const [proposedText, setProposedText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [pendingAnchorRect, setPendingAnchorRect] = useState<DOMRect | null>(null);
+    const [pendingAnchorRect, setPendingAnchorRect] = useState<DOMRect | null>(
+        null,
+    );
     const [captured, setCaptured] = useState<SelectionInfo | null>(null);
     const markRef = useRef<HTMLElement | null>(null);
 
     const [isWide, setIsWide] = useState<boolean>(() => {
-        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        if (
+            typeof window === 'undefined' ||
+            typeof window.matchMedia !== 'function'
+        ) {
             return true;
         }
 
@@ -136,7 +146,10 @@ export function CommentSelectionPill({
     const composing = mode !== 'idle';
 
     useEffect(() => {
-        if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+        if (
+            typeof window === 'undefined' ||
+            typeof window.matchMedia !== 'function'
+        ) {
             return;
         }
 
@@ -251,14 +264,16 @@ export function CommentSelectionPill({
     }
 
     const blockId = composing
-        ? captured?.blockId ?? null
-        : selection?.blockId ?? null;
+        ? (captured?.blockId ?? null)
+        : (selection?.blockId ?? null);
     const quote = composing
-        ? captured?.quote ?? ''
-        : selection?.quote ?? '';
+        ? (captured?.quote ?? '')
+        : (selection?.quote ?? '');
     const crossesBlocks = blockId === null;
 
-    const measuredWidth = pillEl?.offsetWidth ?? (composing ? COMPOSER_FALLBACK_WIDTH : FALLBACK_PILL_WIDTH);
+    const measuredWidth =
+        pillEl?.offsetWidth ??
+        (composing ? COMPOSER_FALLBACK_WIDTH : FALLBACK_PILL_WIDTH);
     const measuredHeight = pillEl?.offsetHeight ?? PILL_HEIGHT;
 
     let top = isWide
@@ -266,11 +281,16 @@ export function CommentSelectionPill({
         : activeRect.bottom + PILL_GAP;
 
     const viewportWidth =
-        typeof window !== 'undefined' ? window.innerWidth : measuredWidth + VIEWPORT_PADDING * 2;
+        typeof window !== 'undefined'
+            ? window.innerWidth
+            : measuredWidth + VIEWPORT_PADDING * 2;
     const viewportHeight =
-        typeof window !== 'undefined' ? window.innerHeight : measuredHeight + VIEWPORT_PADDING * 2;
+        typeof window !== 'undefined'
+            ? window.innerHeight
+            : measuredHeight + VIEWPORT_PADDING * 2;
 
-    const idealLeft = activeRect.left + activeRect.width / 2 - measuredWidth / 2;
+    const idealLeft =
+        activeRect.left + activeRect.width / 2 - measuredWidth / 2;
     const maxLeft = viewportWidth - measuredWidth - VIEWPORT_PADDING;
     const left = Math.max(VIEWPORT_PADDING, Math.min(idealLeft, maxLeft));
 
@@ -321,7 +341,9 @@ export function CommentSelectionPill({
         markRef.current = mark;
         setCaptured(info);
         setPendingAnchorRect(mark.getBoundingClientRect());
-        setMode(kind === 'comment' ? 'composing-comment' : 'composing-suggestion');
+        setMode(
+            kind === 'comment' ? 'composing-comment' : 'composing-suggestion',
+        );
         setError(null);
 
         if (kind === 'comment') {
@@ -426,7 +448,8 @@ export function CommentSelectionPill({
                 // REQ-M6-032: suggestions submit an empty body; the server
                 // substitutes `''` so the NOT NULL constraint still holds.
                 body: kind === 'suggestion' ? '' : body.trim(),
-                proposed_text: kind === 'suggestion' ? proposedText.trim() : undefined,
+                proposed_text:
+                    kind === 'suggestion' ? proposedText.trim() : undefined,
                 anchor_quote: info.quote,
                 anchor_prefix: info.prefix,
                 anchor_suffix: info.suffix,
@@ -453,7 +476,8 @@ export function CommentSelectionPill({
         );
     };
 
-    const composerMaxDimension = Math.min(viewportWidth, viewportHeight) - VIEWPORT_PADDING * 2;
+    const composerMaxDimension =
+        Math.min(viewportWidth, viewportHeight) - VIEWPORT_PADDING * 2;
     const composerWidth = Math.min(360, composerMaxDimension);
 
     return (
@@ -461,7 +485,9 @@ export function CommentSelectionPill({
             <div
                 ref={pillRef}
                 role="toolbar"
-                aria-label={composing ? 'Comment composer' : 'Selection actions'}
+                aria-label={
+                    composing ? 'Comment composer' : 'Selection actions'
+                }
                 tabIndex={-1}
                 data-testid="comment-selection-pill"
                 data-cross-block={crossesBlocks ? 'true' : 'false'}
@@ -469,9 +495,7 @@ export function CommentSelectionPill({
                 data-mode={mode}
                 className={cn(
                     'fixed z-50 flex items-center gap-1 rounded-2xl border border-border bg-popover text-popover-foreground shadow-md',
-                    composing
-                        ? 'flex-col items-stretch p-3'
-                        : 'h-10 px-1',
+                    composing ? 'flex-col items-stretch p-3' : 'h-10 px-1',
                 )}
                 style={{
                     top,
@@ -485,9 +509,13 @@ export function CommentSelectionPill({
                     <>
                         <PillButton
                             label="Comment"
-                            icon={<MessageSquare className="size-4" aria-hidden />}
+                            icon={
+                                <MessageSquare className="size-4" aria-hidden />
+                            }
                             disabled={crossesBlocks || readOnly}
-                            disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
+                            disabledHint={
+                                readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT
+                            }
                             onClick={() => beginCompose('comment')}
                             testId="comment-selection-pill-comment"
                         />
@@ -496,7 +524,9 @@ export function CommentSelectionPill({
                             label="Suggest edit"
                             icon={<PenLine className="size-4" aria-hidden />}
                             disabled={crossesBlocks || readOnly}
-                            disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
+                            disabledHint={
+                                readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT
+                            }
                             onClick={() => beginCompose('suggestion')}
                             testId="comment-selection-pill-suggest"
                         />
@@ -513,7 +543,9 @@ export function CommentSelectionPill({
                             label="Delete"
                             icon={<Trash2 className="size-4" aria-hidden />}
                             disabled={crossesBlocks || readOnly}
-                            disabledHint={readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT}
+                            disabledHint={
+                                readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT
+                            }
                             onClick={handleDelete}
                             testId="comment-selection-pill-delete"
                         />
@@ -571,9 +603,9 @@ function ComposerBody({
     // REQ-M6-032: suggestion composers no longer capture a body — only
     // proposed_text is required. Comment composers still require their body.
     const submitDisabled =
-        submitting
-        || (!isSuggestion && body.trim().length === 0)
-        || (isSuggestion && proposedText.trim().length === 0);
+        submitting ||
+        (!isSuggestion && body.trim().length === 0) ||
+        (isSuggestion && proposedText.trim().length === 0);
 
     // REQ-M6-029: ⌘+Enter / Ctrl+Enter submits from inside the composer's
     // textareas. Scoped to the textarea key handlers so the binding does
@@ -659,7 +691,7 @@ function ComposerBody({
                         data-testid="comment-selection-pill-submit-kbd"
                         aria-hidden
                         className={cn(
-                            'ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-mono text-muted-foreground',
+                            'ml-2 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground',
                             submitDisabled && 'opacity-60',
                         )}
                     >
@@ -680,7 +712,14 @@ type PillButtonProps = {
     testId: string;
 };
 
-function PillButton({ label, icon, disabled, disabledHint, onClick, testId }: PillButtonProps) {
+function PillButton({
+    label,
+    icon,
+    disabled,
+    disabledHint,
+    onClick,
+    testId,
+}: PillButtonProps) {
     const button = (
         <button
             type="button"

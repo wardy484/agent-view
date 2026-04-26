@@ -12,10 +12,16 @@ import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
 import { ReportView } from '@/components/nexus/report-view';
 import type { ReportViewPayload } from '@/components/nexus/report-view';
 import { ShareDialog } from '@/components/nexus/share-dialog';
-import type { SnapshotShareSummary, SnapshotVisibility } from '@/components/nexus/share-dialog';
+import type {
+    SnapshotShareSummary,
+    SnapshotVisibility,
+} from '@/components/nexus/share-dialog';
 import { SlideDeckView } from '@/components/nexus/slide-deck-view';
 import type { SlideDeckViewPayload } from '@/components/nexus/slide-deck-view';
-import type { CommentSummary, VersionHistoryEntry } from '@/components/nexus/snapshot-sidebar';
+import type {
+    CommentSummary,
+    VersionHistoryEntry,
+} from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
@@ -126,7 +132,8 @@ export default function SnapshotPage(props: Props) {
     // REQ-M6-016: poll the sidebar props every 8 seconds while the tab is
     // foregrounded. Only authenticated viewers on a current (non-historical)
     // revision opt in — public-link guests and historical views never poll.
-    const shouldPoll = isAuthenticated && !is_public_link && !is_historical_view;
+    const shouldPoll =
+        isAuthenticated && !is_public_link && !is_historical_view;
     useSidebarPolling(
         props.snapshot.id,
         props.version.revision,
@@ -149,9 +156,13 @@ export default function SnapshotPage(props: Props) {
     // current. Default ON for kanban (live ops view), OFF for everything
     // else. Per-snapshot, persisted in localStorage.
     const showPinToggle = isAuthenticated && !is_public_link && is_owner;
-    const { pinned, setPinned } = usePinToLatest(props.snapshot.id, props.version.view_type);
+    const { pinned, setPinned } = usePinToLatest(
+        props.snapshot.id,
+        props.version.view_type,
+    );
 
-    const showBanner = isAuthenticated && !is_public_link && !is_historical_view && !pinned;
+    const showBanner =
+        isAuthenticated && !is_public_link && !is_historical_view && !pinned;
     const banner = useRevisionBanner(
         renderedRevision,
         props.version.revision,
@@ -181,14 +192,29 @@ export default function SnapshotPage(props: Props) {
     // latest. The server resolves the bare snapshot URL to current.
     useEffect(() => {
         if (pinned && is_historical_view) {
-            router.visit(`/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`, {
-                preserveScroll: true,
-            });
+            router.visit(
+                `/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`,
+                {
+                    preserveScroll: true,
+                },
+            );
         }
     }, [pinned, is_historical_view, workbenchSlug, snapshotSlug]);
 
     useEffect(() => {
-        const echo = (window as { Echo?: { private: (channel: string) => { listen: (event: string, cb: (payload: { revision: number }) => void) => unknown }; leave: (channel: string) => void } }).Echo;
+        const echo = (
+            window as {
+                Echo?: {
+                    private: (channel: string) => {
+                        listen: (
+                            event: string,
+                            cb: (payload: { revision: number }) => void,
+                        ) => unknown;
+                    };
+                    leave: (channel: string) => void;
+                };
+            }
+        ).Echo;
 
         if (!echo) {
             // REQ-M6-016: poll fallback is already running unconditionally via
@@ -201,31 +227,39 @@ export default function SnapshotPage(props: Props) {
 
         try {
             const channel = echo.private(channelName);
+            // prettier-ignore
             channel.listen('.SnapshotVersionAppended', (payload: { revision: number }) => {
-                if (typeof payload?.revision === 'number' && payload.revision > liveRevision) {
-                    setIsFading(true);
+                    if (
+                        typeof payload?.revision === 'number' &&
+                        payload.revision > liveRevision
+                    ) {
+                        setIsFading(true);
 
-                    // Pinned: navigate to bare snapshot URL so the server
-                    // resolves the latest revision (clears any ?revision=).
-                    // Otherwise, partial reload preserves the current query
-                    // string so historical viewers stay put.
-                    const onFinish = () => {
-                        window.setTimeout(() => setIsFading(false), 200);
-                    };
+                        // Pinned: navigate to bare snapshot URL so the server
+                        // resolves the latest revision (clears any ?revision=).
+                        // Otherwise, partial reload preserves the current query
+                        // string so historical viewers stay put.
+                        const onFinish = () => {
+                            window.setTimeout(() => setIsFading(false), 200);
+                        };
 
-                    if (pinned) {
-                        router.visit(`/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`, {
-                            preserveScroll: true,
-                            onFinish,
-                        });
-                    } else {
-                        router.reload({
-                            only: ['snapshot', 'version', 'versions'],
-                            onFinish,
-                        });
+                        if (pinned) {
+                            router.visit(
+                                `/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`,
+                                {
+                                    preserveScroll: true,
+                                    onFinish,
+                                },
+                            );
+                        } else {
+                            router.reload({
+                                only: ['snapshot', 'version', 'versions'],
+                                onFinish,
+                            });
+                        }
                     }
-                }
-            });
+                },
+            );
 
             return () => {
                 try {
@@ -239,7 +273,10 @@ export default function SnapshotPage(props: Props) {
         } catch (error) {
             // REQ-M6-016: Echo failed mid-subscribe — log and rely on the
             // useSidebarPolling 8-second fallback to keep the page fresh.
-            console.warn('[snapshot] Echo subscription failed; falling back to poll', error);
+            console.warn(
+                '[snapshot] Echo subscription failed; falling back to poll',
+                error,
+            );
 
             return;
         }
@@ -276,7 +313,10 @@ export default function SnapshotPage(props: Props) {
     const body = (
         <div
             data-testid="nexus-snapshot-fade"
-            className={cn('transition-opacity duration-200', isFading ? 'opacity-50' : 'opacity-100')}
+            className={cn(
+                'transition-opacity duration-200',
+                isFading ? 'opacity-50' : 'opacity-100',
+            )}
         >
             <SnapshotBody
                 workbench={props.workbench}
@@ -285,7 +325,9 @@ export default function SnapshotPage(props: Props) {
                 versions={props.versions}
                 showWorkbenchHeader={showWorkbenchHeader}
                 isFullscreen={isFullscreen}
-                onToggleFullscreen={() => setIsFullscreen((current) => !current)}
+                onToggleFullscreen={() =>
+                    setIsFullscreen((current) => !current)
+                }
                 fullBleed={fullBleed}
                 isOwner={is_owner}
                 isPublicLink={is_public_link}
@@ -313,7 +355,9 @@ export default function SnapshotPage(props: Props) {
         <>
             <Head title={`${heading} — ${props.workbench.name}`} />
 
-            {showHomeButton ? <PreviewHomeButton isAuthenticated={isAuthenticated} /> : null}
+            {showHomeButton ? (
+                <PreviewHomeButton isAuthenticated={isAuthenticated} />
+            ) : null}
 
             {showBanner && banner.show ? (
                 <NewRevisionBanner
@@ -387,14 +431,30 @@ function SnapshotBody({
         // Preview / fullscreen: render the view edge-to-edge with no chrome.
         return (
             <main data-testid="nexus-snapshot-body">
-                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
+                {renderView(
+                    version,
+                    fullBleed,
+                    snapshot.id,
+                    comments,
+                    versionHistory,
+                    isHistoricalView,
+                    workbench.slug,
+                    snapshot.slug,
+                )}
             </main>
         );
     }
 
     return (
-        <div className={cn('mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8')}>
-            <header className="flex flex-col gap-4" data-testid="nexus-workbench-header">
+        <div
+            className={cn(
+                'mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8',
+            )}
+        >
+            <header
+                className="flex flex-col gap-4"
+                data-testid="nexus-workbench-header"
+            >
                 <Breadcrumb>
                     <BreadcrumbList>
                         <BreadcrumbItem>
@@ -418,12 +478,19 @@ function SnapshotBody({
                 </Breadcrumb>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col gap-1">
-                        <h1 className="text-3xl font-semibold tracking-tight">{heading}</h1>
-                        <p className="text-sm text-muted-foreground">{subtitle}</p>
+                        <h1 className="text-3xl font-semibold tracking-tight">
+                            {heading}
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            {subtitle}
+                        </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         {showPinToggle ? (
-                            <PinToLatestToggle pinned={pinned} onToggle={onTogglePinned} />
+                            <PinToLatestToggle
+                                pinned={pinned}
+                                onToggle={onTogglePinned}
+                            />
                         ) : null}
                         {showVersionSwitcher ? (
                             <VersionSwitcher
@@ -451,8 +518,16 @@ function SnapshotBody({
                             onClick={onToggleFullscreen}
                             data-testid="nexus-fullscreen-toggle"
                             aria-pressed={isFullscreen}
-                            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                            title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+                            aria-label={
+                                isFullscreen
+                                    ? 'Exit fullscreen'
+                                    : 'Enter fullscreen'
+                            }
+                            title={
+                                isFullscreen
+                                    ? 'Exit Fullscreen (Esc)'
+                                    : 'Enter Fullscreen'
+                            }
                             className="inline-flex items-center gap-2"
                         >
                             {isFullscreen ? (
@@ -460,14 +535,27 @@ function SnapshotBody({
                             ) : (
                                 <Maximize2 className="size-4" aria-hidden />
                             )}
-                            <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                            <span>
+                                {isFullscreen
+                                    ? 'Exit Fullscreen'
+                                    : 'Fullscreen'}
+                            </span>
                         </Button>
                     </div>
                 </div>
             </header>
 
             <main data-testid="nexus-snapshot-body">
-                {renderView(version, fullBleed, snapshot.id, comments, versionHistory, isHistoricalView, workbench.slug, snapshot.slug)}
+                {renderView(
+                    version,
+                    fullBleed,
+                    snapshot.id,
+                    comments,
+                    versionHistory,
+                    isHistoricalView,
+                    workbench.slug,
+                    snapshot.slug,
+                )}
             </main>
         </div>
     );
@@ -484,7 +572,12 @@ function renderView(
     snapshotSlug: string,
 ) {
     if (version.view_type === 'table') {
-        return <TableView payload={version.data_payload as TableViewPayload} fullBleed={fullBleed} />;
+        return (
+            <TableView
+                payload={version.data_payload as TableViewPayload}
+                fullBleed={fullBleed}
+            />
+        );
     }
 
     if (version.view_type === 'slide_deck') {
@@ -498,11 +591,21 @@ function renderView(
     }
 
     if (version.view_type === 'kanban') {
-        return <KanbanView payload={version.data_payload as KanbanViewPayload} fullBleed={fullBleed} />;
+        return (
+            <KanbanView
+                payload={version.data_payload as KanbanViewPayload}
+                fullBleed={fullBleed}
+            />
+        );
     }
 
     if (version.view_type === 'flowchart') {
-        return <FlowchartView payload={version.data_payload as FlowchartViewPayload} fullBleed={fullBleed} />;
+        return (
+            <FlowchartView
+                payload={version.data_payload as FlowchartViewPayload}
+                fullBleed={fullBleed}
+            />
+        );
     }
 
     if (version.view_type === 'report') {
@@ -512,7 +615,11 @@ function renderView(
         const reportPayload = {
             ...(version.data_payload as ReportViewPayload),
             resolved_blocks:
-                (version as { resolved_blocks?: ReportViewPayload['resolved_blocks'] }).resolved_blocks ??
+                (
+                    version as {
+                        resolved_blocks?: ReportViewPayload['resolved_blocks'];
+                    }
+                ).resolved_blocks ??
                 (version.data_payload as ReportViewPayload).resolved_blocks,
         };
 
@@ -533,7 +640,9 @@ function renderView(
 
     return (
         <div className="rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground">
-            Renderer for view_type <code className="font-mono">{version.view_type}</code> is not implemented yet.
+            Renderer for view_type{' '}
+            <code className="font-mono">{version.view_type}</code> is not
+            implemented yet.
         </div>
     );
 }

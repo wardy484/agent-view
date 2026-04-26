@@ -88,9 +88,20 @@ export type UseOptimisticCommentsResult = {
     /** Map of clientId -> pending mutation, for inspection / pulse styling. */
     pending: Map<string, Pending>;
     addOptimisticComment: (draft: OptimisticDraft) => string;
-    addOptimisticReply: (parentId: number, body: string, author: CommentAuthor) => string;
-    toggleOptimisticReaction: (commentId: number, emoji: string, isAdding: boolean) => string;
-    flipOptimisticStatus: (commentId: number, status: CommentSummary['status']) => string;
+    addOptimisticReply: (
+        parentId: number,
+        body: string,
+        author: CommentAuthor,
+    ) => string;
+    toggleOptimisticReaction: (
+        commentId: number,
+        emoji: string,
+        isAdding: boolean,
+    ) => string;
+    flipOptimisticStatus: (
+        commentId: number,
+        status: CommentSummary['status'],
+    ) => string;
     /** Drop a pending mutation (server rejection). */
     rollback: (clientId: string) => void;
     /**
@@ -105,8 +116,12 @@ export type UseOptimisticCommentsResult = {
 export function useOptimisticComments(
     serverComments: CommentSummary[],
 ): UseOptimisticCommentsResult {
-    const [pending, setPending] = useState<Map<string, Pending>>(() => new Map());
-    const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const [pending, setPending] = useState<Map<string, Pending>>(
+        () => new Map(),
+    );
+    const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+        new Map(),
+    );
 
     // Auto-reconcile: when the server projection now contains a row that
     // matches an unreconciled mutation, drop the optimistic copy.
@@ -339,7 +354,9 @@ function findReconcilableMutations(
                 ready.push(clientId);
             }
         } else if (mutation.kind === 'reply') {
-            const parent = serverComments.find((c) => c.id === mutation.parentCommentId);
+            const parent = serverComments.find(
+                (c) => c.id === mutation.parentCommentId,
+            );
 
             if (parent && parent.thread.some((r) => r.body === mutation.body)) {
                 ready.push(clientId);
@@ -351,7 +368,9 @@ function findReconcilableMutations(
                 ready.push(clientId);
             }
         } else if (mutation.kind === 'status') {
-            const target = serverComments.find((c) => c.id === mutation.commentId);
+            const target = serverComments.find(
+                (c) => c.id === mutation.commentId,
+            );
 
             if (target && target.status === mutation.status) {
                 ready.push(clientId);
@@ -400,7 +419,10 @@ function projectComments(
                 thread: [],
                 reactions_summary: {},
                 // Cast-safe: we add this for the renderer to detect optimistic rows.
-                ...(({ __clientId: mutation.clientId } as unknown) as Record<string, never>),
+                ...({ __clientId: mutation.clientId } as unknown as Record<
+                    string,
+                    never
+                >),
             });
 
             continue;
@@ -452,7 +474,9 @@ function projectComments(
 
         if (mutation.kind === 'status') {
             next = next.map((c) =>
-                c.id === mutation.commentId ? { ...c, status: mutation.status } : c,
+                c.id === mutation.commentId
+                    ? { ...c, status: mutation.status }
+                    : c,
             );
         }
     }
@@ -478,7 +502,10 @@ function temporaryRowId(clientId: string): number {
 }
 
 function generateClientId(): string {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    if (
+        typeof crypto !== 'undefined' &&
+        typeof crypto.randomUUID === 'function'
+    ) {
         return crypto.randomUUID();
     }
 

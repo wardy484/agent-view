@@ -24,15 +24,12 @@ export default function Privacy() {
                         (rows, cards, metadata)
                     </li>
                     <li>
-                        Versioned snapshots, preview caches, and workbench
-                        slugs
+                        Versioned snapshots, preview caches, and workbench slugs
                     </li>
                 </ul>
                 <h3>Operational data</h3>
                 <ul>
-                    <li>
-                        Request logs (IP, user agent, endpoint, timestamp)
-                    </li>
+                    <li>Request logs (IP, user agent, endpoint, timestamp)</li>
                     <li>Error traces and performance metrics</li>
                     <li>Cookie identifiers (see our Cookie Policy)</li>
                 </ul>
@@ -43,18 +40,17 @@ export default function Privacy() {
                     <li>To authenticate requests and issue Sanctum tokens</li>
                     <li>To render versioned workbenches and cache previews</li>
                     <li>
-                        To bill your subscription and send transactional
-                        notices
+                        To bill your subscription and send transactional notices
                     </li>
                     <li>To detect abuse and debug incidents</li>
                 </ul>
 
                 <h2>3. Legal basis (EEA/UK users)</h2>
                 <p>
-                    We process personal data on the basis of contract
-                    (providing the Service), legitimate interest (security
-                    and fraud prevention), consent (non-essential cookies),
-                    and legal obligation (tax, accounting).
+                    We process personal data on the basis of contract (providing
+                    the Service), legitimate interest (security and fraud
+                    prevention), consent (non-essential cookies), and legal
+                    obligation (tax, accounting).
                 </p>
 
                 <h2>4. Sharing</h2>
@@ -63,9 +59,7 @@ export default function Privacy() {
                     sub-processors who help us run the Service:
                 </p>
                 <ul>
-                    <li>
-                        Laravel Cloud / managed Postgres &amp; Redis hosts
-                    </li>
+                    <li>Laravel Cloud / managed Postgres &amp; Redis hosts</li>
                     <li>Transactional email provider</li>
                     <li>Payment processor</li>
                     <li>
@@ -84,12 +78,12 @@ export default function Privacy() {
                 <h2>5. Retention</h2>
                 <ul>
                     <li>
-                        Snapshots: retained per your plan&apos;s history
-                        window, then purged.
+                        Snapshots: retained per your plan&apos;s history window,
+                        then purged.
                     </li>
                     <li>
-                        Request logs: 30 days by default, longer where
-                        required for security.
+                        Request logs: 30 days by default, longer where required
+                        for security.
                     </li>
                     <li>
                         Billing records: kept for the period required by
@@ -119,15 +113,15 @@ export default function Privacy() {
                 <h2>8. Security</h2>
                 <p>
                     We use TLS in transit, encryption at rest, scoped
-                    authentication tokens, and least-privilege access for
-                    staff. No system is perfectly secure, but we take this
-                    seriously and have an internal incident-response process.
+                    authentication tokens, and least-privilege access for staff.
+                    No system is perfectly secure, but we take this seriously
+                    and have an internal incident-response process.
                 </p>
 
                 <h2>9. Children</h2>
                 <p>
-                    The Service is not intended for children under 16. We do
-                    not knowingly collect personal data from children.
+                    The Service is not intended for children under 16. We do not
+                    knowingly collect personal data from children.
                 </p>
 
                 <h2>10. Changes</h2>

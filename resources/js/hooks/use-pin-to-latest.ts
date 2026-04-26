@@ -35,7 +35,10 @@ export type UsePinToLatestResult = {
     setPinned: (value: boolean) => void;
 };
 
-export function usePinToLatest(snapshotId: number, viewType: string): UsePinToLatestResult {
+export function usePinToLatest(
+    snapshotId: number,
+    viewType: string,
+): UsePinToLatestResult {
     const [pinned, setPinnedState] = useState<boolean>(() => {
         const stored = readStored(snapshotId);
 
@@ -52,7 +55,10 @@ export function usePinToLatest(snapshotId: number, viewType: string): UsePinToLa
         }
 
         try {
-            window.localStorage.setItem(storageKey(snapshotId), pinned ? '1' : '0');
+            window.localStorage.setItem(
+                storageKey(snapshotId),
+                pinned ? '1' : '0',
+            );
         } catch {
             // Quota / private-mode failures are non-fatal — pinning still
             // works for the current session.

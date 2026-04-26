@@ -25,7 +25,9 @@ export function useRevisionBanner(
     snapshotSlug: string,
     workbenchSlug: string,
 ): UseRevisionBannerResult {
-    const [dismissedRevision, setDismissedRevision] = useState<number | null>(null);
+    const [dismissedRevision, setDismissedRevision] = useState<number | null>(
+        null,
+    );
 
     // The banner shows when (a) a strictly higher revision has arrived and
     // (b) the user has not already dismissed *this exact* revision. If a

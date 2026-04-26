@@ -12,16 +12,16 @@ export default function AcceptableUse() {
             >
                 <h2>1. Don&apos;t break the law</h2>
                 <p>
-                    You won&apos;t use Nexus-UI for anything illegal under
-                    the laws that apply to you or to us, including export
-                    controls, sanctions, or consumer-protection law.
+                    You won&apos;t use Nexus-UI for anything illegal under the
+                    laws that apply to you or to us, including export controls,
+                    sanctions, or consumer-protection law.
                 </p>
 
                 <h2>2. Don&apos;t abuse the infrastructure</h2>
                 <ul>
                     <li>
-                        No credential-stuffing, scraping, or circumventing
-                        rate limits.
+                        No credential-stuffing, scraping, or circumventing rate
+                        limits.
                     </li>
                     <li>
                         No denial-of-service attacks or traffic amplification
@@ -32,8 +32,8 @@ export default function AcceptableUse() {
                         don&apos;t own.
                     </li>
                     <li>
-                        No deploying malware, backdoors, or crypto-miners
-                        via our Service.
+                        No deploying malware, backdoors, or crypto-miners via
+                        our Service.
                     </li>
                 </ul>
 
@@ -44,8 +44,8 @@ export default function AcceptableUse() {
                         groups.
                     </li>
                     <li>
-                        No content that sexualises minors, incites violence,
-                        or promotes terrorism.
+                        No content that sexualises minors, incites violence, or
+                        promotes terrorism.
                     </li>
                     <li>
                         No content that infringes intellectual property you
@@ -56,15 +56,15 @@ export default function AcceptableUse() {
                 <h2>4. Sensitive data</h2>
                 <p>
                     Don&apos;t push regulated data (PCI cardholder data, PHI,
-                    government-classified data) into a workbench unless you
-                    have a written agreement with us that allows it.
+                    government-classified data) into a workbench unless you have
+                    a written agreement with us that allows it.
                 </p>
 
                 <h2>5. AI-specific rules</h2>
                 <ul>
                     <li>
-                        Don&apos;t use Nexus-UI to generate content designed
-                        to deceive (deepfakes of real people without consent,
+                        Don&apos;t use Nexus-UI to generate content designed to
+                        deceive (deepfakes of real people without consent,
                         disinformation campaigns, etc).
                     </li>
                     <li>
