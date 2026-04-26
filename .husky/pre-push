@@ -1,0 +1,11 @@
+#!/usr/bin/env sh
+
+# Mirrors CI's `pnpm install --frozen-lockfile=false` exactly so that broken
+# workspace files, missing `packages:` fields, or lockfile drift fail locally
+# rather than after the push lands in a PR. Skip with `git push --no-verify`
+# when you genuinely need to (rare).
+
+set -e
+
+echo "[pre-push] running CI-equivalent pnpm install to validate workspace + lockfile..."
+pnpm install --frozen-lockfile=false

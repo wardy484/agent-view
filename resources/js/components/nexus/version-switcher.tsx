@@ -57,6 +57,7 @@ export function VersionSwitcher({
                     type="button"
                     variant="outline"
                     size="sm"
+                    data-test="nexus-version-switcher"
                     data-testid="nexus-version-switcher"
                     className={cn('inline-flex items-center gap-2', className)}
                     aria-label="Snapshot Revisions"
