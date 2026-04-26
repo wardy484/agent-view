@@ -248,6 +248,10 @@ case "${PLATFORM}" in
         linux_ensure_db
         APP_PORT_VALUE="$(linux_compute_port)"
         linux_write_env "$APP_PORT_VALUE"
+        # REQ-M10-008: hand the chosen port off to Polyscope so it can
+        # construct the preview URL. Single line, integer, gitignored.
+        mkdir -p .polyscope
+        printf '%s\n' "$APP_PORT_VALUE" > .polyscope/preview-port
         echo "    port:  $APP_PORT_VALUE"
         echo "    url:   http://localhost:$APP_PORT_VALUE"
         ;;
