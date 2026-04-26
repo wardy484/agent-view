@@ -106,3 +106,13 @@ jobs:
         # flag. The matrix above already runs the shards on separate
         # GitHub-hosted runners, so within-shard parallelism is unnecessary.
         run: php -d memory_limit=1G artisan test --testsuite=Browser --shard=${{ matrix.shard }}/4
+
+      - name: Upload browser failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots-shard-${{ matrix.shard }}
+          path: |
+            Tests/Browser/Screenshots
+            tests/Browser/Screenshots
+          if-no-files-found: ignore

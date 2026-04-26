@@ -8,5 +8,7 @@ it('REQ-M11-016: browser tests workflow exists with sharded matrix + Playwright 
         ->toContain('--shard=')
         ->toContain('shard:')
         ->toContain('ms-playwright')
+        ->toContain('actions/upload-artifact@v4')
+        ->toContain('Tests/Browser/Screenshots')
         ->toContain('pull_request');
 });
