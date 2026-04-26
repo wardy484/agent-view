@@ -16,7 +16,13 @@ import { show as showSnapshot } from '@/routes/workbench/snapshot';
 
 type Zone = 'deck' | 'table' | 'kanban' | 'flow' | 'narrative';
 
-type ViewType = 'slide_deck' | 'table' | 'kanban' | 'flowchart' | 'report' | string;
+type ViewType =
+    | 'slide_deck'
+    | 'table'
+    | 'kanban'
+    | 'flowchart'
+    | 'report'
+    | string;
 
 type RecentSnapshot = {
     workbench_slug: string;
@@ -85,9 +91,9 @@ function EmptyState() {
                     Workbenches Hold Your Snapshots
                 </CardTitle>
                 <CardDescription className="text-base">
-                    A workbench is a project — a named home for the snapshots
-                    an agent produces. Mint an MCP token, point an agent at
-                    the endpoint below, and the first call to{' '}
+                    A workbench is a project — a named home for the snapshots an
+                    agent produces. Mint an MCP token, point an agent at the
+                    endpoint below, and the first call to{' '}
                     <code className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-sm">
                         present_structured_data
                     </code>{' '}
@@ -114,13 +120,7 @@ function EmptyState() {
     );
 }
 
-function SectionHeader({
-    title,
-    helper,
-}: {
-    title: string;
-    helper: string;
-}) {
+function SectionHeader({ title, helper }: { title: string; helper: string }) {
     return (
         <div className="flex items-baseline justify-between gap-3">
             <h2 className={SECTION_LABEL_CLASSES}>{title}</h2>

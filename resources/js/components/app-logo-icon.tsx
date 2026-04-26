@@ -24,14 +24,7 @@ export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
             aria-hidden="true"
         >
             {/* Workbench frame */}
-            <rect
-                x="3"
-                y="7"
-                width="22"
-                height="18"
-                rx="3"
-                strokeWidth="2"
-            />
+            <rect x="3" y="7" width="22" height="18" rx="3" strokeWidth="2" />
 
             {/* Three structured rows inside the frame */}
             <line x1="7" y1="12" x2="21" y2="12" strokeWidth="2" />
@@ -39,13 +32,7 @@ export default function AppLogoIcon(props: SVGAttributes<SVGElement>) {
             <line x1="7" y1="20" x2="19" y2="20" strokeWidth="2" />
 
             {/* MCP agent node + leader line tapping the top-right corner */}
-            <line
-                x1="23.5"
-                y1="8.5"
-                x2="27"
-                y2="5"
-                strokeWidth="2"
-            />
+            <line x1="23.5" y1="8.5" x2="27" y2="5" strokeWidth="2" />
             <circle
                 cx="28"
                 cy="4"

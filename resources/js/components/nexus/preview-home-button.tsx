@@ -25,7 +25,7 @@ export function PreviewHomeButton({ isAuthenticated, className }: Props) {
             aria-label={label}
             title={label}
             className={cn(
-                'fixed right-3 top-3 z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-muted-foreground opacity-50 shadow-sm backdrop-blur transition hover:opacity-100 hover:text-foreground',
+                'fixed top-3 right-3 z-[60] flex h-9 w-9 items-center justify-center rounded-full border border-border bg-background/70 text-muted-foreground opacity-50 shadow-sm backdrop-blur transition hover:text-foreground hover:opacity-100',
                 className,
             )}
         >

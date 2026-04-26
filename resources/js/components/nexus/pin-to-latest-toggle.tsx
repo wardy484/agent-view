@@ -10,10 +10,14 @@ export function PinToLatestToggle({ pinned, onToggle, className }: Props) {
     return (
         <label
             className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm select-none cursor-pointer hover:text-foreground',
+                'inline-flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm select-none hover:text-foreground',
                 className,
             )}
-            title={pinned ? 'Auto-jumping to the latest revision when one arrives' : 'Stay on the current revision when new ones arrive'}
+            title={
+                pinned
+                    ? 'Auto-jumping to the latest revision when one arrives'
+                    : 'Stay on the current revision when new ones arrive'
+            }
         >
             <span>Pin to latest</span>
             <button

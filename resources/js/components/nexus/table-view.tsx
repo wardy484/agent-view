@@ -7,7 +7,12 @@ import {
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table';
-import type { ColumnDef, ColumnFiltersState, FilterFn, SortingState } from '@tanstack/react-table';
+import type {
+    ColumnDef,
+    ColumnFiltersState,
+    FilterFn,
+    SortingState,
+} from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -116,7 +121,10 @@ function readInitialStateFromUrl(): {
 
     for (const [key, value] of params.entries()) {
         if (key.startsWith(URL_COLUMN_FILTER_PREFIX) && value !== '') {
-            columnFilters.push({ id: key.slice(URL_COLUMN_FILTER_PREFIX.length), value });
+            columnFilters.push({
+                id: key.slice(URL_COLUMN_FILTER_PREFIX.length),
+                value,
+            });
         }
     }
 
@@ -197,14 +205,23 @@ function writeStateToUrl(
  * and pagination buttons use shadcn `<Button>`. Functional contracts above
  * are unchanged.
  */
-export function TableView({ payload, className, initialPageSize = 25, fullBleed = false }: Props) {
+export function TableView({
+    payload,
+    className,
+    initialPageSize = 25,
+    fullBleed = false,
+}: Props) {
     const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
     const rows = useMemo(() => payload?.rows ?? [], [payload?.rows]);
 
     const initial = useMemo(() => readInitialStateFromUrl(), []);
-    const [globalFilter, setGlobalFilter] = useState<string>(initial.globalFilter);
+    const [globalFilter, setGlobalFilter] = useState<string>(
+        initial.globalFilter,
+    );
     const [sorting, setSorting] = useState<SortingState>(initial.sorting);
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(initial.columnFilters);
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(
+        initial.columnFilters,
+    );
 
     // Skip the first sync so we don't overwrite the URL we just read from.
     const firstRenderRef = useRef(true);
@@ -242,7 +259,8 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
         getSortedRowModel: getSortedRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
         enableMultiSort: true,
-        isMultiSortEvent: (event) => (event as unknown as { shiftKey?: boolean }).shiftKey === true,
+        isMultiSortEvent: (event) =>
+            (event as unknown as { shiftKey?: boolean }).shiftKey === true,
         initialState: { pagination: { pageSize: initialPageSize } },
         globalFilterFn: fuzzyFilter,
         filterFns: { fuzzy: fuzzyFilter },
@@ -270,7 +288,7 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                     value={globalFilter}
                     onChange={(event) => setGlobalFilter(event.target.value)}
                     placeholder="Fuzzy-search rows…"
-                    className="h-9 w-64 rounded-md border border-border bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-9 w-64 rounded-md border border-border bg-background px-3 text-sm shadow-xs focus:ring-2 focus:ring-ring focus:outline-none"
                     data-testid="nexus-table-filter"
                 />
                 <Badge variant="secondary" className="text-xs">
@@ -285,12 +303,14 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                 )}
             >
                 <table className="w-full text-left text-sm">
-                    <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                    <thead className="bg-muted/50 text-xs tracking-wide text-muted-foreground uppercase">
                         {table.getHeaderGroups().map((headerGroup) => (
                             <tr key={headerGroup.id}>
                                 {headerGroup.headers.map((header) => {
-                                    const sortDirection = header.column.getIsSorted();
-                                    const sortIndex = header.column.getSortIndex();
+                                    const sortDirection =
+                                        header.column.getIsSorted();
+                                    const sortIndex =
+                                        header.column.getSortIndex();
 
                                     return (
                                         <th
@@ -302,18 +322,30 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                                 <button
                                                     type="button"
                                                     onClick={(event) =>
-                                                        header.column.getToggleSortingHandler()?.({
-                                                            ...event,
-                                                            // REQ-M2-008: forward shiftKey so TanStack stacks sorts.
-                                                            shiftKey: event.shiftKey,
-                                                        })
+                                                        header.column.getToggleSortingHandler()?.(
+                                                            {
+                                                                ...event,
+                                                                // REQ-M2-008: forward shiftKey so TanStack stacks sorts.
+                                                                // prettier-ignore
+                                                                shiftKey: event.shiftKey,
+                                                            },
+                                                        )
                                                     }
                                                     title="Click to sort. Shift-click to add a secondary sort."
                                                     className="inline-flex items-center gap-1 hover:text-foreground"
                                                 >
-                                                    {flexRender(header.column.columnDef.header, header.getContext())}
-                                                    <SortIcon direction={sortDirection} />
-                                                    {sortDirection && sorting.length > 1 ? (
+                                                    {flexRender(
+                                                        header.column.columnDef
+                                                            .header,
+                                                        header.getContext(),
+                                                    )}
+                                                    <SortIcon
+                                                        direction={
+                                                            sortDirection
+                                                        }
+                                                    />
+                                                    {sortDirection &&
+                                                    sorting.length > 1 ? (
                                                         <span className="ml-1 rounded-sm bg-muted px-1 text-xs font-semibold text-muted-foreground">
                                                             {sortIndex + 1}
                                                         </span>
@@ -321,13 +353,21 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                                 </button>
                                                 <input
                                                     type="search"
-                                                    value={(header.column.getFilterValue() as string | undefined) ?? ''}
+                                                    value={
+                                                        (header.column.getFilterValue() as
+                                                            | string
+                                                            | undefined) ?? ''
+                                                    }
                                                     onChange={(event) =>
-                                                        header.column.setFilterValue(event.target.value || undefined)
+                                                        header.column.setFilterValue(
+                                                            event.target
+                                                                .value ||
+                                                                undefined,
+                                                        )
                                                     }
                                                     placeholder="Filter…"
                                                     data-testid={`nexus-table-column-filter-${header.column.id}`}
-                                                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs normal-case tracking-normal text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
+                                                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs tracking-normal text-foreground normal-case shadow-xs focus:ring-1 focus:ring-ring focus:outline-none"
                                                 />
                                             </div>
                                         </th>
@@ -354,8 +394,14 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                     className="border-t border-border/60 last:border-b-0 hover:bg-muted/30"
                                 >
                                     {row.getVisibleCells().map((cell) => (
-                                        <td key={cell.id} className="px-4 py-2 align-top">
-                                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                                        <td
+                                            key={cell.id}
+                                            className="px-4 py-2 align-top"
+                                        >
+                                            {flexRender(
+                                                cell.column.columnDef.cell,
+                                                cell.getContext(),
+                                            )}
                                         </td>
                                     ))}
                                 </tr>
@@ -371,7 +417,9 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                     <select
                         id="nexus-table-page-size"
                         value={pageSize}
-                        onChange={(event) => table.setPageSize(Number(event.target.value))}
+                        onChange={(event) =>
+                            table.setPageSize(Number(event.target.value))
+                        }
                         className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground shadow-xs"
                     >
                         {PAGE_SIZE_OPTIONS.map((size) => (
@@ -384,7 +432,8 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
 
                 <div className="flex items-center gap-2">
                     <span>
-                        Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
+                        Page {pageIndex + 1} of{' '}
+                        {Math.max(table.getPageCount(), 1)}
                     </span>
                     <Button
                         type="button"
@@ -427,7 +476,11 @@ function formatCell(value: unknown): string {
         return '';
     }
 
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    if (
+        typeof value === 'string' ||
+        typeof value === 'number' ||
+        typeof value === 'boolean'
+    ) {
         return String(value);
     }
 

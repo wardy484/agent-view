@@ -1,7 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import { Menu, X } from 'lucide-react';
-import { useState  } from 'react';
-import type {PropsWithChildren} from 'react';
+import { useState } from 'react';
+import type { PropsWithChildren } from 'react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -194,7 +194,10 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
                             rights reserved.
                         </p>
                         <div className="flex gap-4">
-                            <Link href="/terms" className="hover:text-foreground">
+                            <Link
+                                href="/terms"
+                                className="hover:text-foreground"
+                            >
                                 Terms
                             </Link>
                             <Link

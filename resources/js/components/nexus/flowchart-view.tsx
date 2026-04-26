@@ -27,7 +27,11 @@ type Props = {
  * surfaces. Mermaid integration is unchanged: we still render via
  * `mermaid.render(...)` into a `dangerouslySetInnerHTML` container.
  */
-export function FlowchartView({ payload, className, fullBleed = false }: Props) {
+export function FlowchartView({
+    payload,
+    className,
+    fullBleed = false,
+}: Props) {
     const source = payload?.mermaid_source ?? '';
     const containerRef = useRef<HTMLDivElement | null>(null);
     const [svg, setSvg] = useState<string | null>(null);
@@ -47,7 +51,11 @@ export function FlowchartView({ payload, className, fullBleed = false }: Props) 
             try {
                 const mermaidModule = await import('mermaid');
                 const mermaid = mermaidModule.default;
-                mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: 'default' });
+                mermaid.initialize({
+                    startOnLoad: false,
+                    securityLevel: 'strict',
+                    theme: 'default',
+                });
 
                 const id = `nexus-flowchart-${Math.random().toString(36).slice(2)}`;
                 const { svg: renderedSvg } = await mermaid.render(id, source);
@@ -59,7 +67,11 @@ export function FlowchartView({ payload, className, fullBleed = false }: Props) 
             } catch (renderError) {
                 if (!cancelled) {
                     setSvg(null);
-                    setError(renderError instanceof Error ? renderError.message : String(renderError));
+                    setError(
+                        renderError instanceof Error
+                            ? renderError.message
+                            : String(renderError),
+                    );
                 }
             }
         }
@@ -99,17 +111,22 @@ export function FlowchartView({ payload, className, fullBleed = false }: Props) 
             <Card
                 className={cn(
                     'gap-0 rounded-lg bg-background py-4 shadow-sm',
-                    fullBleed && 'flex flex-1 items-center justify-center rounded-none border-0 shadow-none',
+                    fullBleed &&
+                        'flex flex-1 items-center justify-center rounded-none border-0 shadow-none',
                 )}
             >
                 <div
                     ref={containerRef}
                     className="w-full px-4"
                     // Mermaid produces trusted SVG (securityLevel=strict sanitises user input).
-                    dangerouslySetInnerHTML={svg !== null ? { __html: svg } : undefined}
+                    dangerouslySetInnerHTML={
+                        svg !== null ? { __html: svg } : undefined
+                    }
                 >
                     {svg === null ? (
-                        <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">{source}</pre>
+                        <pre className="font-mono text-xs whitespace-pre-wrap text-muted-foreground">
+                            {source}
+                        </pre>
                     ) : null}
                 </div>
             </Card>

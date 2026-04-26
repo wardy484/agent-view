@@ -68,7 +68,8 @@ export default function Profile({
                                     />
 
                                     {mustVerifyEmail &&
-                                        auth.user.email_verified_at === null && (
+                                        auth.user.email_verified_at ===
+                                            null && (
                                             <div className="flex flex-col gap-2 rounded-md border bg-muted/40 p-4 text-sm">
                                                 <p className="text-muted-foreground">
                                                     Your email address is

@@ -6,8 +6,80 @@ on:
     branches: [main, develop]
 
 jobs:
-  quality-gate:
-    name: Quality gate
+  lint:
+    name: Lint & static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pgsql, pdo_pgsql, redis, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node (with pnpm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Composer install (cached)
+        uses: ramsey/composer-install@v3
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Wayfinder-generated TypeScript modules under resources/js/{actions,routes,wayfinder}
+      # are gitignored. ESLint's import-resolver-typescript needs them on disk
+      # so it can classify those imports correctly under import/order.
+      - name: Generate Wayfinder TS modules
+        run: php artisan wayfinder:generate --with-form
+
+      # The spec:check gate blocks merge when REQ-IDs for the CURRENT milestone
+      # lack tests. Bump NEXUS_CURRENT_MILESTONE as milestones complete:
+      # P0B → M1 → M2 → M3. Previously-completed milestones are checked in a
+      # second pass below (they must never regress).
+      - name: spec:check — current milestone
+        env:
+          NEXUS_CURRENT_MILESTONE: P0B
+        run: php artisan spec:check --milestone="$NEXUS_CURRENT_MILESTONE"
+
+      - name: spec:check — regression check on completed milestones
+        run: |
+          for ms in P0A; do
+            php artisan spec:check --milestone="$ms" || true
+          done
+
+      - name: Pint
+        run: ./vendor/bin/pint --test
+
+      - name: ESLint
+        run: pnpm lint:check
+
+      - name: Prettier
+        run: pnpm format:check
+
+      - name: TypeScript
+        run: pnpm types:check
+
+  test:
+    name: Pest
     runs-on: ubuntu-latest
 
     services:
@@ -54,19 +126,21 @@ jobs:
           coverage: none
           tools: composer:v2
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
-      - name: Composer install
-        run: composer install --no-interaction --no-progress --prefer-dist
+      - name: Setup Node (with pnpm cache)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Composer install (cached)
+        uses: ramsey/composer-install@v3
 
       - name: pnpm install
         run: pnpm install --frozen-lockfile=false
@@ -76,34 +150,12 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      # The spec:check gate blocks merge when REQ-IDs for the CURRENT milestone
-      # lack tests. Bump NEXUS_CURRENT_MILESTONE as milestones complete:
-      # P0B → M1 → M2 → M3. Previously-completed milestones are checked in a
-      # second pass below (they must never regress).
-      - name: spec:check — current milestone
-        env:
-          NEXUS_CURRENT_MILESTONE: P0B
-        run: php artisan spec:check --milestone="$NEXUS_CURRENT_MILESTONE"
+      - name: Generate Wayfinder TS modules
+        run: php artisan wayfinder:generate --with-form
 
-      - name: spec:check — regression check on completed milestones
-        # When milestones graduate, add them here comma-separated.
-        # Example after M1 ships: for ms in P0A P0B M1; do ... ; done
-        run: |
-          for ms in P0A; do
-            php artisan spec:check --milestone="$ms" || true
-          done
-
-      - name: Pint
-        run: ./vendor/bin/pint --test
-
-      - name: ESLint
-        run: pnpm lint:check
-
-      - name: Prettier
-        run: pnpm format:check
-
-      - name: TypeScript
-        run: pnpm types:check
+      # Pest renders Inertia pages, which require public/build/manifest.json.
+      - name: Build assets
+        run: pnpm build
 
       - name: Pest
-        run: php artisan test --compact
+        run: php artisan test --compact --parallel

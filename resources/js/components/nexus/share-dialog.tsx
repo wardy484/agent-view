@@ -1,5 +1,13 @@
 import { router } from '@inertiajs/react';
-import { Copy, Link2, Lock, Mail, RotateCcw, Trash2, Users } from 'lucide-react';
+import {
+    Copy,
+    Link2,
+    Lock,
+    Mail,
+    RotateCcw,
+    Trash2,
+    Users,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -79,7 +87,10 @@ export function ShareDialog({
             {},
             {
                 preserveScroll: true,
-                onSuccess: () => toast.success('New link minted — the old one no longer works'),
+                onSuccess: () =>
+                    toast.success(
+                        'New link minted — the old one no longer works',
+                    ),
                 onError: () => toast.error('Could not rotate link'),
             },
         );
@@ -90,7 +101,9 @@ export function ShareDialog({
             return;
         }
 
-        const absolute = shareUrl.startsWith('http') ? shareUrl : `${window.location.origin}${shareUrl}`;
+        const absolute = shareUrl.startsWith('http')
+            ? shareUrl
+            : `${window.location.origin}${shareUrl}`;
         const ok = await copy(absolute);
 
         if (ok) {
@@ -148,7 +161,10 @@ export function ShareDialog({
                     <span>Share</span>
                 </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md" data-testid="nexus-share-dialog">
+            <DialogContent
+                className="sm:max-w-md"
+                data-testid="nexus-share-dialog"
+            >
                 <DialogHeader>
                     <DialogTitle>Share Snapshot</DialogTitle>
                     <DialogDescription>
@@ -157,7 +173,10 @@ export function ShareDialog({
                 </DialogHeader>
 
                 <div className="flex flex-col gap-4">
-                    <fieldset className="flex flex-col gap-2" aria-label="Visibility">
+                    <fieldset
+                        className="flex flex-col gap-2"
+                        aria-label="Visibility"
+                    >
                         <VisibilityOption
                             current={visibility}
                             value="private"
@@ -188,13 +207,24 @@ export function ShareDialog({
                         <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
                             <Label
                                 htmlFor="share-url"
-                                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                                className="text-xs font-medium tracking-wide text-muted-foreground uppercase"
                             >
                                 Public Link
                             </Label>
                             <div className="flex items-center gap-2">
-                                <Input id="share-url" readOnly value={shareUrl} className="font-mono text-xs" />
-                                <Button type="button" size="icon" variant="outline" onClick={copyLink} title="Copy link">
+                                <Input
+                                    id="share-url"
+                                    readOnly
+                                    value={shareUrl}
+                                    className="font-mono text-xs"
+                                />
+                                <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={copyLink}
+                                    title="Copy link"
+                                >
                                     <Copy className="size-4" aria-hidden />
                                 </Button>
                                 <Button
@@ -212,7 +242,10 @@ export function ShareDialog({
 
                     {visibility === 'shared' ? (
                         <div className="flex flex-col gap-3">
-                            <form onSubmit={submitEmail} className="flex items-center gap-2">
+                            <form
+                                onSubmit={submitEmail}
+                                className="flex items-center gap-2"
+                            >
                                 <Input
                                     type="email"
                                     placeholder="teammate@example.com"
@@ -227,26 +260,38 @@ export function ShareDialog({
                             </form>
 
                             {shares.length > 0 ? (
-                                <ul className="flex flex-col gap-1" data-testid="nexus-share-list">
+                                <ul
+                                    className="flex flex-col gap-1"
+                                    data-testid="nexus-share-list"
+                                >
                                     {shares.map((share) => (
                                         <li
                                             key={share.id}
                                             className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm"
                                         >
                                             <div className="flex flex-col">
-                                                <span className="font-medium">{share.email}</span>
+                                                <span className="font-medium">
+                                                    {share.email}
+                                                </span>
                                                 <span className="text-xs text-muted-foreground">
-                                                    {share.accepted ? 'Has account' : 'Invite pending'}
+                                                    {share.accepted
+                                                        ? 'Has account'
+                                                        : 'Invite pending'}
                                                 </span>
                                             </div>
                                             <Button
                                                 type="button"
                                                 size="icon"
                                                 variant="ghost"
-                                                onClick={() => revokeShare(share)}
+                                                onClick={() =>
+                                                    revokeShare(share)
+                                                }
                                                 title={`Revoke ${share.email}`}
                                             >
-                                                <Trash2 className="size-4" aria-hidden />
+                                                <Trash2
+                                                    className="size-4"
+                                                    aria-hidden
+                                                />
                                             </Button>
                                         </li>
                                     ))}
@@ -294,7 +339,9 @@ function VisibilityOption({
             <span className="mt-0.5 text-muted-foreground">{icon}</span>
             <span className="flex flex-col gap-0.5">
                 <span className="text-sm font-medium">{title}</span>
-                <span className="text-xs text-muted-foreground">{description}</span>
+                <span className="text-xs text-muted-foreground">
+                    {description}
+                </span>
             </span>
         </button>
     );
@@ -302,12 +349,12 @@ function VisibilityOption({
 
 function visibilityLabel(v: SnapshotVisibility): string {
     if (v === 'private') {
-return 'Snapshot is now private';
-}
+        return 'Snapshot is now private';
+    }
 
     if (v === 'link') {
-return 'Snapshot is now shareable via link';
-}
+        return 'Snapshot is now shareable via link';
+    }
 
     return 'Snapshot is now shared with specific people';
 }

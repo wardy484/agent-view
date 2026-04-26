@@ -31,7 +31,8 @@ const reverbKey = import.meta.env.VITE_REVERB_APP_KEY;
 // skip Echo initialisation entirely. Page-level subscribers fall back to
 // the polling path from REQ-M6-016.
 if (reverbKey) {
-    const reverbHost = import.meta.env.VITE_REVERB_HOST ?? window.location.hostname;
+    const reverbHost =
+        import.meta.env.VITE_REVERB_HOST ?? window.location.hostname;
     const reverbPort = Number(import.meta.env.VITE_REVERB_PORT ?? 8080);
     const reverbScheme = import.meta.env.VITE_REVERB_SCHEME ?? 'https';
 
