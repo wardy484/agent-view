@@ -1,4 +1,4 @@
-import { Head, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -20,6 +20,15 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import {
+    Breadcrumb,
+    BreadcrumbItem,
+    BreadcrumbLink,
+    BreadcrumbList,
+    BreadcrumbPage,
+    BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Button } from '@/components/ui/button';
 import { usePinToLatest } from '@/hooks/use-pin-to-latest';
 import { useRevisionBanner } from '@/hooks/use-revision-banner';
 import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
@@ -384,16 +393,45 @@ function SnapshotBody({
     }
 
     return (
-        <div className={cn('mx-auto flex w-full max-w-6xl flex-col gap-4 p-6')}>
-            <header className="flex flex-col gap-2" data-testid="nexus-workbench-header">
-                <div className="flex items-start justify-between gap-3">
+        <div className={cn('mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8')}>
+            <header className="flex flex-col gap-4" data-testid="nexus-workbench-header">
+                <Breadcrumb>
+                    <BreadcrumbList>
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href="/dashboard">Dashboard</Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                            <BreadcrumbLink asChild>
+                                <Link href={`/workbenches/${workbench.slug}`}>
+                                    {workbench.name}
+                                </Link>
+                            </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator />
+                        <BreadcrumbItem>
+                            <BreadcrumbPage>{heading}</BreadcrumbPage>
+                        </BreadcrumbItem>
+                    </BreadcrumbList>
+                </Breadcrumb>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col gap-1">
-                        <h1 className="text-2xl font-semibold tracking-tight">{heading}</h1>
+                        <h1 className="text-3xl font-semibold tracking-tight">{heading}</h1>
                         <p className="text-sm text-muted-foreground">{subtitle}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         {showPinToggle ? (
                             <PinToLatestToggle pinned={pinned} onToggle={onTogglePinned} />
+                        ) : null}
+                        {showVersionSwitcher ? (
+                            <VersionSwitcher
+                                workbenchSlug={workbench.slug}
+                                snapshotSlug={snapshot.slug}
+                                versions={versions}
+                                onSelectHistorical={onSelectHistorical}
+                            />
                         ) : null}
                         {/* REQ-M4-010: owner-only Share control. Non-owners and
                             public-link viewers never see this button. */}
@@ -406,31 +444,26 @@ function SnapshotBody({
                                 shares={shares}
                             />
                         ) : null}
-                        <button
+                        <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={onToggleFullscreen}
                             data-testid="nexus-fullscreen-toggle"
                             aria-pressed={isFullscreen}
                             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                            title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-                            className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm hover:text-foreground"
+                            title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+                            className="inline-flex items-center gap-2"
                         >
                             {isFullscreen ? (
                                 <Minimize2 className="size-4" aria-hidden />
                             ) : (
                                 <Maximize2 className="size-4" aria-hidden />
                             )}
-                        </button>
+                            <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+                        </Button>
                     </div>
                 </div>
-                {showVersionSwitcher ? (
-                    <VersionSwitcher
-                        workbenchSlug={workbench.slug}
-                        snapshotSlug={snapshot.slug}
-                        versions={versions}
-                        onSelectHistorical={onSelectHistorical}
-                    />
-                ) : null}
             </header>
 
             <main data-testid="nexus-snapshot-body">

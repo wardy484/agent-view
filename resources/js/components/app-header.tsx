@@ -160,7 +160,7 @@ export function AppHeader({ breadcrumbs = [] }: Props) {
                                             src={auth.user?.avatar}
                                             alt={auth.user?.name}
                                         />
-                                        <AvatarFallback className="rounded-full bg-gradient-to-br from-primary to-primary/70 text-[11px] font-semibold tracking-wide text-primary-foreground uppercase">
+                                        <AvatarFallback className="rounded-full bg-gradient-to-br from-primary to-primary/70 text-xs font-semibold tracking-wide text-primary-foreground uppercase">
                                             {getInitials(auth.user?.name ?? '')}
                                         </AvatarFallback>
                                     </Avatar>

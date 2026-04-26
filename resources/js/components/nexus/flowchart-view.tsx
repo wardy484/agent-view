@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type FlowchartViewPayload = {
@@ -20,6 +21,11 @@ type Props = {
  * Mermaid is imported lazily so the main bundle isn't bloated when the user
  * never opens a flowchart snapshot. On SSR/pre-hydration the component
  * falls back to a monospaced preview of the source.
+ *
+ * REQ-M9-011: visual chrome rebuilt against the shadcn token scale — the
+ * diagram lives inside a `<Card>` so it sits flush next to other shadcn
+ * surfaces. Mermaid integration is unchanged: we still render via
+ * `mermaid.render(...)` into a `dangerouslySetInnerHTML` container.
  */
 export function FlowchartView({ payload, className, fullBleed = false }: Props) {
     const source = payload?.mermaid_source ?? '';
@@ -69,7 +75,10 @@ export function FlowchartView({ payload, className, fullBleed = false }: Props) 
         return (
             <div
                 data-testid="nexus-flowchart-view"
-                className={cn('rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground', className)}
+                className={cn(
+                    'rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground',
+                    className,
+                )}
             >
                 No flowchart source provided.
             </div>
@@ -82,24 +91,28 @@ export function FlowchartView({ payload, className, fullBleed = false }: Props) 
             data-mermaid-rendered={svg !== null}
             data-full-bleed={fullBleed}
             className={cn(
-                'flex w-full flex-col gap-3',
+                'flex w-full flex-col gap-4',
                 fullBleed && 'h-screen min-h-screen p-4',
                 className,
             )}
         >
-            <div
-                ref={containerRef}
+            <Card
                 className={cn(
-                    'rounded-lg border border-border bg-background p-4',
-                    fullBleed && 'flex flex-1 items-center justify-center rounded-none border-0',
+                    'gap-0 rounded-lg bg-background py-4 shadow-sm',
+                    fullBleed && 'flex flex-1 items-center justify-center rounded-none border-0 shadow-none',
                 )}
-                // Mermaid produces trusted SVG (securityLevel=strict sanitises user input).
-                dangerouslySetInnerHTML={svg !== null ? { __html: svg } : undefined}
             >
-                {svg === null ? (
-                    <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">{source}</pre>
-                ) : null}
-            </div>
+                <div
+                    ref={containerRef}
+                    className="w-full px-4"
+                    // Mermaid produces trusted SVG (securityLevel=strict sanitises user input).
+                    dangerouslySetInnerHTML={svg !== null ? { __html: svg } : undefined}
+                >
+                    {svg === null ? (
+                        <pre className="whitespace-pre-wrap font-mono text-xs text-muted-foreground">{source}</pre>
+                    ) : null}
+                </div>
+            </Card>
 
             {error !== null ? (
                 <p className="text-xs text-destructive" role="alert">
