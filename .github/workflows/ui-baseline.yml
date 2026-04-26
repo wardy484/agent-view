@@ -13,7 +13,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
 
     services:
       postgres:
@@ -95,9 +95,9 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Run browser tests (shard ${{ matrix.shard }} of 2)
+      - name: Run browser tests (shard ${{ matrix.shard }} of 4)
         # `--parallel` is intentionally omitted: it invokes Laravel's paratest
         # bridge which passes `--runner=…` to Pest, and Pest 4 rejects that
-        # flag. The matrix above already runs the two shards on separate
+        # flag. The matrix above already runs the shards on separate
         # GitHub-hosted runners, so within-shard parallelism is unnecessary.
-        run: php -d memory_limit=1G artisan test --testsuite=Browser --shard=${{ matrix.shard }}/2
+        run: php -d memory_limit=1G artisan test --testsuite=Browser --shard=${{ matrix.shard }}/4
