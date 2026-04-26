@@ -158,8 +158,4 @@ jobs:
         run: pnpm build
 
       - name: Pest
-<<<<<<< HEAD
-        run: php artisan test --compact --parallel
-=======
         run: php artisan test --compact --exclude-testsuite=Browser
->>>>>>> d9422ba (M11: UI baseline (Pest 4 browser tests) — 16 REQs, 14 tests, 107 assertions)
