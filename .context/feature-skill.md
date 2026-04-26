@@ -123,23 +123,83 @@ For each ready REQ (no unmet deps, file set free):
 
 1. Move the kanban card to `In Progress` (publish a new kanban revision —
    carry forward all other card IDs verbatim, only change the one status).
-2. Dispatch a **worker subagent** (`subagent_type: "general-purpose"`):
-   - **If running in parallel with another worker**: spawn it in a new
-     worktree via `scripts/worktree-bootstrap.sh
-     <milestone-slug>-<req-id>`. Worker prompt instructs it to `cd` there,
-     follow the 7-step loop, run gates locally, push branch, open PR.
-     Cannot use bootstrap if you (orchestrator) are already inside a
-     worktree — see CLAUDE.md path-doubling warning. If so, fall back to
-     sequential.
-   - **If running sequential**: worker stays in the orchestrator's
-     worktree, follows the 7-step loop on the same branch, opens PR
-     when green.
-3. Worker prompt must include: REQ-ID, spec paragraph, scout JSON,
-   "DO NOT touch any file outside this list without checking with the
-   orchestrator", "NEVER edit `docs/nexus-spec.md`",
-   "ALWAYS use `App\\Nexus\\SnapshotVersioning::append`".
-4. Run multiple workers concurrently using `Agent` with
-   `run_in_background: true` when their file sets are disjoint.
+2. Pick a dispatch mode for this batch of REQs (one mode per batch — do
+   not mix workers in different modes against the same branch):
+
+   **Mode A — Worktree-parallel (preferred when available).** Spawn each
+   worker in a new worktree via `scripts/worktree-bootstrap.sh
+   <milestone-slug>-<req-id>`. Worker follows the full 7-step loop in
+   its own worktree, runs gates, pushes, opens PR. This is the gold
+   standard — strongest isolation, independent CI per PR.
+   *Unavailable when the orchestrator itself is already inside a
+   worktree* (the bootstrap script's `WORKTREE_ROOT` derivation
+   double-nests — see CLAUDE.md). Detect this with
+   `git rev-parse --show-toplevel` against `$(pwd)`'s parents. If
+   unavailable, choose B or C below.
+
+   **Mode B — In-worktree parallel (the speed win inside a worktree).**
+   All workers share the orchestrator's worktree and branch. Use this
+   when scout output shows the next N REQs have *fully disjoint*
+   `files_to_touch` ∪ `services_to_modify` sets AND none touches a
+   contended file (see "Contended files" below). Workers run
+   concurrently via `Agent` calls in **a single message** (parallel
+   tool-use block). Each worker:
+   - Edits only its fenced paths.
+   - Runs only its own filtered tests
+     (`php artisan test --filter <REQ-ID>`).
+   - Does NOT commit, push, open a PR, or run formatters / type-check
+     / `spec:check`. Those are wave-level gates the orchestrator runs
+     once after the wave completes (Phase 5b).
+   - Reports back: files written, tests added, contract drift detected.
+
+   **Mode C — Sequential (fallback).** One worker at a time in the
+   orchestrator's worktree, full 7-step loop per REQ, PR per REQ. Use
+   when neither A nor B is safe (overlapping file sets, contended
+   files, scout uncertainty).
+
+3. Contended files — assign to a single worker (or the orchestrator)
+   and never let two workers in the same wave write them:
+   - Any new migration (timestamp ordering + schema cohesion).
+   - `docs/nexus-spec.md` (Phase 2 only — workers never edit).
+   - Generated Wayfinder output under `resources/js/{actions,routes}/`
+     (regenerate once in Phase 5b, not per worker).
+   - `routes/*.php`, `routes/ai.php` (central registries).
+   - Top-level page registries / dispatchers
+     (`resources/js/pages/snapshot.tsx` and similar).
+
+4. Worker prompt must include: REQ-ID, spec paragraph, scout JSON, the
+   exact write-fence path list, dispatch mode (A/B/C), "DO NOT touch
+   any file outside this list without checking with the orchestrator",
+   "NEVER edit `docs/nexus-spec.md`", "ALWAYS use
+   `App\\Nexus\\SnapshotVersioning::append`". For Mode B add: "DO NOT
+   commit, push, open a PR, run pint, run pnpm, or run spec:check —
+   the orchestrator does those once for the whole wave."
+
+## Phase 5b — Wave integrate (Mode B only)
+
+After every Mode B worker in a wave reports back:
+
+1. Read each worker's report. Resolve any contract drift the workers
+   flagged with direct edits.
+2. If any controller/route changed, run
+   `php artisan wayfinder:generate` once.
+3. Run the full local gate against the combined wave:
+   `vendor/bin/pint --dirty --format agent`, `pnpm lint`,
+   `pnpm type-check`, `php artisan test --compact`,
+   `php artisan spec:check`.
+4. If any gate fails: identify the offending REQ(s), revert just those
+   files (or hand them to a single worker for repair), re-run the
+   gate. Do not move any card past `In Progress` until the wave is
+   green.
+5. Once green, hand the wave's combined diff to Phase 6 — peer review
+   runs once per REQ, but against the wave's HEAD. After review and
+   any Phase 6b visual review, the orchestrator opens **one PR per
+   REQ** by cherry-picking each REQ's fenced paths onto its own branch
+   (or, with explicit user buy-in for toy-project speed, ships the
+   wave as a single PR titled with all wave REQ-IDs).
+
+For Mode A workers, skip Phase 5b — each worker already ran its own
+gate and opens its own PR.
 
 ---
 
@@ -270,7 +330,7 @@ When every card is `Done`:
 > Spec paragraph:
 > <paste paragraph>
 
-### Worker (general-purpose subagent)
+### Worker (general-purpose subagent) — Mode A (own worktree)
 
 > You are a worker for `<REQ-ID>`. Your worktree is `<path>`. Follow
 > the 7-step loop in CLAUDE.md exactly. Touch ONLY files in this list
@@ -289,6 +349,37 @@ When every card is `Done`:
 > Report back as JSON: `{"status": "green"|"failed", "test_output":
 > "...", "branch": "...", "notes": "..."}`. Do NOT open the PR — the
 > orchestrator will tell you when to push after peer review.
+
+### Worker (general-purpose subagent) — Mode B (shared worktree, parallel)
+
+> You are a worker for `<REQ-ID>`, running in parallel with sibling
+> workers for `<other REQ-IDs>` against the SAME working tree on
+> branch `<branch>`. Hard fence: write ONLY these paths. Reading
+> elsewhere is fine; writing elsewhere is a bug.
+> <files_to_touch from scout>
+>
+> Forbidden in this mode (the orchestrator will run them once for the
+> whole wave): `git commit`, `git push`, opening PRs, `vendor/bin/pint`,
+> `pnpm lint`, `pnpm type-check`, `php artisan spec:check`,
+> `php artisan wayfinder:generate`.
+>
+> Allowed and required: write the failing Pest test first, implement,
+> run ONLY your own filtered tests
+> (`php artisan test --filter '<REQ-ID>'`).
+>
+> NEVER edit `docs/nexus-spec.md`. ALWAYS use
+> `App\Nexus\SnapshotVersioning::append` for snapshot writes.
+>
+> Spec paragraph:
+> <paste paragraph>
+>
+> Shared contracts you must respect (agreed up-front by the
+> orchestrator — do NOT renegotiate mid-flight):
+> <list of types / route names / column names this REQ shares with siblings>
+>
+> Report back as JSON: `{"status": "green"|"failed", "files_written":
+> [...], "tests_added": [...], "filtered_test_output": "...",
+> "contract_drift": "<describe any contract you had to bend, or null>"}`.
 
 ### Reviewer (general-purpose subagent)
 
