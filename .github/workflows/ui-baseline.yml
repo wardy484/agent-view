@@ -76,6 +76,11 @@ jobs:
       - name: pnpm install
         run: pnpm install --frozen-lockfile=false
 
+      - name: Build frontend assets
+        # Browser tests visit real Inertia pages which read public/build/manifest.json.
+        # Without `pnpm build`, blade throws ViewException and every test fails.
+        run: pnpm build
+
       - name: Prepare .env
         run: |
           cp .env.example .env
