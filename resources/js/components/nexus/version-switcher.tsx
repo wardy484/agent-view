@@ -15,13 +15,16 @@ type Props = {
     snapshotSlug: string;
     versions: SnapshotVersionSummary[];
     className?: string;
+    // When the user explicitly clicks a non-current revision, the snapshot
+    // page disables "pin to latest" so live updates don't yank them back.
+    onSelectHistorical?: () => void;
 };
 
 /**
  * REQ-M1-007: lists every revision of a snapshot newest first and navigates
  * to the selected revision via `?revision=N`.
  */
-export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, className }: Props) {
+export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, className, onSelectHistorical }: Props) {
     if (versions.length <= 1) {
         return null;
     }
@@ -38,6 +41,11 @@ export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, classNa
                     key={version.id}
                     href={buildHref(workbenchSlug, snapshotSlug, version.revision)}
                     preserveScroll
+                    onClick={() => {
+                        if (!version.is_current) {
+                            onSelectHistorical?.();
+                        }
+                    }}
                     className={cn(
                         'rounded-md px-2 py-1 text-xs font-medium',
                         version.is_current
