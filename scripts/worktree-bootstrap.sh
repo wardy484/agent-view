@@ -108,11 +108,35 @@ else
 fi
 php artisan migrate --force
 
+# 6. Seed (idempotent — wardy484@gmail.com / password + one snapshot per view_type).
+php artisan db:seed --force
+
+# 7. Start `pnpm dev` (or `npm run dev`) in the background so the live preview
+#    works the moment the workspace is ready. Uses a per-worktree pid file so
+#    re-running the bootstrap doesn't spawn duplicate vite processes.
+PID_FILE="$WORKTREE_PATH/storage/app/dev-server.pid"
+LOG_FILE="$WORKTREE_PATH/storage/logs/dev-server.log"
+mkdir -p "$(dirname "$PID_FILE")" "$(dirname "$LOG_FILE")"
+
+if [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null; then
+  echo "--> dev server already running (pid $(cat "$PID_FILE"))"
+else
+  if command -v pnpm >/dev/null; then
+    DEV_CMD=(pnpm dev)
+  else
+    DEV_CMD=(npm run dev)
+  fi
+  echo "--> starting dev server: ${DEV_CMD[*]} (logs: $LOG_FILE)"
+  nohup "${DEV_CMD[@]}" >"$LOG_FILE" 2>&1 &
+  echo $! >"$PID_FILE"
+fi
+
 echo ""
 echo "✅ Worktree ready."
 echo ""
+echo "Login: wardy484@gmail.com / password"
+echo ""
 echo "Next:"
 echo "  cd $WORKTREE_PATH"
-echo "  pnpm dev                    # Vite on port $VITE_PORT"
-echo "  open https://$SLUG.test     # Herd-served URL"
+echo "  open https://$SLUG.test     # Herd-served URL (vite already running)"
 echo "  php artisan spec:check --next"
