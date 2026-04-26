@@ -7,6 +7,7 @@ import type { FlowchartViewPayload } from '@/components/nexus/flowchart-view';
 import { KanbanView } from '@/components/nexus/kanban-view';
 import type { KanbanViewPayload } from '@/components/nexus/kanban-view';
 import { NewRevisionBanner } from '@/components/nexus/new-revision-banner';
+import { PinToLatestToggle } from '@/components/nexus/pin-to-latest-toggle';
 import { PreviewHomeButton } from '@/components/nexus/preview-home-button';
 import { ReportView } from '@/components/nexus/report-view';
 import type { ReportViewPayload } from '@/components/nexus/report-view';
@@ -19,6 +20,7 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { usePinToLatest } from '@/hooks/use-pin-to-latest';
 import { useRevisionBanner } from '@/hooks/use-revision-banner';
 import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
 import AppLayout from '@/layouts/app-layout';
@@ -131,7 +133,16 @@ export default function SnapshotPage(props: Props) {
     // safe to read during render — useRef would lint as "ref accessed in
     // render".)
     const [renderedRevision] = useState<number>(() => props.version.revision);
-    const showBanner = isAuthenticated && !is_public_link && !is_historical_view;
+
+    // "Pin to latest" auto-follows new revisions: when ON and an Echo push
+    // arrives (or when the user landed on a historical revision), navigate
+    // to the snapshot URL without `?revision=` so the server resolves to
+    // current. Default ON for kanban (live ops view), OFF for everything
+    // else. Per-snapshot, persisted in localStorage.
+    const showPinToggle = isAuthenticated && !is_public_link && is_owner;
+    const { pinned, setPinned } = usePinToLatest(props.snapshot.id, props.version.view_type);
+
+    const showBanner = isAuthenticated && !is_public_link && !is_historical_view && !pinned;
     const banner = useRevisionBanner(
         renderedRevision,
         props.version.revision,
@@ -154,6 +165,19 @@ export default function SnapshotPage(props: Props) {
     // is not the poll keeps the sidebar fresh on its 8-second cadence.
     const snapshotId = props.snapshot.id;
     const liveRevision = props.version.revision;
+    const workbenchSlug = props.workbench.slug;
+    const snapshotSlug = props.snapshot.slug;
+
+    // When pinned and currently viewing a historical revision, jump to
+    // latest. The server resolves the bare snapshot URL to current.
+    useEffect(() => {
+        if (pinned && is_historical_view) {
+            router.visit(`/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`, {
+                preserveScroll: true,
+            });
+        }
+    }, [pinned, is_historical_view, workbenchSlug, snapshotSlug]);
+
     useEffect(() => {
         const echo = (window as { Echo?: { private: (channel: string) => { listen: (event: string, cb: (payload: { revision: number }) => void) => unknown }; leave: (channel: string) => void } }).Echo;
 
@@ -171,13 +195,26 @@ export default function SnapshotPage(props: Props) {
             channel.listen('.SnapshotVersionAppended', (payload: { revision: number }) => {
                 if (typeof payload?.revision === 'number' && payload.revision > liveRevision) {
                     setIsFading(true);
-                    router.reload({
-                        only: ['snapshot', 'version', 'versions'],
-                        onFinish: () => {
-                            // 200 ms fade transition then restore opacity.
-                            window.setTimeout(() => setIsFading(false), 200);
-                        },
-                    });
+
+                    // Pinned: navigate to bare snapshot URL so the server
+                    // resolves the latest revision (clears any ?revision=).
+                    // Otherwise, partial reload preserves the current query
+                    // string so historical viewers stay put.
+                    const onFinish = () => {
+                        window.setTimeout(() => setIsFading(false), 200);
+                    };
+
+                    if (pinned) {
+                        router.visit(`/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`, {
+                            preserveScroll: true,
+                            onFinish,
+                        });
+                    } else {
+                        router.reload({
+                            only: ['snapshot', 'version', 'versions'],
+                            onFinish,
+                        });
+                    }
                 }
             });
 
@@ -197,7 +234,7 @@ export default function SnapshotPage(props: Props) {
 
             return;
         }
-    }, [snapshotId, liveRevision]);
+    }, [snapshotId, liveRevision, pinned, workbenchSlug, snapshotSlug]);
 
     // ESC exits in-app fullscreen mode. We deliberately don't intercept ESC
     // in pure preview mode — there's no chrome to restore.
@@ -249,6 +286,14 @@ export default function SnapshotPage(props: Props) {
                 comments={comments}
                 versionHistory={versionHistory}
                 isHistoricalView={is_historical_view}
+                showPinToggle={showPinToggle}
+                pinned={pinned}
+                onTogglePinned={() => setPinned(!pinned)}
+                onSelectHistorical={() => {
+                    if (pinned) {
+                        setPinned(false);
+                    }
+                }}
             />
         </div>
     );
@@ -294,6 +339,10 @@ type BodyProps = {
     comments: CommentSummary[] | null;
     versionHistory: VersionHistoryEntry[] | null;
     isHistoricalView: boolean;
+    showPinToggle: boolean;
+    pinned: boolean;
+    onTogglePinned: () => void;
+    onSelectHistorical: () => void;
 };
 
 function SnapshotBody({
@@ -313,6 +362,10 @@ function SnapshotBody({
     comments,
     versionHistory,
     isHistoricalView,
+    showPinToggle,
+    pinned,
+    onTogglePinned,
+    onSelectHistorical,
 }: BodyProps) {
     const heading = snapshot.title ?? snapshot.slug;
     const subtitle = `${workbench.name} · revision ${version.revision}`;
@@ -339,6 +392,9 @@ function SnapshotBody({
                         <p className="text-sm text-muted-foreground">{subtitle}</p>
                     </div>
                     <div className="flex items-center gap-2">
+                        {showPinToggle ? (
+                            <PinToLatestToggle pinned={pinned} onToggle={onTogglePinned} />
+                        ) : null}
                         {/* REQ-M4-010: owner-only Share control. Non-owners and
                             public-link viewers never see this button. */}
                         {isOwner && !isPublicLink ? (
@@ -355,15 +411,15 @@ function SnapshotBody({
                             onClick={onToggleFullscreen}
                             data-testid="nexus-fullscreen-toggle"
                             aria-pressed={isFullscreen}
+                            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                             title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Enter fullscreen'}
-                            className="inline-flex h-9 items-center gap-2 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground shadow-sm hover:text-foreground"
+                            className="inline-flex size-9 items-center justify-center rounded-md border border-border bg-background text-muted-foreground shadow-sm hover:text-foreground"
                         >
                             {isFullscreen ? (
                                 <Minimize2 className="size-4" aria-hidden />
                             ) : (
                                 <Maximize2 className="size-4" aria-hidden />
                             )}
-                            <span>{isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}</span>
                         </button>
                     </div>
                 </div>
@@ -372,6 +428,7 @@ function SnapshotBody({
                         workbenchSlug={workbench.slug}
                         snapshotSlug={snapshot.slug}
                         versions={versions}
+                        onSelectHistorical={onSelectHistorical}
                     />
                 ) : null}
             </header>
