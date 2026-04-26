@@ -27,7 +27,10 @@ export type SelectionInfo = {
 const PREFIX_SUFFIX_LEN = 32;
 const BLOCK_ATTR = 'data-comment-block-id';
 
-export function findBlockAncestor(node: Node | null, container: HTMLElement): HTMLElement | null {
+export function findBlockAncestor(
+    node: Node | null,
+    container: HTMLElement,
+): HTMLElement | null {
     let current: Node | null = node;
 
     while (current && current !== container) {
@@ -45,7 +48,11 @@ export function findBlockAncestor(node: Node | null, container: HTMLElement): HT
     return null;
 }
 
-export function offsetWithinBlock(block: HTMLElement, node: Node, nodeOffset: number): number {
+export function offsetWithinBlock(
+    block: HTMLElement,
+    node: Node,
+    nodeOffset: number,
+): number {
     // Walk text nodes in document order, summing their lengths until we hit
     // the target node. Maps a (node, offset) tuple to a flat character
     // offset against the block's visible text. See use-markdown-selection.ts
@@ -83,7 +90,9 @@ export function offsetWithinBlock(block: HTMLElement, node: Node, nodeOffset: nu
  * from the always-visible toolbar's click handlers (authoritative read at
  * tap time).
  */
-export function captureSelection(container: HTMLElement | null): SelectionInfo | null {
+export function captureSelection(
+    container: HTMLElement | null,
+): SelectionInfo | null {
     if (!container) {
         return null;
     }
@@ -96,7 +105,10 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
 
     const range = sel.getRangeAt(0);
 
-    if (!container.contains(range.startContainer) || !container.contains(range.endContainer)) {
+    if (
+        !container.contains(range.startContainer) ||
+        !container.contains(range.endContainer)
+    ) {
         return null;
     }
 
@@ -121,7 +133,11 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
 
     const refBlock = block ?? startBlock;
     const refText = refBlock.textContent ?? '';
-    const startHint = offsetWithinBlock(refBlock, range.startContainer, range.startOffset);
+    const startHint = offsetWithinBlock(
+        refBlock,
+        range.startContainer,
+        range.startOffset,
+    );
 
     const endHint = sameBlock
         ? offsetWithinBlock(refBlock, range.endContainer, range.endOffset)
@@ -130,7 +146,10 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
     const safeStart = startHint < 0 ? 0 : startHint;
     const safeEnd = endHint < 0 ? safeStart + quote.length : endHint;
 
-    const prefix = refText.slice(Math.max(0, safeStart - PREFIX_SUFFIX_LEN), safeStart);
+    const prefix = refText.slice(
+        Math.max(0, safeStart - PREFIX_SUFFIX_LEN),
+        safeStart,
+    );
     const suffix = refText.slice(safeEnd, safeEnd + PREFIX_SUFFIX_LEN);
 
     return {
@@ -143,7 +162,6 @@ export function captureSelection(container: HTMLElement | null): SelectionInfo |
         rect,
     };
 }
-
 
 /**
  * REQ-M6-027: synthetic highlight management for the inline composer.
@@ -194,7 +212,9 @@ export function wrapRangeWithMarks(
 
     const root = range.commonAncestorContainer;
     const walkRoot =
-        root.nodeType === Node.TEXT_NODE ? (root.parentNode as Node | null) : root;
+        root.nodeType === Node.TEXT_NODE
+            ? (root.parentNode as Node | null)
+            : root;
 
     if (!walkRoot) {
         return marks;
@@ -221,12 +241,9 @@ export function wrapRangeWithMarks(
     }
 
     for (const textNode of textNodes) {
-        const start =
-            textNode === range.startContainer ? range.startOffset : 0;
+        const start = textNode === range.startContainer ? range.startOffset : 0;
         const end =
-            textNode === range.endContainer
-                ? range.endOffset
-                : textNode.length;
+            textNode === range.endContainer ? range.endOffset : textNode.length;
 
         if (start >= end) {
             continue;
@@ -290,7 +307,10 @@ export function unwrapMarks(
     });
 
     parents.forEach((parent) => {
-        if (parent.nodeType === Node.ELEMENT_NODE || parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+        if (
+            parent.nodeType === Node.ELEMENT_NODE ||
+            parent.nodeType === Node.DOCUMENT_FRAGMENT_NODE
+        ) {
             (parent as Element).normalize();
         }
     });

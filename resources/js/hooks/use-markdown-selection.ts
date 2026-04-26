@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import { captureSelection, findBlockAncestor, offsetWithinBlock } from '@/lib/selection-helpers';
+import {
+    captureSelection,
+    findBlockAncestor,
+    offsetWithinBlock,
+} from '@/lib/selection-helpers';
 import type { SelectionInfo } from '@/lib/selection-helpers';
 
 /**

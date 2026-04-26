@@ -37,7 +37,13 @@ type Props = {
  * flat row of pills so the chrome scales when a snapshot accumulates dozens
  * of revisions.
  */
-export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, className, onSelectHistorical }: Props) {
+export function VersionSwitcher({
+    workbenchSlug,
+    snapshotSlug,
+    versions,
+    className,
+    onSelectHistorical,
+}: Props) {
     if (versions.length <= 1) {
         return null;
     }
@@ -63,7 +69,7 @@ export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, classNa
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="min-w-[14rem]">
-                <DropdownMenuLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <DropdownMenuLabel className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     Revisions
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
@@ -74,7 +80,11 @@ export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, classNa
                         aria-current={version.is_current ? 'true' : undefined}
                     >
                         <Link
-                            href={buildHref(workbenchSlug, snapshotSlug, version.revision)}
+                            href={buildHref(
+                                workbenchSlug,
+                                snapshotSlug,
+                                version.revision,
+                            )}
                             preserveScroll
                             onClick={() => {
                                 if (!version.is_current) {
@@ -92,7 +102,10 @@ export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, classNa
                                 </span>
                             </span>
                             {version.is_current ? (
-                                <Check className="size-4 text-foreground" aria-hidden />
+                                <Check
+                                    className="size-4 text-foreground"
+                                    aria-hidden
+                                />
                             ) : null}
                         </Link>
                     </DropdownMenuItem>
@@ -102,8 +115,15 @@ export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, classNa
     );
 }
 
-function buildHref(workbenchSlug: string, snapshotSlug: string, revision: number): string {
-    const url = new URL(`/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`, window.location.origin);
+function buildHref(
+    workbenchSlug: string,
+    snapshotSlug: string,
+    revision: number,
+): string {
+    const url = new URL(
+        `/workbenches/${workbenchSlug}/snapshots/${snapshotSlug}`,
+        window.location.origin,
+    );
     url.searchParams.set('revision', String(revision));
 
     return `${url.pathname}${url.search}`;

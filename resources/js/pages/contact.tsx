@@ -77,8 +77,8 @@ export default function Contact() {
                             Prefer async?
                         </strong>{' '}
                         All of our inboxes are monitored in business hours
-                        (CE(S)T). For urgent production incidents on paid
-                        plans, use the status page runbook included with your
+                        (CE(S)T). For urgent production incidents on paid plans,
+                        use the status page runbook included with your
                         onboarding.
                     </p>
                 </div>

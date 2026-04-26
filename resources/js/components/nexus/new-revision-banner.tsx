@@ -55,7 +55,10 @@ export function NewRevisionBanner({
         window.addEventListener('keydown', handleKeyDown);
 
         return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            document.removeEventListener(
+                'visibilitychange',
+                handleVisibilityChange,
+            );
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [latestRevision, renderedRevision, onDismiss]);
@@ -68,7 +71,7 @@ export function NewRevisionBanner({
         <div
             data-testid="nexus-new-revision-banner"
             className={cn(
-                'sticky top-0 z-30 flex w-full items-center justify-center border-b border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary animate-pulse-once',
+                'animate-pulse-once sticky top-0 z-30 flex w-full items-center justify-center border-b border-primary/30 bg-primary/10 px-4 py-2 text-xs font-medium text-primary',
                 className,
             )}
         >

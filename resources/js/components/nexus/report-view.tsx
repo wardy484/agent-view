@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import type {Components} from 'react-markdown';
+import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 import { CommentHighlightOverlay } from '@/components/nexus/comment-highlight-overlay';
@@ -111,7 +111,10 @@ export function ReportView({
     const blockOrder = useMemo(
         () =>
             blocks
-                .filter((block): block is MarkdownBlock => block.type === 'markdown' && Boolean(block.id))
+                .filter(
+                    (block): block is MarkdownBlock =>
+                        block.type === 'markdown' && Boolean(block.id),
+                )
                 .map((block) => block.id as string),
         [blocks],
     );
@@ -149,7 +152,8 @@ export function ReportView({
     const handleComment = () => {};
     const handleSuggest = () => {};
 
-    const sidebarVisible = comments !== undefined && comments !== null && snapshotId !== undefined;
+    const sidebarVisible =
+        comments !== undefined && comments !== null && snapshotId !== undefined;
 
     const reportBody = (
         <div
@@ -211,8 +215,12 @@ export function ReportView({
                             );
 
                             if (card) {
-                                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                const jumpBtn = card.querySelector<HTMLElement>('button');
+                                card.scrollIntoView({
+                                    behavior: 'smooth',
+                                    block: 'center',
+                                });
+                                const jumpBtn =
+                                    card.querySelector<HTMLElement>('button');
                                 jumpBtn?.click();
                             }
                         }, 0);
@@ -286,7 +294,8 @@ function MarkdownBlockView({ id, body }: { id?: string; body: string }) {
 }
 
 function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
-    const title = block.title ?? block.snapshot_slug ?? `Snapshot #${block.snapshot_id}`;
+    const title =
+        block.title ?? block.snapshot_slug ?? `Snapshot #${block.snapshot_id}`;
 
     if (block.restricted) {
         return (
@@ -374,25 +383,46 @@ function EmbeddedView({ block }: { block: ResolvedEmbedBlock }) {
     const payload = (block.data_payload ?? {}) as Record<string, unknown>;
 
     if (block.view_type === 'table') {
-        return <TableView payload={payload as TableViewPayload} fullBleed={false} />;
+        return (
+            <TableView
+                payload={payload as TableViewPayload}
+                fullBleed={false}
+            />
+        );
     }
 
     if (block.view_type === 'kanban') {
-        return <KanbanView payload={payload as KanbanViewPayload} fullBleed={false} />;
+        return (
+            <KanbanView
+                payload={payload as KanbanViewPayload}
+                fullBleed={false}
+            />
+        );
     }
 
     if (block.view_type === 'flowchart') {
-        return <FlowchartView payload={payload as FlowchartViewPayload} fullBleed={false} />;
+        return (
+            <FlowchartView
+                payload={payload as FlowchartViewPayload}
+                fullBleed={false}
+            />
+        );
     }
 
     if (block.view_type === 'slide_deck') {
-        return <SlideDeckView payload={payload as SlideDeckViewPayload} mode="embedded" />;
+        return (
+            <SlideDeckView
+                payload={payload as SlideDeckViewPayload}
+                mode="embedded"
+            />
+        );
     }
 
     return (
         <div className="rounded-md border border-dashed border-border p-4 text-xs text-muted-foreground">
             Embed renderer for view_type{' '}
-            <code className="font-mono">{block.view_type}</code> is not implemented.
+            <code className="font-mono">{block.view_type}</code> is not
+            implemented.
         </div>
     );
 }
@@ -422,7 +452,9 @@ function RevisionBadge({
                     <span
                         className={cn(
                             'font-mono',
-                            isStale ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground',
+                            isStale
+                                ? 'text-amber-600 dark:text-amber-400'
+                                : 'text-muted-foreground',
                         )}
                     >
                         current v{current}
@@ -442,23 +474,35 @@ type MdProps = {
 function buildMarkdownComponents(): Components {
     return {
         h1: ({ children }: MdProps) => (
-            <h2 className="mt-2 mb-4 text-3xl font-semibold tracking-tight">{children}</h2>
+            <h2 className="mt-2 mb-4 text-3xl font-semibold tracking-tight">
+                {children}
+            </h2>
         ),
         h2: ({ children }: MdProps) => (
-            <h3 className="mt-2 mb-3 text-2xl font-semibold tracking-tight">{children}</h3>
+            <h3 className="mt-2 mb-3 text-2xl font-semibold tracking-tight">
+                {children}
+            </h3>
         ),
         h3: ({ children }: MdProps) => (
             <h4 className="mt-2 mb-2 text-xl font-semibold">{children}</h4>
         ),
-        p: ({ children }: MdProps) => <p className="mb-4 last:mb-0">{children}</p>,
+        p: ({ children }: MdProps) => (
+            <p className="mb-4 last:mb-0">{children}</p>
+        ),
         ul: ({ children }: MdProps) => (
-            <ul className="mb-4 list-disc space-y-1 pl-6 last:mb-0">{children}</ul>
+            <ul className="mb-4 list-disc space-y-1 pl-6 last:mb-0">
+                {children}
+            </ul>
         ),
         ol: ({ children }: MdProps) => (
-            <ol className="mb-4 list-decimal space-y-1 pl-6 last:mb-0">{children}</ol>
+            <ol className="mb-4 list-decimal space-y-1 pl-6 last:mb-0">
+                {children}
+            </ol>
         ),
         li: ({ children }: MdProps) => <li className="pl-1">{children}</li>,
-        strong: ({ children }: MdProps) => <strong className="font-semibold">{children}</strong>,
+        strong: ({ children }: MdProps) => (
+            <strong className="font-semibold">{children}</strong>
+        ),
         em: ({ children }: MdProps) => <em className="italic">{children}</em>,
         a: ({ children, href }: MdProps) => (
             <a
@@ -471,7 +515,7 @@ function buildMarkdownComponents(): Components {
             </a>
         ),
         blockquote: ({ children }: MdProps) => (
-            <blockquote className="my-4 border-l-2 border-border pl-4 italic text-muted-foreground">
+            <blockquote className="my-4 border-l-2 border-border pl-4 text-muted-foreground italic">
                 {children}
             </blockquote>
         ),
@@ -483,7 +527,7 @@ function buildMarkdownComponents(): Components {
                 return (
                     <code
                         className={cn(
-                            'block whitespace-pre font-mono text-sm leading-relaxed',
+                            'block font-mono text-sm leading-relaxed whitespace-pre',
                             className,
                         )}
                         {...rest}
@@ -509,18 +553,24 @@ function buildMarkdownComponents(): Components {
         ),
         table: ({ children }: MdProps) => (
             <div className="mb-4 overflow-x-auto rounded-lg border border-border bg-background shadow-sm last:mb-0">
-                <table className="w-full border-collapse text-left text-sm">{children}</table>
+                <table className="w-full border-collapse text-left text-sm">
+                    {children}
+                </table>
             </div>
         ),
         thead: ({ children }: MdProps) => (
-            <thead className="border-b border-border bg-muted/40">{children}</thead>
+            <thead className="border-b border-border bg-muted/40">
+                {children}
+            </thead>
         ),
         tbody: ({ children }: MdProps) => <tbody>{children}</tbody>,
         tr: ({ children }: MdProps) => (
             <tr className="border-b border-border last:border-0">{children}</tr>
         ),
         th: ({ children }: MdProps) => (
-            <th className="px-4 py-2 text-sm font-semibold text-foreground">{children}</th>
+            <th className="px-4 py-2 text-sm font-semibold text-foreground">
+                {children}
+            </th>
         ),
         td: ({ children }: MdProps) => (
             <td className="px-4 py-2 text-sm text-foreground">{children}</td>

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 import {
     Tooltip,
@@ -59,7 +59,9 @@ const OVERLAY_SELECTOR = `mark[${OVERLAY_ATTR}="true"]`;
 // REQ-M6-033: a deletion is a suggestion whose proposed_text is the empty
 // string. Surfaced as a small helper so styling + tooltip can branch on it.
 function isDeletion(comment: HighlightCommentSummary): boolean {
-    return comment.kind === 'suggestion' && (comment.proposed_text ?? '') === '';
+    return (
+        comment.kind === 'suggestion' && (comment.proposed_text ?? '') === ''
+    );
 }
 
 // REQ-M6-033: styling branches on (status, kind, proposed_text emptiness).
@@ -100,7 +102,7 @@ export function CommentHighlightOverlay({
     containerRef,
     onCommentClick,
 }: Props) {
-    useEffect(() => {
+    useLayoutEffect(() => {
         // REQ-M6-040: do NOT capture containerRef.current at effect-start.
         // React's commit order attaches a parent's ref AFTER a child's
         // useLayoutEffect fires, so the child saw `null` on first mount and
@@ -108,7 +110,7 @@ export function CommentHighlightOverlay({
         // inside each wrapPass so the poll loop can retry until the ref
         // attaches (typically within 1-2 frames of mount).
 
-        // REQ-M6-039: opt-in diagnostic.
+        // REQ-M6-039: opt-in diagnostic gated on the ?debug-highlights URL flag.
         const debug =
             typeof window !== 'undefined' &&
             new URLSearchParams(window.location.search).has('debug-highlights');
@@ -158,7 +160,7 @@ export function CommentHighlightOverlay({
                 const blockEls = container.querySelectorAll(
                     '[data-comment-block-id]',
                 );
-                 
+
                 console.log('[highlight-overlay] wrapPass', {
                     trigger:
                         new Error().stack?.split('\n')[2]?.trim() ?? 'unknown',
@@ -264,7 +266,6 @@ export function CommentHighlightOverlay({
             }
 
             if (debug) {
-                 
                 console.log('[highlight-overlay] wrapPass result', { wrapped });
             }
 
@@ -324,13 +325,13 @@ export function CommentHighlightOverlay({
             const c = containerRef.current;
 
             if (!c || observer) {
-return;
-}
+                return;
+            }
 
             observer = new MutationObserver(() => {
                 if (rafId !== null) {
-return;
-}
+                    return;
+                }
 
                 rafId = requestAnimationFrame(() => {
                     rafId = null;
@@ -451,8 +452,14 @@ function findAnchorRange(
 
     if (candidates.length > 1) {
         for (const candidate of candidates) {
-            const candPrefix = text.slice(Math.max(0, candidate - prefix.length), candidate);
-            const candSuffix = text.slice(candidate + quote.length, candidate + quote.length + suffix.length);
+            const candPrefix = text.slice(
+                Math.max(0, candidate - prefix.length),
+                candidate,
+            );
+            const candSuffix = text.slice(
+                candidate + quote.length,
+                candidate + quote.length + suffix.length,
+            );
 
             if (
                 (prefix.length === 0 || candPrefix === prefix) &&
@@ -468,7 +475,11 @@ function findAnchorRange(
     return rangeFromFlatOffsets(block, chosen, chosen + quote.length);
 }
 
-function rangeFromFlatOffsets(block: HTMLElement, start: number, end: number): Range | null {
+function rangeFromFlatOffsets(
+    block: HTMLElement,
+    start: number,
+    end: number,
+): Range | null {
     const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
     let offset = 0;
     let startNode: Text | null = null;

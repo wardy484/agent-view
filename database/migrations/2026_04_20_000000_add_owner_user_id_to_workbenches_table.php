@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Nexus\WorkbenchOwnerBackfill;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -27,7 +28,7 @@ return new class extends Migration
         });
 
         // REQ-M4-000 back-fill: assign historical ownership from mcp_call_logs.
-        \App\Nexus\WorkbenchOwnerBackfill::run();
+        WorkbenchOwnerBackfill::run();
     }
 
     public function down(): void

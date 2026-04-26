@@ -25,16 +25,32 @@ final class KanbanPreviewRenderer
         $cards = is_array($payload['cards'] ?? null) ? array_values($payload['cards']) : [];
 
         $totalCards = count($cards);
-        $visibleCards = $cards;
+        $html = self::build($columns, $cards, $totalCards, shownCount: $totalCards);
 
-        $html = self::build($columns, $visibleCards, $totalCards, shownCount: count($visibleCards));
-
-        while (strlen($html) > self::BYTE_LIMIT && $visibleCards !== []) {
-            array_pop($visibleCards);
-            $html = self::build($columns, $visibleCards, $totalCards, shownCount: count($visibleCards));
+        if (strlen($html) <= self::BYTE_LIMIT) {
+            return $html;
         }
 
-        return $html;
+        // Binary search for the largest card count that fits the byte cap.
+        // Avoids the O(N^2) re-render that "pop one + rebuild" produces on
+        // payloads of thousands of cards.
+        $low = 0;
+        $high = $totalCards;
+        $bestHtml = self::build($columns, [], $totalCards, shownCount: 0);
+
+        while ($low <= $high) {
+            $mid = intdiv($low + $high, 2);
+            $candidate = self::build($columns, array_slice($cards, 0, $mid), $totalCards, shownCount: $mid);
+
+            if (strlen($candidate) <= self::BYTE_LIMIT) {
+                $bestHtml = $candidate;
+                $low = $mid + 1;
+            } else {
+                $high = $mid - 1;
+            }
+        }
+
+        return $bestHtml;
     }
 
     /**
