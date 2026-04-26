@@ -53,6 +53,7 @@ importers:
       lightningcss-win32-x64-msvc: ^1.29.1
       lucide-react: ^0.475.0
       mermaid: ^11.14.0
+      playwright: ^1.59.1
       prettier: ^3.4.2
       prettier-plugin-tailwindcss: ^0.6.11
       pusher-js: ^8.5.0
@@ -131,6 +132,7 @@ importers:
       eslint-plugin-import: 2.32.0_eslint@9.39.4
       eslint-plugin-react: 7.37.5_eslint@9.39.4
       eslint-plugin-react-hooks: 7.1.1_eslint@9.39.4
+      playwright: 1.59.1
       prettier: 3.8.3
       prettier-plugin-tailwindcss: 0.6.14_prettier@3.8.3
       storybook: 10.3.5_f7370fd7a13441096be5626e76e8fcb5
@@ -4671,6 +4673,13 @@ packages:
       is-callable: 1.2.7
     dev: true
 
+  /fsevents/2.3.2:
+    resolution: {integrity: sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA==}
+    engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
+    os: [darwin]
+    dev: true
+    optional: true
+
   /fsevents/2.3.3:
     resolution: {integrity: sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==}
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
@@ -6261,6 +6270,22 @@ packages:
       mlly: 1.8.2
       pathe: 2.0.3
     dev: false
+
+  /playwright-core/1.59.1:
+    resolution: {integrity: sha512-HBV/RJg81z5BiiZ9yPzIiClYV/QMsDCKUyogwH9p3MCP6IYjUFu/MActgYAvK0oWyV9NlwM3GLBjADyWgydVyg==}
+    engines: {node: '>=18'}
+    hasBin: true
+    dev: true
+
+  /playwright/1.59.1:
+    resolution: {integrity: sha512-C8oWjPR3F81yljW9o5OxcWzfh6avkVwDD2VYdwIGqTkl+OGFISgypqzfu7dOe4QNLL2aqcWBmI3PMtLIK233lw==}
+    engines: {node: '>=18'}
+    hasBin: true
+    dependencies:
+      playwright-core: 1.59.1
+    optionalDependencies:
+      fsevents: 2.3.2
+    dev: true
 
   /points-on-curve/0.2.0:
     resolution: {integrity: sha512-0mYKnYYe9ZcqMCWhUjItv/oHjvgEsfKvnUTg8sAtnHr3GVy7rGkXCb6d5cSyqrWqL4k81b9CPg3urd+T7aop3A==}

@@ -216,6 +216,46 @@
 - **REQ-M9-011** Rebuild the visual chrome of `components/nexus/table-view.tsx`, `kanban-view.tsx`, `flowchart-view.tsx`, and `slide-deck-view.tsx` against the new tokens (radius, spacing, shadow, font scale). Functional behaviour is unchanged. A kanban column placed next to a shadcn `<Card>` should feel visually contiguous.
 - **REQ-M9-012** Walk every refreshed surface in dark mode and fix any contrast failures (WCAG AA), token bleed, or hard-coded light-only colours. Add a Pest browser test (`tests/Browser/`) that flips `data-theme` between light and dark and asserts no console errors on each major route. As a polish task, refresh `DemoSnapshotSeeder` so the demo workbench includes a long-form markdown report that showcases the new Source Serif 4 prose styling.
 
+## M11 — UI Baseline (Pest 4 Browser)
+
+> Lock down a smoke + interaction baseline for the signed-in app using Pest 4
+> browser testing. Every top-level user-visible flow becomes a Pest browser
+> test that asserts the page renders, has no console errors, and the core
+> interaction works end-to-end. Pest 4's built-in helpers (`actingAs`,
+> `assertNoJavaScriptErrors`, `assertNoConsoleLogs`, `visit([...])` smoke
+> sweeps, `--parallel` sharding) are used as-is — no custom auth helpers,
+> no custom browser engine config, no visual regression diffing.
+>
+> Coverage spans five buckets: auth (login, register, 2FA setup, 2FA
+> challenge, logout), dashboard (library home + sample launcher), tokens
+> settings (mint + revoke — required for app to be usable), one smoke per
+> `view_type` (table, kanban, report, flowchart, slide_deck), the version
+> switcher, and the report comment lifecycle. Out of scope: visual regression
+> diffing, MCP-only flows, settings UIs other than tokens, sharing UI.
+>
+> M11 introduces a single `UiBaselineSeeder` that owns one canonical fixture
+> per `view_type`, distinct from `DemoSnapshotSeeder` so demo content can
+> drift independently. Tests live under `tests/Browser/`, `RefreshDatabase`
+> per test, JS-error-strict by default. CI runs these tests in a dedicated
+> `ui-baseline` GitHub Actions job, sharded into 2 parallel runners.
+
+- **REQ-M11-001** `database/seeders/UiBaselineSeeder.php` exists and idempotently seeds one workbench owned by a known fixture user, plus exactly one snapshot per supported `view_type` (`table`, `kanban`, `report`, `flowchart`, `slide_deck`), each with a stable slug derived from the view type (e.g. `ui-baseline-table`). Tests under `tests/Browser/` may run the seeder via `$this->seed(UiBaselineSeeder::class)`. The seeder is registered in `DatabaseSeeder` only when `APP_ENV === 'testing'`.
+- **REQ-M11-002** `tests/Browser/Auth/LoginTest.php` calls `visit('/login')`, fills the email + password fields for a factory-built unverified user, submits, asserts redirected to `/dashboard`, asserts the user is authenticated (`$this->assertAuthenticatedAs(...)`), and asserts no JavaScript errors via `assertNoJavaScriptErrors()`.
+- **REQ-M11-003** `tests/Browser/Auth/RegisterTest.php` calls `visit('/register')`, fills name/email/password fields with valid input, submits, asserts the resulting `users` row exists via `assertDatabaseHas('users', ['email' => …])`, asserts auto-login + redirect to dashboard, and asserts no JavaScript errors.
+- **REQ-M11-004** `tests/Browser/Auth/TwoFactorSetupTest.php`, signed in as a fresh user without 2FA, navigates to the 2FA setup surface, confirms the QR/secret is rendered, submits a TOTP code derived from the displayed secret, asserts `users.two_factor_confirmed_at` is non-null, asserts recovery codes are visible on the resulting page, and asserts no JavaScript errors.
+- **REQ-M11-005** `tests/Browser/Auth/TwoFactorChallengeTest.php` provisions a user with 2FA already confirmed, performs a fresh login, asserts the challenge page is shown rather than the dashboard, submits a valid TOTP code, asserts redirected to `/dashboard`, and asserts no JavaScript errors.
+- **REQ-M11-006** `tests/Browser/Auth/LogoutTest.php`, signed in via `actingAs`, clicks the global navigation logout control (not a direct `POST /logout` call), asserts the session is terminated (`$this->assertGuest()`), asserts that subsequently visiting a protected page (`/dashboard`) bounces to `/login`, and asserts no JavaScript errors. The immediate post-logout landing page is whatever Fortify's `LogoutResponse` configures (currently `/`); the load-bearing assertion is that the session is gone, not the literal redirect target. The HTTP `POST /logout` endpoint itself is covered by Fortify's own tests and is not re-asserted here.
+- **REQ-M11-007** `tests/Browser/DashboardTest.php`, signed in as a fresh user owning zero workbenches, visits `/dashboard`, asserts the empty-state panel renders the workbench definition copy plus the `/settings/tokens` mint CTA plus the MCP endpoint reference (tool name `present_structured_data`, path `POST /ai/mcp/nexus`) per REQ-M8-004, asserts neither the recents rail nor the workbenches list is rendered, and asserts no JavaScript errors. The seeded `UiBaselineSeeder` fixture user owns at least one workbench so M8's empty state never renders for them; tests for the populated dashboard are deferred to a future REQ if needed.
+- **REQ-M11-008** `tests/Browser/Settings/TokensTest.php`, signed in, visits `/settings/tokens`, fills a token name, submits the mint form, asserts the plaintext token is rendered exactly once on the resulting page, asserts the token's row appears in the listing, clicks the row's revoke control, asserts the row disappears and the underlying `personal_access_tokens` row is deleted, and asserts no JavaScript errors.
+- **REQ-M11-009** `tests/Browser/Snapshot/TableViewTest.php`, signed in as the seeder fixture user, visits the seeded `ui-baseline-table` snapshot URL, asserts at least one column header and one data row are visible, clicks a sortable column header, asserts the rendered row order changes, and asserts no JavaScript errors.
+- **REQ-M11-010** `tests/Browser/Snapshot/KanbanViewTest.php` visits the seeded `ui-baseline-kanban` snapshot URL, asserts every seeded column and at least one card per column are rendered, moves a card to a different column via `App\Nexus\SnapshotVersioning::append()` (the canonical writer a drag-drop controller would invoke; `kanban-view.tsx` is currently presentational and has no drag handles wired up), asserts the destination column now contains the card after a re-visit, asserts a new `snapshot_versions` row was appended for the move, and asserts no JavaScript errors. A future REQ may replace the synthetic move with a literal drag gesture once the kanban view ships drag-drop handlers.
+- **REQ-M11-011** `tests/Browser/Snapshot/ReportViewTest.php` visits the seeded `ui-baseline-report` snapshot URL, asserts the seeded markdown blocks render their text content, asserts a version-history affordance is present (the sidebar `History` tab — the inline `<VersionSwitcher>` only renders when `versions.length > 1`, which the seeded snapshot does not satisfy), and asserts no JavaScript errors. This REQ is the prerequisite fixture for REQ-M11-014 and REQ-M11-015.
+- **REQ-M11-012** `tests/Browser/Snapshot/FlowchartViewTest.php` visits the seeded `ui-baseline-flowchart` snapshot URL, asserts a rendered `<svg>` produced by mermaid is present in the DOM, and asserts no JavaScript errors. Mermaid console warnings (level `warn` only) are tolerated; errors fail the test.
+- **REQ-M11-013** `tests/Browser/Snapshot/SlideDeckViewTest.php` visits the seeded `ui-baseline-slide_deck` snapshot URL, asserts the first slide's content is rendered, clicks the next-slide control, asserts the second slide is now visible and the first is not, clicks previous, asserts the first returns, and asserts no JavaScript errors.
+- **REQ-M11-014** `tests/Browser/Snapshot/VersionSwitcherTest.php` starts on the seeded `ui-baseline-report` snapshot, calls `App\Nexus\SnapshotVersioning::append()` to add a second revision with distinct content, reloads the page, opens the version switcher, clicks the prior revision, asserts the v1 content is now rendered (and v2 content is not), clicks the latest revision, asserts v2 returns, and asserts no JavaScript errors.
+- **REQ-M11-015** `tests/Browser/Snapshot/ReportCommentsTest.php` starts on the seeded `ui-baseline-report` snapshot, selects text in a markdown block, opens the comment composer, submits a comment body, asserts a new `snapshot_comments` row exists and the thread renders, replies to the comment as a second user, asserts the reply is visible, resolves the comment via the resolve control, asserts the thread's `status` is now `resolved`, and asserts no JavaScript errors.
+- **REQ-M11-016** `.github/workflows/ui-baseline.yml` defines a `ui-baseline` job that runs `php artisan test --parallel` filtered to `tests/Browser/`, with a 2-shard matrix (`shard: [1, 2]` passed via `--shard` flag), caching the Playwright browser binaries between runs. The job blocks merge on failure, runs on `pull_request` and `push` to `main`. The existing `quality-gate` job continues to skip browser tests so it stays fast.
+
 ---
 
 ## Requirement ID Rules
