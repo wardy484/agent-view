@@ -1,5 +1,15 @@
 import { Link } from '@inertiajs/react';
+import { Check, History } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 
 export type SnapshotVersionSummary = {
@@ -21,43 +31,74 @@ type Props = {
 };
 
 /**
- * REQ-M1-007: lists every revision of a snapshot newest first and navigates
- * to the selected revision via `?revision=N`.
+ * REQ-M1-007 / REQ-M9-009: lists every revision of a snapshot newest-first
+ * and navigates to the selected revision via `?revision=N`. Rebuilt against
+ * the M9 design tokens — uses the shadcn DropdownMenu primitive instead of a
+ * flat row of pills so the chrome scales when a snapshot accumulates dozens
+ * of revisions.
  */
 export function VersionSwitcher({ workbenchSlug, snapshotSlug, versions, className, onSelectHistorical }: Props) {
     if (versions.length <= 1) {
         return null;
     }
 
+    const current = versions.find((v) => v.is_current) ?? versions[0];
+
     return (
-        <nav
-            data-testid="nexus-version-switcher"
-            aria-label="Snapshot revisions"
-            className={cn('flex flex-wrap items-center gap-1 rounded-lg border border-border bg-background p-1', className)}
-        >
-            <span className="px-2 text-xs uppercase tracking-wide text-muted-foreground">Revisions</span>
-            {versions.map((version) => (
-                <Link
-                    key={version.id}
-                    href={buildHref(workbenchSlug, snapshotSlug, version.revision)}
-                    preserveScroll
-                    onClick={() => {
-                        if (!version.is_current) {
-                            onSelectHistorical?.();
-                        }
-                    }}
-                    className={cn(
-                        'rounded-md px-2 py-1 text-xs font-medium',
-                        version.is_current
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
-                    )}
-                    aria-current={version.is_current ? 'true' : undefined}
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    data-testid="nexus-version-switcher"
+                    className={cn('inline-flex items-center gap-2', className)}
+                    aria-label="Snapshot Revisions"
                 >
-                    r{version.revision}
-                </Link>
-            ))}
-        </nav>
+                    <History className="size-4" aria-hidden />
+                    <span>Revision r{current.revision}</span>
+                    <span className="text-xs text-muted-foreground">
+                        of {versions.length}
+                    </span>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[14rem]">
+                <DropdownMenuLabel className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Revisions
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {versions.map((version) => (
+                    <DropdownMenuItem
+                        key={version.id}
+                        asChild
+                        aria-current={version.is_current ? 'true' : undefined}
+                    >
+                        <Link
+                            href={buildHref(workbenchSlug, snapshotSlug, version.revision)}
+                            preserveScroll
+                            onClick={() => {
+                                if (!version.is_current) {
+                                    onSelectHistorical?.();
+                                }
+                            }}
+                            className="flex w-full items-center justify-between gap-3"
+                        >
+                            <span className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-muted-foreground">
+                                    r{version.revision}
+                                </span>
+                                <span className="text-sm capitalize">
+                                    {version.view_type.replace('_', ' ')}
+                                </span>
+                            </span>
+                            {version.is_current ? (
+                                <Check className="size-4 text-foreground" aria-hidden />
+                            ) : null}
+                        </Link>
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 }
 

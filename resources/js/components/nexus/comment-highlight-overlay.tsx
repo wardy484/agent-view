@@ -130,6 +130,7 @@ export function CommentHighlightOverlay({
             // REQ-M6-040: read containerRef lazily — the parent's ref may not
             // have been attached yet on the very first call.
             const container = containerRef.current;
+
             if (!container || unmounted) {
                 return 0;
             }
@@ -190,6 +191,7 @@ export function CommentHighlightOverlay({
                             blockId: comment.block_id,
                         });
                     }
+
                     continue;
                 }
 
@@ -208,6 +210,7 @@ export function CommentHighlightOverlay({
                             blockText: block.textContent?.slice(0, 100),
                         });
                     }
+
                     continue;
                 }
 
@@ -237,7 +240,11 @@ export function CommentHighlightOverlay({
                         );
                     }
 
-                    mark.className = `${cls} cursor-pointer rounded px-0.5 hover:ring-2 hover:ring-amber-400`;
+                    // REQ-M9-010: hover ring uses the M9 `--ring` token so it
+                    // tracks the rest of the design system instead of a raw
+                    // amber swatch. The tint classes themselves are pinned
+                    // by REQ-M6-037 and must not change here.
+                    mark.className = `${cls} cursor-pointer rounded-sm px-0.5 transition-shadow hover:ring-2 hover:ring-ring hover:ring-offset-1`;
                     mark.title = tooltipLabel;
                     mark.setAttribute('aria-label', tooltipLabel);
                     mark.setAttribute('data-tooltip', tooltipLabel);
@@ -315,9 +322,16 @@ export function CommentHighlightOverlay({
         // container ref may be null on first mount.
         const ensureObserver = () => {
             const c = containerRef.current;
-            if (!c || observer) return;
+
+            if (!c || observer) {
+return;
+}
+
             observer = new MutationObserver(() => {
-                if (rafId !== null) return;
+                if (rafId !== null) {
+return;
+}
+
                 rafId = requestAnimationFrame(() => {
                     rafId = null;
                     wrapPass();
@@ -334,6 +348,7 @@ export function CommentHighlightOverlay({
         const observerAttachInterval = setInterval(() => {
             observerAttachTries += 1;
             ensureObserver();
+
             if (observer || observerAttachTries > 20) {
                 clearInterval(observerAttachInterval);
             }
@@ -362,6 +377,7 @@ export function CommentHighlightOverlay({
             }
 
             const c = containerRef.current;
+
             if (c && c.isConnected) {
                 unwrapOverlayMarks(c);
             }

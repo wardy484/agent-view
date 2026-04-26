@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type KanbanColumn = {
@@ -62,6 +63,12 @@ function statusStripeClass(status: KanbanCardStatus | undefined): string {
  * fields. When present they upgrade the title to an external link, add a
  * coloured 4px left border stripe, and render an assignee chip in the
  * footer. Cards that omit these fields render exactly as before.
+ *
+ * REQ-M9-011: visual chrome rebuilt against the shadcn token scale. Each
+ * column is a `<Card>` with the `bg-muted/30` tint, card chips reuse the
+ * shadcn `<Badge>` primitive, and spacing/radius/shadow come from the new
+ * tokens so a column placed next to any other shadcn `<Card>` feels
+ * visually contiguous.
  */
 export function KanbanView({ payload, className, fullBleed = false }: Props) {
     const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
@@ -85,7 +92,10 @@ export function KanbanView({ payload, className, fullBleed = false }: Props) {
         return (
             <div
                 data-testid="nexus-kanban-view"
-                className={cn('rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground', className)}
+                className={cn(
+                    'rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground',
+                    className,
+                )}
             >
                 No columns to display.
             </div>
@@ -99,7 +109,7 @@ export function KanbanView({ payload, className, fullBleed = false }: Props) {
             data-card-count={cards.length}
             data-full-bleed={fullBleed}
             className={cn(
-                'flex w-full gap-3 overflow-x-auto pb-2',
+                'flex w-full gap-4 overflow-x-auto pb-4',
                 fullBleed && 'h-screen min-h-screen items-stretch p-4',
                 className,
             )}
@@ -109,70 +119,75 @@ export function KanbanView({ payload, className, fullBleed = false }: Props) {
                 const label = column.label ?? column.key;
 
                 return (
-                    <section
+                    <Card
                         key={column.key}
                         data-column-key={column.key}
-                        className="flex min-w-[16rem] flex-1 flex-col gap-2 rounded-lg border border-border bg-muted/30 p-3"
+                        className="min-w-64 flex-1 gap-4 bg-muted/30 px-4 py-4 shadow-xs"
                     >
                         <header className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-muted-foreground">
                             <span>{label}</span>
-                            <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-semibold text-foreground">
+                            <Badge
+                                variant="secondary"
+                                className="bg-background text-xs font-semibold text-foreground"
+                            >
                                 {columnCards.length}
-                            </span>
+                            </Badge>
                         </header>
 
-                        <div className="flex flex-col gap-2">
-                            {columnCards.map((card, index) => {
-                                const stripeClass = statusStripeClass(card.status);
+                        <div className="flex flex-col gap-4">
+                                {columnCards.map((card, index) => {
+                                    const stripeClass = statusStripeClass(card.status);
 
-                                return (
-                                    <article
-                                        key={card.id ?? `${column.key}-${index}`}
-                                        data-testid="nexus-kanban-card"
-                                        data-card-status={card.status ?? undefined}
-                                        className={cn(
-                                            'rounded-md border border-border bg-background p-3 text-sm shadow-sm',
-                                            stripeClass,
-                                        )}
-                                    >
-                                        <h3 className="text-sm font-semibold text-foreground">
-                                            {card.link_url ? (
-                                                <a
-                                                    href={card.link_url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    data-testid="nexus-kanban-card-link"
-                                                    className="underline-offset-2 hover:underline"
-                                                >
-                                                    {card.title}
-                                                </a>
-                                            ) : (
-                                                card.title
+                                    return (
+                                        <article
+                                            key={card.id ?? `${column.key}-${index}`}
+                                            data-testid="nexus-kanban-card"
+                                            data-card-status={card.status ?? undefined}
+                                            className={cn(
+                                                'rounded-md border border-border bg-background px-4 py-4 text-sm shadow-xs',
+                                                stripeClass,
                                             )}
-                                        </h3>
-                                        {card.body ? (
-                                            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{card.body}</p>
-                                        ) : null}
-                                        {card.assignee ? (
-                                            <footer className="mt-2 flex items-center">
-                                                <Badge
-                                                    variant="secondary"
-                                                    data-testid="nexus-kanban-card-assignee"
-                                                    className="text-[10px]"
-                                                >
-                                                    {card.assignee}
-                                                </Badge>
-                                            </footer>
-                                        ) : null}
-                                    </article>
-                                );
-                            })}
+                                        >
+                                            <h3 className="text-sm font-semibold text-foreground">
+                                                {card.link_url ? (
+                                                    <a
+                                                        href={card.link_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        data-testid="nexus-kanban-card-link"
+                                                        className="underline-offset-2 hover:underline"
+                                                    >
+                                                        {card.title}
+                                                    </a>
+                                                ) : (
+                                                    card.title
+                                                )}
+                                            </h3>
+                                            {card.body ? (
+                                                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                                                    {card.body}
+                                                </p>
+                                            ) : null}
+                                            {card.assignee ? (
+                                                <footer className="mt-4 flex items-center">
+                                                    <Badge
+                                                        variant="secondary"
+                                                        data-testid="nexus-kanban-card-assignee"
+                                                        className="text-xs"
+                                                    >
+                                                        {card.assignee}
+                                                    </Badge>
+                                                </footer>
+                                            ) : null}
+                                        </article>
+                                    );
+                                })}
 
                             {columnCards.length === 0 ? (
                                 <p className="text-xs italic text-muted-foreground">No cards.</p>
                             ) : null}
                         </div>
-                    </section>
+                    </Card>
                 );
             })}
         </div>

@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useClipboard } from '@/hooks/use-clipboard';
+import { cn } from '@/lib/utils';
 
 export type SnapshotVisibility = 'private' | 'link' | 'shared';
 
@@ -149,7 +150,7 @@ export function ShareDialog({
             </DialogTrigger>
             <DialogContent className="sm:max-w-md" data-testid="nexus-share-dialog">
                 <DialogHeader>
-                    <DialogTitle>Share snapshot</DialogTitle>
+                    <DialogTitle>Share Snapshot</DialogTitle>
                     <DialogDescription>
                         Choose who can see the latest revision of this snapshot.
                     </DialogDescription>
@@ -168,7 +169,7 @@ export function ShareDialog({
                         <VisibilityOption
                             current={visibility}
                             value="link"
-                            title="Anyone with the link"
+                            title="Anyone With the Link"
                             description="A signed URL anyone can open — no sign-in required."
                             icon={<Link2 className="size-4" aria-hidden />}
                             onSelect={changeVisibility}
@@ -176,7 +177,7 @@ export function ShareDialog({
                         <VisibilityOption
                             current={visibility}
                             value="shared"
-                            title="Specific people"
+                            title="Specific People"
                             description="Invite teammates by email. They'll sign in to view."
                             icon={<Mail className="size-4" aria-hidden />}
                             onSelect={changeVisibility}
@@ -184,9 +185,12 @@ export function ShareDialog({
                     </fieldset>
 
                     {visibility === 'link' && shareUrl ? (
-                        <div className="flex flex-col gap-2 rounded-md border border-border bg-muted/30 p-3">
-                            <Label htmlFor="share-url" className="text-xs text-muted-foreground">
-                                Public link
+                        <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+                            <Label
+                                htmlFor="share-url"
+                                className="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+                            >
+                                Public Link
                             </Label>
                             <div className="flex items-center gap-2">
                                 <Input id="share-url" readOnly value={shareUrl} className="font-mono text-xs" />
@@ -227,7 +231,7 @@ export function ShareDialog({
                                     {shares.map((share) => (
                                         <li
                                             key={share.id}
-                                            className="flex items-center justify-between gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm"
+                                            className="flex items-center justify-between gap-2 rounded-md border bg-background px-3 py-2 text-sm"
                                         >
                                             <div className="flex flex-col">
                                                 <span className="font-medium">{share.email}</span>
@@ -282,11 +286,10 @@ function VisibilityOption({
             type="button"
             onClick={() => onSelect(value)}
             aria-pressed={selected}
-            className={`flex items-start gap-3 rounded-md border p-3 text-left transition-colors ${
-                selected
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:bg-muted/50'
-            }`}
+            className={cn(
+                'flex items-start gap-3 rounded-md border p-3 text-left transition-colors',
+                selected ? 'border-primary bg-primary/5' : 'hover:bg-muted/50',
+            )}
         >
             <span className="mt-0.5 text-muted-foreground">{icon}</span>
             <span className="flex flex-col gap-0.5">

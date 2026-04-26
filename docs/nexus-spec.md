@@ -187,6 +187,35 @@
 - **REQ-M8-004** When the signed-in user owns zero workbenches, `resources/js/pages/dashboard.tsx` renders a single empty-state panel: a one-line definition of "workbench", a primary CTA linking to `/settings/tokens`, and the MCP endpoint reference (tool name `present_structured_data`, path `POST /ai/mcp/nexus`). Neither the recents rail nor the workbench list is rendered in the empty state. This is the only surface in the signed-in app where the MCP endpoint card lives.
 - **REQ-M8-005** When the signed-in user owns at least one workbench, `resources/js/pages/dashboard.tsx` renders, in this order: a **Recents** rail of the `recentSnapshots` props (≤5 cards, each linking to the snapshot via `workbench/{slug}/snapshot/{slug}`), followed by a **Workbenches** list of the `workbenches` prop (one row per workbench, name + relative last-activity timestamp, linking to the most recent snapshot of that workbench when `snapshot_count > 0`, otherwise linking to the workbench's `agent-activity` page as a placeholder destination). The page no longer renders KPI cards, view-type sample cards, or an MCP-endpoint reference card.
 
+## M9 — Design System Refresh
+
+> Replaces the current ad-hoc styling with a coherent, shadcn-anchored design
+> system tuned for a markdown-heavy reading app. Font kit is **Inter** (UI
+> chrome), **Source Serif 4** (long-form prose / report markdown), **JetBrains
+> Mono** (code) — all self-hosted, no Google CDN dependency. Casing rule:
+> Title Case for headings / buttons / nav, sentence case for body / helper
+> text / table cells, enforced by ESLint not vibes. Existing custom views
+> (kanban, flowchart, slide-deck, version-switcher) are brought in line with
+> the shadcn approach so bespoke surfaces stop looking out of place. Palette
+> is preserved for M9; only typography, radius, spacing, shadows are reworked.
+>
+> No prod data exists yet — comment-anchor staleness from typography changes
+> is acceptable, data may be purged. REQs are dependency-ordered so every
+> intermediate state has main green and `spec:check` shows monotonic progress.
+
+- **REQ-M9-001** Self-host Inter, Source Serif 4, and JetBrains Mono via `@font-face` declarations in `resources/css/app.css` (Bunny Fonts CDN acceptable as a stop-gap). Expose Tailwind v4 tokens `--font-sans` (Inter), `--font-serif` (Source Serif 4), `--font-mono` (JetBrains Mono) inside the `@theme` block. Default `body` to `font-sans`. REQ-M9-001 is purely additive — no other token changes, and no visual regressions outside the font swap itself.
+- **REQ-M9-002** Replace ad-hoc font sizes with a modular typographic scale anchored at 16 px base. Define `--text-xs` through `--text-4xl` plus matching `--leading-*` tokens in `resources/css/app.css` and expose via Tailwind's `@theme` block. Update shared chrome (`app-sidebar`, `app-header`, page titles) to consume the new tokens. Component-level overrides that duplicate a token are removed.
+- **REQ-M9-003** Define `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl` and a coherent shadow scale (`--shadow-xs` through `--shadow-lg`) matching shadcn defaults. Spacing rhythm tokens added if shadcn defaults differ from current usage. All shadcn primitives in `resources/js/components/ui/*` re-derive radius and shadow values from the new tokens — per-component magic numbers are removed.
+- **REQ-M9-004** Apply Source Serif 4 to long-form markdown via a hand-rolled `.prose` utility in `resources/css/app.css`. The `@tailwindcss/typography` plugin is deliberately avoided. Headings inside `.prose` stay `font-sans` (Inter) for hierarchy contrast; body and lists are serif (Source Serif 4); `pre` and inline `code` are JetBrains Mono. `report-view.tsx` blocks render under `.prose`. Block-level styling does not change block IDs — anchor stability from M6 is preserved.
+- **REQ-M9-005** Sweep every component under `resources/js/components/ui/*` to ensure it consumes the new tokens (font, radius, spacing, shadow) rather than hard-coded values; remove orphaned class strings. **Install Storybook** (`pnpm storybook`, config in `.storybook/`); add one story per shadcn primitive covering variants and states so future visual regressions are catchable. Storybook is dev-only and is not deployed.
+- **REQ-M9-006** Add an ESLint rule (custom plugin or pattern matcher) that warns on lowercase first-letter in JSX `<h1>`–`<h3>`, `<Button>`, and nav text. Sweep shared layouts (`app-sidebar`, `app-header`, breadcrumbs) and fix every existing violation. Body text, helper text, and table-cell strings remain sentence case and are ignored by the rule.
+- **REQ-M9-007** Refresh `pages/dashboard.tsx` as the canonical reference page. Replace any custom UI fragments with shadcn primitives, apply the new tokens, fix casing. Capture before/after screenshots in the PR body. Subsequent page refresh REQs follow this pattern.
+- **REQ-M9-008** Apply the dashboard refresh pattern to `pages/auth/*` (login, register, password reset, verify-email) and `pages/settings/*` (tokens, profile, password). Single PR. Any new form-row primitive needed by these pages lands here under `resources/js/components/ui/`.
+- **REQ-M9-009** Refresh `pages/snapshot.tsx` page chrome (header, breadcrumb, share dialog) and `components/nexus/version-switcher.tsx` against the new tokens. The Inertia layout boundary is unchanged; the view dispatcher logic is untouched. Only surrounding chrome moves to the new design system.
+- **REQ-M9-010** Refresh `components/nexus/report-view.tsx`: prose styling delegates to the REQ-M9-004 `.prose` utility, comment indicator styling rebuilt with new tokens, suggestion gutter polished. Every existing block `id` is carried forward verbatim — the M6 stable-anchor contract is non-negotiable.
+- **REQ-M9-011** Rebuild the visual chrome of `components/nexus/table-view.tsx`, `kanban-view.tsx`, `flowchart-view.tsx`, and `slide-deck-view.tsx` against the new tokens (radius, spacing, shadow, font scale). Functional behaviour is unchanged. A kanban column placed next to a shadcn `<Card>` should feel visually contiguous.
+- **REQ-M9-012** Walk every refreshed surface in dark mode and fix any contrast failures (WCAG AA), token bleed, or hard-coded light-only colours. Add a Pest browser test (`tests/Browser/`) that flips `data-theme` between light and dark and asserts no console errors on each major route. As a polish task, refresh `DemoSnapshotSeeder` so the demo workbench includes a long-form markdown report that showcases the new Source Serif 4 prose styling.
+
 ---
 
 ## Requirement ID Rules

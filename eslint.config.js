@@ -6,6 +6,8 @@ import react from 'eslint-plugin-react';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import typescript from 'typescript-eslint';
+// REQ-M9-006 — local plugin housing the no-lowercase-titles JSX rule.
+import nexusLocal from './eslint-rules/no-lowercase-titles.js';
 
 const controlStatements = [
     'if',
@@ -119,6 +121,8 @@ export default [
             'resources/js/wayfinder/**',
             // Claude Code skills are Node CLI scripts/tooling, not app code.
             '.claude/**',
+            // Storybook build output — generated, dev-only.
+            'storybook-static/**',
         ],
     },
     prettier, // Turn off all rules that might conflict with Prettier
@@ -129,6 +133,18 @@ export default [
         rules: {
             curly: ['error', 'all'],
             '@stylistic/brace-style': ['error', '1tbs', { allowSingleLine: false }],
+        },
+    },
+    // REQ-M9-006 — JSX casing rule for headings, buttons, and nav text.
+    // Severity is 'warn' so violations in page-level files (REQs 007–011)
+    // do not block CI before those sweeps land.
+    {
+        files: ['resources/js/**/*.{ts,tsx,jsx}'],
+        plugins: {
+            'nexus-local': nexusLocal,
+        },
+        rules: {
+            'nexus-local/no-lowercase-titles': 'warn',
         },
     },
 ];

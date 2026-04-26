@@ -1,20 +1,19 @@
 import { rankItem } from '@tanstack/match-sorter-utils';
 import {
-    
-    
-    
-    
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
     getSortedRowModel,
-    useReactTable
+    useReactTable,
 } from '@tanstack/react-table';
-import type {ColumnDef, ColumnFiltersState, FilterFn, SortingState} from '@tanstack/react-table';
+import type { ColumnDef, ColumnFiltersState, FilterFn, SortingState } from '@tanstack/react-table';
 import { ArrowDown, ArrowUp, ArrowUpDown } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type TableColumn = {
@@ -192,6 +191,11 @@ function writeStateToUrl(
  * REQ-M2-009: filter + sort state is mirrored into the URL so the view is
  *             shareable — refreshing or sharing the link restores the exact
  *             filter/sort configuration.
+ *
+ * REQ-M9-011: visual chrome rebuilt against the shadcn token scale — the
+ * outer frame is a `<Card>`, headers/cells use the type tokens, the toolbar
+ * and pagination buttons use shadcn `<Button>`. Functional contracts above
+ * are unchanged.
  */
 export function TableView({ payload, className, initialPageSize = 25, fullBleed = false }: Props) {
     const columns = useMemo(() => payload?.columns ?? [], [payload?.columns]);
@@ -255,28 +259,28 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
             data-row-count={rows.length}
             data-full-bleed={fullBleed}
             className={cn(
-                'flex w-full flex-col gap-3',
-                fullBleed && 'h-screen min-h-screen gap-2 px-4 py-3',
+                'flex w-full flex-col gap-4',
+                fullBleed && 'h-screen min-h-screen gap-4 px-4 py-4',
                 className,
             )}
         >
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-4">
                 <input
                     type="search"
                     value={globalFilter}
                     onChange={(event) => setGlobalFilter(event.target.value)}
                     placeholder="Fuzzy-search rows…"
-                    className="w-64 rounded-md border border-border bg-background px-3 py-1.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    className="h-9 w-64 rounded-md border border-border bg-background px-3 text-sm shadow-xs focus:outline-none focus:ring-2 focus:ring-ring"
                     data-testid="nexus-table-filter"
                 />
-                <span className="text-xs text-muted-foreground">
+                <Badge variant="secondary" className="text-xs">
                     {filteredCount} of {rows.length} rows
-                </span>
+                </Badge>
             </div>
 
-            <div
+            <Card
                 className={cn(
-                    'w-full overflow-auto rounded-lg border border-border',
+                    'w-full gap-0 overflow-auto rounded-lg py-0 shadow-sm',
                     fullBleed && 'flex-1',
                 )}
             >
@@ -289,7 +293,11 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                     const sortIndex = header.column.getSortIndex();
 
                                     return (
-                                        <th key={header.id} scope="col" className="px-4 py-2 align-top font-medium">
+                                        <th
+                                            key={header.id}
+                                            scope="col"
+                                            className="px-4 py-2 align-top font-medium"
+                                        >
                                             <div className="flex flex-col gap-1">
                                                 <button
                                                     type="button"
@@ -306,7 +314,7 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                                     {flexRender(header.column.columnDef.header, header.getContext())}
                                                     <SortIcon direction={sortDirection} />
                                                     {sortDirection && sorting.length > 1 ? (
-                                                        <span className="ml-1 rounded bg-muted px-1 text-[9px] font-semibold text-muted-foreground">
+                                                        <span className="ml-1 rounded-sm bg-muted px-1 text-xs font-semibold text-muted-foreground">
                                                             {sortIndex + 1}
                                                         </span>
                                                     ) : null}
@@ -319,7 +327,7 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                                                     }
                                                     placeholder="Filter…"
                                                     data-testid={`nexus-table-column-filter-${header.column.id}`}
-                                                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs normal-case tracking-normal text-foreground shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                                                    className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs normal-case tracking-normal text-foreground shadow-xs focus:outline-none focus:ring-1 focus:ring-ring"
                                                 />
                                             </div>
                                         </th>
@@ -331,7 +339,10 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                     <tbody>
                         {pageRows.length === 0 ? (
                             <tr>
-                                <td colSpan={tableColumns.length} className="px-4 py-6 text-center text-muted-foreground">
+                                <td
+                                    colSpan={tableColumns.length}
+                                    className="px-4 py-6 text-center text-sm text-muted-foreground"
+                                >
                                     No rows match the current filter.
                                 </td>
                             </tr>
@@ -352,16 +363,16 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                         )}
                     </tbody>
                 </table>
-            </div>
+            </Card>
 
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground">
                 <div className="flex items-center gap-2">
                     <label htmlFor="nexus-table-page-size">Rows per page</label>
                     <select
                         id="nexus-table-page-size"
                         value={pageSize}
                         onChange={(event) => table.setPageSize(Number(event.target.value))}
-                        className="rounded-md border border-border bg-background px-2 py-1 text-foreground"
+                        className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground shadow-xs"
                     >
                         {PAGE_SIZE_OPTIONS.map((size) => (
                             <option key={size} value={size}>
@@ -375,22 +386,24 @@ export function TableView({ payload, className, initialPageSize = 25, fullBleed 
                     <span>
                         Page {pageIndex + 1} of {Math.max(table.getPageCount(), 1)}
                     </span>
-                    <button
+                    <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => table.previousPage()}
                         disabled={!table.getCanPreviousPage()}
-                        className="rounded-md border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Previous
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() => table.nextPage()}
                         disabled={!table.getCanNextPage()}
-                        className="rounded-md border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                         Next
-                    </button>
+                    </Button>
                 </div>
             </div>
         </div>

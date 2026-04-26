@@ -20,6 +20,9 @@ import type {
 } from '@/components/nexus/snapshot-sidebar';
 import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useMarkdownSelection } from '@/hooks/use-markdown-selection';
 import { cn } from '@/lib/utils';
 
@@ -115,15 +118,15 @@ export function ReportView({
 
     if (blocks.length === 0) {
         return (
-            <div
+            <Card
                 data-testid="nexus-report-view"
                 className={cn(
-                    'rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground',
+                    'border-dashed bg-transparent p-6 text-sm text-muted-foreground shadow-none',
                     className,
                 )}
             >
-                This report has no blocks.
-            </div>
+                This Report Has No Blocks.
+            </Card>
         );
     }
 
@@ -154,7 +157,12 @@ export function ReportView({
             data-testid="nexus-report-view"
             data-block-count={blocks.length}
             className={cn(
-                'relative mx-auto flex w-full flex-col gap-6',
+                // REQ-M9-004: `.prose` applies serif body / sans headings /
+                // mono code via the M9 design tokens. It is intentionally
+                // hand-rolled in resources/css/app.css (we do not depend on
+                // @tailwindcss/typography) and does not touch any markup
+                // that affects M6 block-id anchors.
+                'prose relative mx-auto flex w-full flex-col gap-6',
                 fullBleed ? 'max-w-4xl px-6 py-10' : 'max-w-3xl',
                 className,
             )}
@@ -286,9 +294,9 @@ function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
                 data-testid="nexus-report-block"
                 data-block-type="embed"
                 data-restricted="true"
-                className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground"
+                className="rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground shadow-none"
             >
-                <p className="font-medium text-foreground">Embed unavailable</p>
+                <p className="font-medium text-foreground">Embed Unavailable</p>
                 <p className="mt-1">This embed is no longer accessible.</p>
             </section>
         );
@@ -306,7 +314,7 @@ function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
             data-embedded-snapshot-id={block.snapshot_id}
             data-embedded-view-type={block.view_type}
             data-is-stale={block.is_stale ? 'true' : 'false'}
-            className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4 shadow-sm"
+            className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 shadow-sm"
         >
             <header className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-col gap-1">
@@ -315,12 +323,12 @@ function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
                             {title}
                         </span>
                         {block.view_type ? (
-                            <span
-                                className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                            <Badge
+                                variant="secondary"
                                 data-view-type={block.view_type}
                             >
                                 {block.view_type}
-                            </span>
+                            </Badge>
                         ) : null}
                     </div>
                     <RevisionBadge
@@ -330,16 +338,21 @@ function EmbedBlockView({ block }: { block: ResolvedEmbedBlock }) {
                     />
                 </div>
                 {href ? (
-                    <a
-                        href={href}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-muted-foreground hover:text-foreground"
+                    <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
                         data-testid="nexus-report-embed-open"
                     >
-                        Open
-                        <ExternalLink className="size-3" aria-hidden />
-                    </a>
+                        <a
+                            href={href}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                        >
+                            Open
+                            <ExternalLink className="size-3" aria-hidden />
+                        </a>
+                    </Button>
                 ) : null}
             </header>
 

@@ -7,18 +7,70 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* REQ-M9-001: Self-host Inter, Source Serif 4, and JetBrains Mono via the
+   Bunny Fonts CDN as a stop-gap (privacy-friendly, GDPR-safe, no tracking).
+   These declarations expose the font families required by the M9 design
+   refresh; Tailwind v4 tokens below map them to --font-sans / --font-serif
+   / --font-mono so Tailwind utilities (font-sans, font-serif, font-mono)
+   resolve to the new stack. */
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700&display=swap');
+@import url('https://fonts.bunny.net/css?family=source-serif-4:400,400i,600,600i&display=swap');
+@import url('https://fonts.bunny.net/css?family=jetbrains-mono:400,500,600&display=swap');
+
 @theme {
     --font-sans:
-        'Geist', ui-sans-serif, system-ui, sans-serif,
+        'Inter', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
     --font-mono:
-        'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-    --font-serif: 'Instrument Serif', ui-serif, Georgia, serif;
+        'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font-serif: 'Source Serif 4', ui-serif, Georgia, serif;
 
-    --radius-lg: var(--radius);
-    --radius-md: calc(var(--radius) - 2px);
+    /* REQ-M9-002: modular typographic scale anchored at 16 px / 1rem base.
+       Matches the shadcn / Tailwind v4 defaults so existing text-* utilities
+       continue to resolve sensibly. Use these tokens — never inline pixel
+       sizes — when wiring shared chrome and primitives. */
+    --text-xs: 0.75rem; /* 12 px */
+    --text-sm: 0.875rem; /* 14 px */
+    --text-base: 1rem; /* 16 px */
+    --text-lg: 1.125rem; /* 18 px */
+    --text-xl: 1.25rem; /* 20 px */
+    --text-2xl: 1.5rem; /* 24 px */
+    --text-3xl: 1.875rem; /* 30 px */
+    --text-4xl: 2.25rem; /* 36 px */
+
+    --leading-xs: 1rem;
+    --leading-sm: 1.25rem;
+    --leading-base: 1.5rem;
+    --leading-lg: 1.75rem;
+    --leading-xl: 1.75rem;
+    --leading-2xl: 2rem;
+    --leading-3xl: 2.25rem;
+    --leading-4xl: 2.5rem;
+
+    /* REQ-M9-003: radius scale derived from the canonical shadcn --radius
+       (0.625rem). Tailwind utilities `rounded-sm/md/lg/xl` resolve to these
+       tokens so primitives never need arbitrary `rounded-[Npx]` strings. */
     --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+
+    /* REQ-M9-003: shadow scale matching shadcn defaults (Tailwind v4). The
+       `shadow-xs/sm/md/lg` utilities re-derive from these tokens so primitives
+       never embed arbitrary `shadow-[...]` strings. Values mirror shadcn's
+       canonical neutral elevation ramp, expressed in oklch via fg-0 to honour
+       the warm-graphite dark theme. */
+    --shadow-xs: 0 1px 2px 0 oklch(0.3 0.04 75 / 0.05);
+    --shadow-sm:
+        0 1px 3px 0 oklch(0.3 0.04 75 / 0.10),
+        0 1px 2px -1px oklch(0.3 0.04 75 / 0.10);
+    --shadow-md:
+        0 4px 6px -1px oklch(0.3 0.04 75 / 0.10),
+        0 2px 4px -2px oklch(0.3 0.04 75 / 0.10);
+    --shadow-lg:
+        0 10px 15px -3px oklch(0.3 0.04 75 / 0.10),
+        0 4px 6px -4px oklch(0.3 0.04 75 / 0.10);
 
     /* Nexus zone colours (view_type) */
     --color-zone-deck: var(--zone-deck);
@@ -2215,4 +2267,117 @@
 
 .animate-pulse-once {
     animation: nexus-pulse-once 1.2s cubic-bezier(0.4, 0, 0.6, 1) 1;
+}
+
+/* REQ-M9-004: hand-rolled `.prose` utility for long-form markdown.
+   We deliberately avoid @tailwindcss/typography so the styling stays
+   under our control and consumes the M9 design tokens directly. Body
+   and lists are Source Serif 4 for readability, headings stay Inter
+   so the visual hierarchy contrasts against the body, and pre/code
+   blocks are JetBrains Mono. Block-level styling does NOT touch the
+   per-section `data-comment-block-id` markup that M6 anchors rely on. */
+.prose {
+    font-family: var(--font-serif);
+    font-size: var(--text-base);
+    line-height: var(--leading-lg);
+    color: var(--foreground);
+}
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    line-height: var(--leading-2xl);
+    letter-spacing: -0.01em;
+}
+.prose h1 {
+    font-size: var(--text-3xl);
+    line-height: var(--leading-3xl);
+    margin-top: 0.5rem;
+    margin-bottom: 1rem;
+}
+.prose h2 {
+    font-size: var(--text-2xl);
+    line-height: var(--leading-2xl);
+    margin-top: 0.5rem;
+    margin-bottom: 0.75rem;
+}
+.prose h3 {
+    font-size: var(--text-xl);
+    line-height: var(--leading-xl);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.prose h4 {
+    font-size: var(--text-lg);
+    line-height: var(--leading-lg);
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+.prose p {
+    font-family: var(--font-serif);
+    margin-bottom: 1rem;
+}
+.prose p:last-child {
+    margin-bottom: 0;
+}
+.prose ul,
+.prose ol {
+    font-family: var(--font-serif);
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+.prose ul {
+    list-style-type: disc;
+}
+.prose ol {
+    list-style-type: decimal;
+}
+.prose li {
+    margin-bottom: 0.25rem;
+}
+.prose a {
+    color: var(--primary, currentColor);
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+.prose a:hover {
+    text-decoration-thickness: 2px;
+}
+.prose blockquote {
+    font-family: var(--font-serif);
+    border-left: 2px solid var(--border);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    font-style: italic;
+    color: var(--muted-foreground);
+}
+.prose code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--muted);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm, 0.25rem);
+}
+.prose pre {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    line-height: var(--leading-base);
+    background: var(--muted);
+    padding: 1rem;
+    border-radius: var(--radius-md, 0.5rem);
+    overflow-x: auto;
+    margin-bottom: 1rem;
+}
+.prose pre code {
+    background: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+}
+.prose hr {
+    border: 0;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
 }

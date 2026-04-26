@@ -1,9 +1,11 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import type {Components} from 'react-markdown';
+import type { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export type Slide = {
@@ -22,13 +24,17 @@ type Props = {
     mode?: 'presentation' | 'embedded';
 };
 
-const SERIF_STACK = '"Fraunces", "Iowan Old Style", "Palatino Linotype", "Palatino", "Georgia", serif';
-
 /**
  * REQ-M3-002: Slide Deck view supports keyboard navigation.
  *  - ArrowLeft: previous slide
  *  - ArrowRight: next slide
  *  - Space: next slide (preventDefault to avoid page scroll)
+ *
+ * REQ-M9-011: visual chrome rebuilt against the shadcn token scale. The
+ * embedded mode now wraps each slide in a `<Card>`, the prev/next buttons
+ * use shadcn `<Button>` primitives, and font sizes consume the M9 type
+ * tokens. Presentation mode (full-bleed parchment) keeps its bespoke
+ * typography because it is intentionally outside the chrome system.
  */
 export function SlideDeckView({ payload, className, mode = 'presentation' }: Props) {
     const slides = payload?.slides ?? [];
@@ -64,7 +70,7 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
             <div
                 data-testid="nexus-slide-deck-view"
                 className={cn(
-                    'rounded-lg border border-dashed border-border p-6 text-sm text-muted-foreground',
+                    'rounded-lg border border-dashed border-border p-8 text-sm text-muted-foreground',
                     className,
                 )}
             >
@@ -85,65 +91,59 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
             className={cn(
                 // Full-bleed parchment in presentation mode; inline card otherwise.
                 isPresentation
-                    ? 'fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-[#fdfbf7] via-[#f5f2e9] to-[#e7e9d7] text-neutral-900 outline-none dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 dark:text-neutral-100'
-                    : 'flex w-full flex-col gap-3',
+                    ? 'fixed inset-0 z-50 flex flex-col bg-gradient-to-br from-stone-50 via-stone-100 to-emerald-50/40 font-serif text-neutral-900 outline-none dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-950 dark:text-neutral-100'
+                    : 'flex w-full flex-col gap-4',
                 className,
             )}
         >
-            <section
-                className={cn(
-                    isPresentation
-                        ? 'flex flex-1 items-center justify-center px-10 pt-16 pb-8'
-                        : 'rounded-lg border border-border bg-background p-6',
-                )}
-            >
-                <article
-                    className={cn(
-                        'w-full',
-                        isPresentation && 'mx-auto max-w-3xl',
-                    )}
-                >
-                    <h2
-                        className={cn(
-                            'mb-8 font-medium tracking-tight',
-                            isPresentation
-                                ? 'text-5xl leading-[1.1] md:text-6xl'
-                                : 'text-xl font-semibold',
-                        )}
-                        style={isPresentation ? { fontFamily: SERIF_STACK } : undefined}
-                    >
-                        {current.title}
-                    </h2>
-                    <SlideMarkdown body={current.body_md} presentation={isPresentation} />
-                </article>
-            </section>
+            {isPresentation ? (
+                <section className="flex flex-1 items-center justify-center px-8 pt-16 pb-8">
+                    <article className="mx-auto w-full max-w-3xl">
+                        <h2 className="mb-8 font-serif text-4xl font-medium tracking-tight md:text-5xl">
+                            {current.title}
+                        </h2>
+                        <SlideMarkdown body={current.body_md} presentation={isPresentation} />
+                    </article>
+                </section>
+            ) : (
+                <Card className="gap-0 rounded-lg px-8 py-8 shadow-sm">
+                    <article className="w-full">
+                        <h2 className="mb-4 text-xl font-semibold tracking-tight">{current.title}</h2>
+                        <SlideMarkdown body={current.body_md} presentation={isPresentation} />
+                    </article>
+                </Card>
+            )}
 
             {isPresentation ? (
-                <div className="flex items-center justify-between px-10 pb-8">
-                    <button
+                <div className="flex items-center justify-between px-8 pb-8">
+                    <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={goPrev}
                         disabled={index === 0}
                         aria-label="Previous slide"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-neutral-300 dark:hover:bg-neutral-100/5"
+                        className="rounded-full text-neutral-600 hover:bg-neutral-900/5 dark:text-neutral-300 dark:hover:bg-neutral-100/5"
                     >
-                        <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
-                    </button>
+                        <ChevronLeft className="size-5" strokeWidth={1.5} />
+                    </Button>
                     <div className="flex items-center gap-4">
                         <SlideDots count={slides.length} active={index} onSelect={setIndex} />
-                        <span className="text-xs tabular-nums tracking-widest uppercase text-neutral-500 dark:text-neutral-400">
+                        <span className="text-xs uppercase tracking-widest tabular-nums text-neutral-500 dark:text-neutral-400">
                             {index + 1} / {slides.length}
                         </span>
                     </div>
-                    <button
+                    <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={goNext}
                         disabled={index === slides.length - 1}
                         aria-label="Next slide"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-full text-neutral-600 transition hover:bg-neutral-900/5 disabled:cursor-not-allowed disabled:opacity-30 dark:text-neutral-300 dark:hover:bg-neutral-100/5"
+                        className="rounded-full text-neutral-600 hover:bg-neutral-900/5 dark:text-neutral-300 dark:hover:bg-neutral-100/5"
                     >
-                        <ChevronRight className="h-5 w-5" strokeWidth={1.5} />
-                    </button>
+                        <ChevronRight className="size-5" strokeWidth={1.5} />
+                    </Button>
                 </div>
             ) : (
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -151,22 +151,24 @@ export function SlideDeckView({ payload, className, mode = 'presentation' }: Pro
                         Slide {index + 1} of {slides.length}
                     </span>
                     <div className="flex items-center gap-2">
-                        <button
+                        <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={goPrev}
                             disabled={index === 0}
-                            className="rounded-md border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             Previous
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
+                            variant="outline"
+                            size="sm"
                             onClick={goNext}
                             disabled={index === slides.length - 1}
-                            className="rounded-md border border-border px-2 py-1 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             Next
-                        </button>
+                        </Button>
                     </div>
                 </div>
             )}
@@ -237,23 +239,17 @@ function buildMarkdownComponents(presentation: boolean): Components {
     const h = presentation ? 'font-medium tracking-tight' : 'font-semibold';
 
     return {
-        h1: ({ children }: MdProps) => (
-            <h3 className={cn('mb-4 text-3xl', h)}>{children}</h3>
-        ),
-        h2: ({ children }: MdProps) => (
-            <h4 className={cn('mb-3 text-2xl', h)}>{children}</h4>
-        ),
-        h3: ({ children }: MdProps) => (
-            <h5 className={cn('mb-2 text-xl', h)}>{children}</h5>
-        ),
+        h1: ({ children }: MdProps) => <h3 className={cn('mb-4 text-2xl', h)}>{children}</h3>,
+        h2: ({ children }: MdProps) => <h4 className={cn('mb-4 text-xl', h)}>{children}</h4>,
+        h3: ({ children }: MdProps) => <h5 className={cn('mb-4 text-lg', h)}>{children}</h5>,
         p: ({ children }: MdProps) => <p className="mb-4 last:mb-0">{children}</p>,
         ul: ({ children }: MdProps) => (
-            <ul className="mb-4 list-disc space-y-1 pl-6 marker:text-neutral-400 last:mb-0">
+            <ul className="mb-4 list-disc space-y-1 pl-8 marker:text-neutral-400 last:mb-0">
                 {children}
             </ul>
         ),
         ol: ({ children }: MdProps) => (
-            <ol className="mb-4 list-decimal space-y-1 pl-6 marker:text-neutral-400 last:mb-0">
+            <ol className="mb-4 list-decimal space-y-1 pl-8 marker:text-neutral-400 last:mb-0">
                 {children}
             </ol>
         ),
@@ -277,7 +273,7 @@ function buildMarkdownComponents(presentation: boolean): Components {
                 {children}
             </blockquote>
         ),
-        hr: () => <hr className="my-6 border-neutral-300 dark:border-neutral-700" />,
+        hr: () => <hr className="my-8 border-neutral-300 dark:border-neutral-700" />,
         code: ({ className, children, ...rest }: MdProps) => {
             const isBlock = /language-/.test(className ?? '');
 
@@ -297,7 +293,7 @@ function buildMarkdownComponents(presentation: boolean): Components {
 
             return (
                 <code
-                    className="rounded bg-neutral-900/5 px-1.5 py-0.5 font-mono text-[0.9em] text-neutral-900 dark:bg-neutral-100/10 dark:text-neutral-100"
+                    className="rounded-sm bg-neutral-900/5 px-1.5 py-0.5 font-mono text-sm text-neutral-900 dark:bg-neutral-100/10 dark:text-neutral-100"
                     {...rest}
                 >
                     {children}
@@ -305,12 +301,12 @@ function buildMarkdownComponents(presentation: boolean): Components {
             );
         },
         pre: ({ children }: MdProps) => (
-            <pre className="mb-4 overflow-x-auto rounded-lg border border-neutral-200 bg-neutral-50 p-4 text-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900">
+            <pre className="mb-4 overflow-x-auto rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900">
                 {children}
             </pre>
         ),
         table: ({ children }: MdProps) => (
-            <div className="mb-4 overflow-x-auto rounded-lg border border-neutral-200 bg-white/60 shadow-sm last:mb-0 dark:border-neutral-800 dark:bg-neutral-900/40">
+            <div className="mb-4 overflow-x-auto rounded-md border border-neutral-200 bg-white/60 shadow-xs last:mb-0 dark:border-neutral-800 dark:bg-neutral-900/40">
                 <table className="w-full border-collapse text-left text-base">{children}</table>
             </div>
         ),
@@ -326,12 +322,12 @@ function buildMarkdownComponents(presentation: boolean): Components {
             </tr>
         ),
         th: ({ children }: MdProps) => (
-            <th className="px-4 py-2.5 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+            <th className="px-4 py-2 text-sm font-semibold text-neutral-700 dark:text-neutral-300">
                 {children}
             </th>
         ),
         td: ({ children }: MdProps) => (
-            <td className="px-4 py-2.5 text-base text-neutral-800 dark:text-neutral-200">
+            <td className="px-4 py-2 text-base text-neutral-800 dark:text-neutral-200">
                 {children}
             </td>
         ),
