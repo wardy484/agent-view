@@ -1,0 +1,54 @@
+# Shared host services for Nexus-UI worktrees on Linux (and Mac contributors
+# who opt into the Sail path). One Postgres + one Redis container shared
+# across every worktree on this host. Per-worktree isolation happens at the
+# database level inside Postgres (database `nexus_<workspace_slug>`) and via
+# Redis key prefixes — never by spinning up additional containers.
+#
+# Lifecycle is managed by `scripts/host-services.sh`, not by Sail's
+# `compose.yaml` at the repo root. `name:` below is the docker compose
+# project name; pinning it means every worktree's helper script targets the
+# same stack regardless of which clone it runs from.
+#
+# Never `docker compose down` this stack from inside a worktree — it is
+# shared across every worktree on this host. Use `scripts/host-services.sh
+# down` only when you genuinely want to stop all of them.
+
+name: nexus-host-services
+
+services:
+    pgsql:
+        image: 'postgres:16-alpine'
+        ports:
+            - '${NEXUS_PGSQL_HOST_PORT:-5432}:5432'
+        environment:
+            POSTGRES_DB: 'nexus_template'
+            POSTGRES_USER: 'nexus'
+            POSTGRES_PASSWORD: 'nexus'
+            POSTGRES_HOST_AUTH_METHOD: 'trust'
+        volumes:
+            - 'nexus-pgsql:/var/lib/postgresql/data'
+        healthcheck:
+            test: ['CMD', 'pg_isready', '-U', 'nexus']
+            interval: 10s
+            retries: 5
+            timeout: 5s
+        restart: unless-stopped
+
+    redis:
+        image: 'redis:7-alpine'
+        ports:
+            - '${NEXUS_REDIS_HOST_PORT:-6379}:6379'
+        volumes:
+            - 'nexus-redis:/data'
+        healthcheck:
+            test: ['CMD', 'redis-cli', 'ping']
+            interval: 10s
+            retries: 5
+            timeout: 5s
+        restart: unless-stopped
+
+volumes:
+    nexus-pgsql:
+        driver: local
+    nexus-redis:
+        driver: local

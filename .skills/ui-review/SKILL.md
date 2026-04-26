@@ -12,6 +12,25 @@ This skill MUST run in the host agent's context — subagents cannot see the
 `mcp__polyscope__*` or `mcp__laravel-boost__*` MCP tools. If you find yourself
 inside a subagent, stop and tell the parent to invoke this skill directly.
 
+## Resolve the workspace at runtime
+
+This skill runs inside a Polyscope-managed workspace whose name varies per
+session (`cyan-macaw`, `gentle-toucan`, etc.). Resolve the dev host before
+using any URL below:
+
+```bash
+WORKSPACE="$(basename "$(git rev-parse --show-toplevel)")"
+HOST="http://${WORKSPACE}.test"
+```
+
+`CLAUDE.md` for the current workspace also prints `live preview available at
+http://<workspace>.test` — use that as the source of truth. For anything
+Polyscope-specific (preview MCP tools, lifecycle), look it up via Context7
+at runtime: `resolve-library-id(libraryName: "Polyscope")` then `query-docs`.
+Do not hardcode a workspace slug anywhere in this skill's output.
+
+Substitute `${HOST}` for every `<workspace>.test` URL referenced below.
+
 ## Inputs you need before starting
 
 If the user invoked you with arguments, parse them. Otherwise ask:
@@ -19,7 +38,7 @@ If the user invoked you with arguments, parse them. Otherwise ask:
 - **REQ-ID or change description** — what behaviour must the UI demonstrate?
 - **Page URL** to review — defaults to the latest UI-fixtures snapshot. If the
   caller didn't say, use:
-  `http://gentle-toucan.test/workbenches/ui-review/snapshots/<slug>` after
+  `${HOST}/workbenches/ui-review/snapshots/<slug>` after
   running `php artisan nexus:seed-ui-fixtures` to ensure a fresh revision.
 - **Spec paragraph** — copy verbatim from `docs/nexus-spec.md`.
 
@@ -36,7 +55,7 @@ If the user invoked you with arguments, parse them. Otherwise ask:
    output. The second is required even if the page you're reviewing looks
    public — see the **Authentication** section below for why.
 
-2. **Confirm dev server is up.** `gentle-toucan.test` is served by Herd; Vite
+2. **Confirm dev server is up.** `${HOST}` is served by Herd (or Sail on Linux); Vite
    dev should also be running (`ps aux | grep -E 'vite|npm run dev'`). If
    not running, ask the user to start it (`pnpm dev` or `composer run dev`)
    — do NOT start it yourself in the background, it'll detach badly.
@@ -44,7 +63,7 @@ If the user invoked you with arguments, parse them. Otherwise ask:
 3. **Open the preview.** Call `mcp__polyscope__OpenPreview` (no args).
 
 4. **Navigate.** Call `mcp__polyscope__NavigatePreview` with the absolute URL
-   (e.g. `http://gentle-toucan.test/workbenches/ui-review/snapshots/kanban-all-fields`).
+   (e.g. `${HOST}/workbenches/ui-review/snapshots/kanban-all-fields`).
 
 5. **Wait briefly** for Inertia + React hydration. A second is usually enough.
 
@@ -94,7 +113,7 @@ If unsure, authenticate anyway — it's idempotent and cheap.
 The `nexus:seed-review-user` command (run in step 1) provisions a stable
 test account. Hard-coded values matching the artisan command:
 
-- email: `ui-reviewer@gentle-toucan.test`
+- email: `ui-reviewer@gentle-toucan.test` (seeder-defined — do NOT change here; if it drifts, fix the seeder)
 - password: `ui-review-only-do-not-deploy`
 
 These credentials are local-only and intentionally non-secret; the artisan
@@ -111,12 +130,12 @@ one navigation. Do this BEFORE navigating to the target page:
    already covers this — `php artisan nexus:seed-review-user`).
 
 2. **Hit the dev-login route.** Call `mcp__polyscope__NavigatePreview`
-   with `http://gentle-toucan.test/__dev-login`. The route logs the user
+   with `${HOST}/__dev-login`. The route logs the user
    in and redirects to `/dashboard`.
 
 3. **Optional `?redirect=` shortcut.** If you want to land directly on
    the target page in the same hop, append a same-origin path:
-   `http://gentle-toucan.test/__dev-login?redirect=/workbenches/ui-review/snapshots/<slug>`.
+   `${HOST}/__dev-login?redirect=/workbenches/ui-review/snapshots/<slug>`.
    Anything containing `://` or not starting with `/` is rejected and
    you'll land on `/dashboard` instead.
 

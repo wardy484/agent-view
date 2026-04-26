@@ -99,6 +99,14 @@ Never skip a step. Never invent requirements the spec doesn't list.
   Laravel Cloud's env config and in your local Herd Postgres (no password).
 - **Never implement features not in the spec.** If you need to, open a spec
   PR first, then resume the 7-step loop.
+- **Never `docker compose down` the host services stack.** It is shared
+  across every worktree on this host (see "Linux dev (Sail)" below). Per-
+  worktree teardown is `scripts/worktree-destroy.sh`, which drops just
+  this worktree's database. The shared stack survives.
+- **Never assume Herd; detect the platform first.** On Linux,
+  `php artisan ...` runs in the `laravel.test` container — prefix every
+  artisan/composer/pnpm invocation with `./vendor/bin/sail`. Use
+  `[ "$(uname -s)" = "Linux" ]` to branch, never hard-code Mac assumptions.
 
 ## Spec-First Milestones (Shipping Style)
 
@@ -275,6 +283,103 @@ receive from `get_snapshot_comments` (or from the snapshot read) get
 stable anchoring across edits; agents that don't risk every comment going
 `stale` whenever a block is rewritten with new wording.
 
+## Linux dev (Sail)
+
+The 7-step loop is identical on Linux; only the underlying services
+differ. On Mac you have Herd (parked `.test` sites + bundled Postgres);
+on Linux you have **Sail** (Docker container per worktree) plus a
+**shared host services stack** for Postgres + Redis.
+
+### Detect your platform first
+
+Every dev script branches on `uname -s`. Agents should too:
+
+```bash
+case "$(uname -s)" in
+    Darwin) # you're on Mac/Herd ;;
+    Linux)  # you're on Linux/Sail ;;
+esac
+```
+
+### Bootstrap workflow (Linux)
+
+```bash
+./scripts/host-services.sh up       # idempotent; once per host
+./scripts/worktree-bootstrap.sh my-branch
+```
+
+`worktree-bootstrap.sh --help` prints the detected platform, the host
+services compose path, and what each platform branch will do — agents
+landing in a fresh workspace should run it before reading source.
+
+### What bootstrap does on Linux
+
+- Ensures the shared host services stack is up at
+  `infra/host-services/compose.yaml` (one Postgres + one Redis container,
+  shared across every worktree on this host).
+- Creates a per-workspace database `nexus_<slug>` inside the shared
+  Postgres.
+- Computes a deterministic host port via `scripts/assign-port.sh <slug>`
+  (range 20000..29999, stable across re-runs).
+- Writes the per-worktree `.env` (`APP_PORT`, `DB_HOST`, `VITE_HOST`
+  pointing at the docker bridge gateway, `REDIS_PREFIX`, etc.).
+- `./vendor/bin/sail up -d` to boot `laravel.test` (Octane via
+  FrankenPHP, Reverb in the same container, `OCTANE_HTTPS=false`).
+- Writes the chosen port to `.polyscope/preview-port` so Polyscope can
+  construct the preview URL — no `<slug>.test` hostname is used on
+  Linux. The file is gitignored; if absent, Polyscope falls back.
+
+### Sail command equivalents (Linux)
+
+Every artisan/composer/pnpm/php call goes through Sail's binary:
+
+| Mac (Herd)                       | Linux (Sail)                                  |
+| -------------------------------- | --------------------------------------------- |
+| `php artisan migrate`            | `./vendor/bin/sail artisan migrate`           |
+| `php artisan test`               | `./vendor/bin/sail artisan test`              |
+| `composer install`               | `./vendor/bin/sail composer install`          |
+| `php artisan tinker`             | `./vendor/bin/sail artisan tinker`            |
+| `vendor/bin/pint --dirty`        | `./vendor/bin/sail bin pint --dirty`          |
+| `pnpm dev`                       | `pnpm dev` (still on host — never in Sail)    |
+| `pnpm lint` / `type-check`       | `pnpm lint` / `pnpm type-check` (host)        |
+
+`pnpm dev`, `pnpm lint`, and `pnpm type-check` always run on the host —
+HMR over a docker volume mount is too slow to be the default. The
+`laravel.test` container reaches the host's Vite dev server via
+`VITE_HOST` (auto-written by bootstrap to `host.docker.internal` on Mac
+or the docker bridge gateway on Linux).
+
+### Host services stack lifecycle
+
+```bash
+./scripts/host-services.sh up        # start (idempotent)
+./scripts/host-services.sh status    # docker compose ps
+./scripts/host-services.sh psql      # interactive psql
+./scripts/host-services.sh redis-cli # interactive redis-cli
+./scripts/host-services.sh down      # ⚠ stops services for EVERY worktree
+```
+
+The stack lives at `infra/host-services/compose.yaml` with the docker
+compose project name pinned to `nexus-host-services` so every worktree
+targets the same containers regardless of which clone runs the script.
+
+### Polyscope preview-port contract
+
+`.polyscope/preview-port` is a single line containing the integer
+`APP_PORT`. Polyscope's workspace runner reads it to construct the
+preview URL. If missing, Polyscope falls back to its default
+port-discovery (Mac/Herd workspaces never have this file).
+
+### Teardown (Linux)
+
+```bash
+./scripts/worktree-destroy.sh my-branch
+```
+
+Drops `nexus_<slug>` inside the shared Postgres container, runs
+`./vendor/bin/sail down -v` for the worktree's compose project, and
+removes the git worktree. **The shared host services stack survives.**
+
 ## Command Cheat Sheet
 
 ```bash
@@ -320,6 +425,8 @@ cloud database:open                          # Postgres shell
 - Does this need to work in the MCP HTTP path, the Inertia page path, or both?
 - Does this change the public JSON contract of `present_structured_data`?
   If yes, it's a spec PR first.
+- Will this work on both Herd (Mac) and Sail (Linux) paths? Anything
+  touching scripts, env vars, or service URLs needs the platform check.
 
 If unsure, open an issue referencing the REQ-ID before coding.
 
@@ -569,3 +676,13 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
 
 </laravel-boost-guidelines>
+
+<!-- managed-by: scripts/install-skills.sh -->
+## Repo-local skills
+
+User-invocable skill definitions for this project live at
+`.skills/<name>/SKILL.md`. When the user invokes one by name
+(e.g. `/feature`, `/ui-review`), follow that file's instructions.
+
+- `/feature` — see `.skills/feature/SKILL.md`
+- `/ui-review` — see `.skills/ui-review/SKILL.md`
