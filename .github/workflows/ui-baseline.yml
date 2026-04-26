@@ -96,4 +96,8 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Run browser tests (shard ${{ matrix.shard }} of 2)
-        run: php -d memory_limit=1G artisan test --parallel --testsuite=Browser --shard=${{ matrix.shard }}/2
+        # `--parallel` is intentionally omitted: it invokes Laravel's paratest
+        # bridge which passes `--runner=…` to Pest, and Pest 4 rejects that
+        # flag. The matrix above already runs the two shards on separate
+        # GitHub-hosted runners, so within-shard parallelism is unnecessary.
+        run: php -d memory_limit=1G artisan test --testsuite=Browser --shard=${{ matrix.shard }}/2
