@@ -6,8 +6,11 @@ declare(strict_types=1);
  * REQ-M7-003 — `resources/js/pages/snapshot.tsx` subscribes to its snapshot's
  * private broadcast channel via Laravel Echo on mount and unsubscribes on
  * unmount. On a `SnapshotVersionAppended` event whose `revision` exceeds the
- * rendered revision, the page issues an Inertia partial reload of just
- * `snapshot` and `currentRevision` and re-renders behind a 200 ms fade.
+ * rendered revision, the page issues an Inertia partial reload of the
+ * `snapshot`, `version`, and `versions` props and re-renders behind a 200 ms
+ * fade. The `version` prop carries the actual `data_payload` the view renders
+ * (kanban columns, table rows, etc.) — omitting it would refresh the snapshot
+ * row but leave the workbench frozen on the previous revision's data.
  *
  * Browser tests are not configured in this project, so these assertions are
  * source-string checks against the React page and the Echo bootstrap module —
@@ -50,7 +53,7 @@ it('REQ-M7-003: snapshot.tsx listens for SnapshotVersionAppended events', functi
         ->toContain(".listen('.SnapshotVersionAppended'")
         ->toContain('payload.revision > liveRevision')
         ->toContain('router.reload({')
-        ->toContain("only: ['snapshot', 'currentRevision']");
+        ->toContain("only: ['snapshot', 'version', 'versions']");
 });
 
 it('REQ-M7-003: snapshot.tsx unsubscribes on unmount', function (): void {

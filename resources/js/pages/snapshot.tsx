@@ -172,7 +172,7 @@ export default function SnapshotPage(props: Props) {
                 if (typeof payload?.revision === 'number' && payload.revision > liveRevision) {
                     setIsFading(true);
                     router.reload({
-                        only: ['snapshot', 'currentRevision'],
+                        only: ['snapshot', 'version', 'versions'],
                         onFinish: () => {
                             // 200 ms fade transition then restore opacity.
                             window.setTimeout(() => setIsFading(false), 200);
