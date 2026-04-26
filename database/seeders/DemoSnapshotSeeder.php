@@ -120,6 +120,27 @@ class DemoSnapshotSeeder extends Seeder
                     'mermaid_source' => "flowchart TD\n    A[Agent] -->|POST /ai/mcp/nexus| B(MCP endpoint)\n    B --> C{view_type?}\n    C -->|table| D[TableViewSchema]\n    C -->|kanban| E[KanbanViewSchema]\n    C -->|slide_deck| F[SlideDeckViewSchema]\n    C -->|flowchart| G[FlowchartViewSchema]\n    D --> H[SnapshotVersioning::append]\n    E --> H\n    F --> H\n    G --> H\n    H --> I[(snapshot_versions)]\n    H --> J[Preview HTML cache]\n    I --> K[Workbench UI]",
                 ],
             ],
+            [
+                'slug' => 'launch-readiness',
+                'title' => 'Launch readiness report',
+                'view_type' => 'report',
+                'payload' => [
+                    'blocks' => [
+                        [
+                            'type' => 'markdown',
+                            'body' => "# Launch readiness\n\nA running review of what's ready, what's blocked, and what's still in flight before the public launch.",
+                        ],
+                        [
+                            'type' => 'markdown',
+                            'body' => "## Engineering\n\n- Migration plan signed off by infra\n- Final load test scheduled for Friday\n- Two SEV-3 incidents still open (see incidents table)",
+                        ],
+                        [
+                            'type' => 'markdown',
+                            'body' => "## Risks\n\n- EU data residency review still pending\n- Marketing site copy needs legal pass\n- One on-call engineer out next week",
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 }

@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "setup": "./scripts/polyscope-setup.sh {{folder}}",
+    "run": [
+      { "label": "Dev Server", "command": "pnpm dev", "autostart": true, "runMode": "replace" },
+      { "label": "Tests", "command": "php artisan test --compact" },
+      { "label": "Pint", "command": "./vendor/bin/pint --dirty --format agent" },
+      { "label": "Spec check", "command": "php artisan spec:check --next" }
+    ]
+  },
+  "preview": {
+    "url": "https://{{folder}}.test"
+  }
+}
