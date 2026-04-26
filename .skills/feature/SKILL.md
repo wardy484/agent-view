@@ -11,7 +11,14 @@ plan, decompose, dispatch subagents, watch the kanban, and intervene when
 something goes red. Worker subagents do the implementation; you keep the loop
 moving and Nexus visualisation up to date.
 
-This skill assumes you are running in the gentle-toucan repo (Nexus-UI).
+This skill assumes you are running inside a Polyscope-managed workspace for the
+Nexus-UI project (any clone — the workspace name varies per session, e.g.
+`cyan-macaw`, `gentle-toucan`, etc.). Detect your workspace at runtime:
+
+- Workspace slug: `basename "$(git rev-parse --show-toplevel)"` (e.g. `cyan-macaw`).
+- Preview host: read `CLAUDE.md` for the line `live preview available at http://<slug>.test` — that's the canonical dev URL for this session. Do NOT hardcode a repo name.
+- For anything Polyscope-specific (workspace lifecycle, preview URL pattern, MCP tools available in the workspace), look it up via Context7 at runtime: `mcp__claude_ai_Context7__resolve-library-id(libraryName: "Polyscope")` then `query-docs`. Do not rely on cached assumptions about Polyscope.
+
 Read `CLAUDE.md` first if you have not — its 7-step loop, "Never Do" list, and
 `SnapshotVersioning` constraints are non-negotiable.
 
@@ -415,16 +422,20 @@ When every card is `Done`:
   off for ≥3 REQs.
 - Bug fixes that attach to existing REQ-IDs — open a normal PR.
 - Spec edits without code — open a `spec:` PR by hand.
-- Anything outside the gentle-toucan repo — this skill is hard-coded to
-  its REQ / milestone / Nexus model.
+- Anything outside the Nexus-UI project — this skill is hard-coded to
+  its REQ / milestone / Nexus model. (The workspace name varies per
+  Polyscope clone; the project itself is the constraint, not the slug.)
 
 ---
 
 ## Installation
 
-```bash
-mkdir -p ~/.claude/skills/feature
-mv .context/feature-skill.md ~/.claude/skills/feature/SKILL.md
-```
+Skills live at `.skills/<name>/SKILL.md` (checked into the repo, shared
+with the team). Run `./scripts/install-skills.sh` from any clone to
+symlink them into the AI tools you use:
 
-Then `/feature` is invocable from any Claude Code session in this repo.
+- Claude Code → `~/.claude/skills/<name>/`
+- Cursor → `~/.cursor/rules/<name>.md`
+- Codex → referenced from project `AGENTS.md`
+
+After install + a session reload, `/feature` is invocable.
