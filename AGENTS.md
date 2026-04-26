@@ -568,3 +568,13 @@ Use Wayfinder to generate TypeScript functions for Laravel routes. Import from `
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia React client-side patterns.
 
 </laravel-boost-guidelines>
+
+<!-- managed-by: scripts/install-skills.sh -->
+## Repo-local skills
+
+User-invocable skill definitions for this project live at
+`.skills/<name>/SKILL.md`. When the user invokes one by name
+(e.g. `/feature`, `/ui-review`), follow that file's instructions.
+
+- `/feature` — see `.skills/feature/SKILL.md`
+- `/ui-review` — see `.skills/ui-review/SKILL.md`
