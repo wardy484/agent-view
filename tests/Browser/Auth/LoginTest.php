@@ -14,7 +14,7 @@ it('REQ-M11-002: logs in with valid credentials and redirects to the dashboard',
     visit('/login')
         ->fill('email', $user->email)
         ->fill('password', 'password')
-        ->click('Log in')
+        ->click('@login-button')
         ->assertPathIs('/dashboard')
         ->assertNoJavaScriptErrors();
 

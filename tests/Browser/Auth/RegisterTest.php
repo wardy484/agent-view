@@ -10,7 +10,7 @@ it('REQ-M11-003: registers a new user, auto-logs in, and redirects to the dashbo
         ->fill('email', $email)
         ->fill('password', 'password')
         ->fill('password_confirmation', 'password')
-        ->click('Create account')
+        ->click('@register-user-button')
         ->assertPathIs('/dashboard')
         ->assertNoJavaScriptErrors();
 

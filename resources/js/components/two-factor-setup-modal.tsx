@@ -96,7 +96,11 @@ function TwoFactorSetupStep({
                     </div>
 
                     <div className="flex w-full space-x-5">
-                        <Button className="w-full" onClick={onNextStep}>
+                        <Button
+                            className="w-full"
+                            onClick={onNextStep}
+                            data-test="two-factor-setup-continue"
+                        >
                             {buttonText}
                         </Button>
                     </div>
@@ -214,6 +218,7 @@ function TwoFactorVerificationStep({
                             <Button
                                 type="submit"
                                 className="flex-1"
+                                data-test="two-factor-setup-confirm"
                                 disabled={
                                     processing || code.length < OTP_MAX_LENGTH
                                 }

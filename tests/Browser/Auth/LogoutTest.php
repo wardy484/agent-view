@@ -12,7 +12,7 @@ it('REQ-M11-006: logs out via the global navigation control and terminates the s
     $page = visit('/login')
         ->fill('email', $user->email)
         ->fill('password', 'password')
-        ->click('Log in')
+        ->click('@login-button')
         ->assertPathIs('/dashboard');
 
     // Open the user dropdown via the sidebar trigger, then click the logout

@@ -15,7 +15,7 @@ it('REQ-M11-008: mints a personal access token, displays the plaintext once, and
 
     $page->fill('name', $tokenName)
         ->fill('workbench_slug', 'ui-baseline')
-        ->click('Mint token')
+        ->click('@mint-token-button')
         ->assertSee($tokenName)
         ->assertNoJavaScriptErrors();
 

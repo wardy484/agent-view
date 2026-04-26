@@ -21,7 +21,7 @@ it('REQ-M11-005: shows the 2FA challenge after login and accepts a valid TOTP co
     visit('/login')
         ->fill('email', $user->email)
         ->fill('password', 'password')
-        ->click('Log in')
+        ->click('@login-button')
         ->assertPathIs('/two-factor-challenge')
         ->fill('code', $totp)
         ->click('Continue')

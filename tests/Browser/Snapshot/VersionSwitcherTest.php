@@ -36,13 +36,15 @@ it('REQ-M11-014: switches between revisions via the inline version switcher', fu
     // The inline VersionSwitcher mounts when there are >= 2 revisions and
     // labels each revision link as `r{n}`. Clicking r1 navigates back to
     // the original revision via `?revision=1`.
-    $page->click('r1')
+    $page->click('@nexus-version-switcher')
+        ->click('r1')
         ->assertSee('canonical baseline report fixture')
         ->assertDontSee('revision two body text')
         ->assertNoJavaScriptErrors();
 
     // Click back to r2 (the latest) — v2 content is restored.
-    $page->click('r2')
+    $page->click('@nexus-version-switcher')
+        ->click('r2')
         ->assertSee('v2 baseline heading')
         ->assertSee('revision two body text')
         ->assertDontSee('canonical baseline report fixture')

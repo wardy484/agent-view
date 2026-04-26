@@ -35,10 +35,10 @@ it('REQ-M11-004: enables two-factor auth via the security settings setup flow', 
     // Advance to the verification step and submit a valid TOTP.
     $totp = (new Google2FA)->getCurrentOtp($secret);
 
-    $page->click('Continue')
+    $page->click('@two-factor-setup-continue')
         ->assertSee('Verify authentication code')
         ->fill('code', $totp)
-        ->click('Confirm');
+        ->click('@two-factor-setup-confirm');
 
     // Confirmation persists two_factor_confirmed_at and the page rerenders
     // with the recovery codes surface available.
