@@ -23,7 +23,9 @@ deploy:
   - php artisan event:cache
 
 processes:
-  web:
-    command: php artisan serve # replaced by Cloud's default web worker
+  # Web tier is managed by Laravel Cloud. When the
+  # "Use Octane as runtime" toggle is on (Settings → Runtime),
+  # Cloud runs `php artisan octane:frankenphp` instead of FPM.
+  # Toggle is per-environment (staging first, then production).
   worker:
     command: php artisan queue:work --tries=3 --timeout=60

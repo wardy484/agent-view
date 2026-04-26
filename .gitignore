@@ -28,3 +28,7 @@ yarn-error.log
 /.zed
 storage/skill-ship-req/
 .pnpm-debug.log
+
+**/caddy
+frankenphp
+frankenphp-worker.php
