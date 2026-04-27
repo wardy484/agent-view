@@ -1,0 +1,118 @@
+name: Browser Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  ui-baseline:
+    name: Browser tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: nexus_testing
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB_CONNECTION: pgsql
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_DATABASE: nexus_testing
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      REDIS_HOST: 127.0.0.1
+      REDIS_PORT: 6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: pgsql, pdo_pgsql, redis, mbstring, bcmath, intl
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Composer install
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: pnpm install
+        run: pnpm install --frozen-lockfile=false
+
+      - name: Build frontend assets
+        # Browser tests visit real Inertia pages which read public/build/manifest.json.
+        # Without `pnpm build`, blade throws ViewException and every test fails.
+        run: pnpm build
+
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Migrate database
+        run: php artisan migrate --force --no-interaction
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-playwright-
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser tests (shard ${{ matrix.shard }} of 4)
+        # `--parallel` is intentionally omitted: it invokes Laravel's paratest
+        # bridge which passes `--runner=…` to Pest, and Pest 4 rejects that
+        # flag. The matrix above already runs the shards on separate
+        # GitHub-hosted runners, so within-shard parallelism is unnecessary.
+        run: php -d memory_limit=1G artisan test --testsuite=Browser --shard=${{ matrix.shard }}/4
+
+      - name: Upload browser failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots-shard-${{ matrix.shard }}
+          path: |
+            Tests/Browser/Screenshots
+            tests/Browser/Screenshots
+          if-no-files-found: ignore

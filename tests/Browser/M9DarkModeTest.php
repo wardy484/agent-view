@@ -74,7 +74,7 @@ it('REQ-M9-012: each major route renders without console errors in light and dar
                 $theme,
             ));
 
-            expect($page->logs())->not->toContain('error', "{$label} produced console errors in {$theme} mode");
+            $page->assertNoJavaScriptErrors();
         }
     }
 });

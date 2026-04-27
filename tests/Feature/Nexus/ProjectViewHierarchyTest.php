@@ -34,7 +34,7 @@ function m11AppendVersion(Snapshot $snapshot, string $viewType = 'table', ?strin
     }
 }
 
-it('REQ-M11-001: dashboard workbench rows navigate to the project detail route', function (): void {
+it('REQ-M12-001: dashboard workbench rows navigate to the project detail route', function (): void {
     $src = file_get_contents(resource_path('js/pages/dashboard.tsx'));
 
     expect($src)
@@ -43,7 +43,7 @@ it('REQ-M11-001: dashboard workbench rows navigate to the project detail route',
         ->not->toContain('agentActivity({ workbench: w.slug }).url');
 });
 
-it('REQ-M11-002: project detail route lists child views by latest activity with sharing and open comment counts', function (): void {
+it('REQ-M12-002: project detail route lists child views by latest activity with sharing and open comment counts', function (): void {
     $owner = User::factory()->create();
     $workbench = Workbench::factory()->create([
         'owner_user_id' => $owner->id,
@@ -102,7 +102,7 @@ it('REQ-M11-002: project detail route lists child views by latest activity with 
         ->assertForbidden();
 });
 
-it('REQ-M11-003: project detail page uses existing workbench context and an Agent Activity empty state', function (): void {
+it('REQ-M12-003: project detail page uses existing workbench context and an Agent Activity empty state', function (): void {
     $owner = User::factory()->create();
     $workbench = Workbench::factory()->create([
         'owner_user_id' => $owner->id,
@@ -129,7 +129,7 @@ it('REQ-M11-003: project detail page uses existing workbench context and an Agen
         );
 });
 
-it('REQ-M11-004: snapshot chrome links back to the project and labels the current snapshot as a view', function (): void {
+it('REQ-M12-004: snapshot chrome links back to the project and labels the current snapshot as a view', function (): void {
     $src = file_get_contents(resource_path('js/pages/snapshot.tsx'));
 
     expect($src)
