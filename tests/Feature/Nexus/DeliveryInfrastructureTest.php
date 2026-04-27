@@ -115,7 +115,7 @@ it('REQ-P0B-007: worktree-bootstrap.sh provisions worktree, DB, env, and deps', 
         ->toContain('DB_DATABASE')
         ->toContain('REDIS_PREFIX')
         ->toContain('composer install')
-        ->toContain('php artisan migrate');
+        ->toContain('artisan migrate --force');
 
     // Idempotence markers — script must check for existing state before recreating.
     expect($script)
