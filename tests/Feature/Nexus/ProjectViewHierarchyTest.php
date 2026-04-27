@@ -38,7 +38,7 @@ it('REQ-M12-001: dashboard workbench rows navigate to the project detail route',
     $src = file_get_contents(resource_path('js/pages/dashboard.tsx'));
 
     expect($src)
-        ->toContain("show as showWorkbench")
+        ->toContain('show as showWorkbench')
         ->toContain('showWorkbench({ workbench: w.slug }).url')
         ->not->toContain('agentActivity({ workbench: w.slug }).url');
 });
@@ -133,7 +133,7 @@ it('REQ-M12-004: snapshot chrome links back to the project and labels the curren
     $src = file_get_contents(resource_path('js/pages/snapshot.tsx'));
 
     expect($src)
-        ->toContain("show as showWorkbench")
+        ->toContain('show as showWorkbench')
         ->toContain('showWorkbench({')
         ->toContain('<Badge variant="secondary">View</Badge>');
 });
