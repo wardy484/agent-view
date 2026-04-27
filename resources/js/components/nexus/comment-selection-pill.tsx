@@ -64,8 +64,8 @@ import { cn } from '@/lib/utils';
  * Comment / Suggest edit / Copy. Tapping Delete fires off a
  * `kind = suggestion` POST with `proposed_text = ''` (empty string represents
  * deletion of the selected text); the pill collapses immediately on submit
- * — no expanded composer is shown for the Delete path. Cross-block and
- * read-only restrictions match Comment + Suggest.
+ * — no expanded composer is shown for the Delete path. Read-only
+ * restrictions match Comment + Suggest.
  *
  * REQ-M6-032: the Suggest-edit composer drops the secondary "comment body"
  * textarea — only the `proposed_text` textarea is rendered. The submitted
@@ -103,7 +103,8 @@ const VIEWPORT_PADDING = 8;
 const LG_BREAKPOINT_PX = 1024;
 const COMPOSER_FALLBACK_WIDTH = 320;
 
-const CROSS_BLOCK_HINT = 'Selection must stay within one block.';
+const CROSS_BLOCK_HINT =
+    'Suggestions and deletion must stay within one block.';
 const READ_ONLY_HINT = 'Read-only — switch to the latest revision to comment.';
 
 export function CommentSelectionPill({
@@ -269,7 +270,10 @@ export function CommentSelectionPill({
     const quote = composing
         ? (captured?.quote ?? '')
         : (selection?.quote ?? '');
-    const crossesBlocks = blockId === null;
+    const crossesBlocks =
+        composing && captured
+            ? captured.crossesBlocks
+            : (selection?.crossesBlocks ?? blockId === null);
 
     const measuredWidth =
         pillEl?.offsetWidth ??
@@ -512,10 +516,8 @@ export function CommentSelectionPill({
                             icon={
                                 <MessageSquare className="size-4" aria-hidden />
                             }
-                            disabled={crossesBlocks || readOnly}
-                            disabledHint={
-                                readOnly ? READ_ONLY_HINT : CROSS_BLOCK_HINT
-                            }
+                            disabled={readOnly}
+                            disabledHint={READ_ONLY_HINT}
                             onClick={() => beginCompose('comment')}
                             testId="comment-selection-pill-comment"
                         />

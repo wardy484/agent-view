@@ -197,7 +197,15 @@ export function CommentHighlightOverlay({
                     continue;
                 }
 
-                const range = findAnchorRange(
+                let range = findAnchorRange(
+                    block,
+                    comment.anchor.quote,
+                    comment.anchor.prefix ?? '',
+                    comment.anchor.suffix ?? '',
+                );
+
+                range ??= findCrossBlockAnchorRange(
+                    container,
                     block,
                     comment.anchor.quote,
                     comment.anchor.prefix ?? '',
@@ -505,6 +513,144 @@ function rangeFromFlatOffsets(
 
         offset += len;
         node = walker.nextNode() as Text | null;
+    }
+
+    if (!startNode || !endNode) {
+        return null;
+    }
+
+    try {
+        const range = document.createRange();
+        range.setStart(startNode, startOffset);
+        range.setEnd(endNode, endOffset);
+
+        return range;
+    } catch {
+        return null;
+    }
+}
+
+function findCrossBlockAnchorRange(
+    container: HTMLElement,
+    startBlock: HTMLElement,
+    quote: string,
+    prefix: string,
+    suffix: string,
+): Range | null {
+    const normalizedQuote = quote.replace(/\r?\n+/g, '');
+
+    if (normalizedQuote.length === 0) {
+        return null;
+    }
+
+    const textNodes = collectTextNodesFromBlock(container, startBlock);
+    let text = '';
+
+    for (const node of textNodes) {
+        text += node.data;
+    }
+
+    const candidates: number[] = [];
+    let from = 0;
+
+    while (from <= text.length) {
+        const idx = text.indexOf(normalizedQuote, from);
+
+        if (idx < 0) {
+            break;
+        }
+
+        candidates.push(idx);
+        from = idx + 1;
+    }
+
+    if (candidates.length === 0) {
+        return null;
+    }
+
+    let chosen = candidates[0];
+
+    if (candidates.length > 1) {
+        for (const candidate of candidates) {
+            const candPrefix = text.slice(
+                Math.max(0, candidate - prefix.length),
+                candidate,
+            );
+            const candSuffix = text.slice(
+                candidate + normalizedQuote.length,
+                candidate + normalizedQuote.length + suffix.length,
+            );
+
+            if (
+                (prefix.length === 0 || candPrefix === prefix) &&
+                (suffix.length === 0 || candSuffix === suffix)
+            ) {
+                chosen = candidate;
+                break;
+            }
+        }
+    }
+
+    return rangeFromTextNodes(textNodes, chosen, chosen + normalizedQuote.length);
+}
+
+function collectTextNodesFromBlock(
+    container: HTMLElement,
+    startBlock: HTMLElement,
+): Text[] {
+    const nodes: Text[] = [];
+    let collecting = false;
+    const blocks = container.querySelectorAll<HTMLElement>(
+        '[data-comment-block-id]',
+    );
+
+    blocks.forEach((block) => {
+        if (block === startBlock) {
+            collecting = true;
+        }
+
+        if (!collecting) {
+            return;
+        }
+
+        const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode() as Text | null;
+
+        while (node !== null) {
+            nodes.push(node);
+            node = walker.nextNode() as Text | null;
+        }
+    });
+
+    return nodes;
+}
+
+function rangeFromTextNodes(
+    nodes: Text[],
+    start: number,
+    end: number,
+): Range | null {
+    let offset = 0;
+    let startNode: Text | null = null;
+    let startOffset = 0;
+    let endNode: Text | null = null;
+    let endOffset = 0;
+
+    for (const node of nodes) {
+        const len = node.data.length;
+
+        if (startNode === null && offset + len >= start) {
+            startNode = node;
+            startOffset = start - offset;
+        }
+
+        if (offset + len >= end) {
+            endNode = node;
+            endOffset = end - offset;
+            break;
+        }
+
+        offset += len;
     }
 
     if (!startNode || !endNode) {

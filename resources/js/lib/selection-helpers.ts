@@ -16,6 +16,7 @@
 
 export type SelectionInfo = {
     blockId: string | null;
+    crossesBlocks: boolean;
     quote: string;
     prefix: string;
     suffix: string;
@@ -126,18 +127,18 @@ export function captureSelection(
     }
 
     const sameBlock = startBlock === endBlock;
-    const block = sameBlock ? startBlock : null;
-    const blockId = sameBlock ? startBlock.getAttribute(BLOCK_ATTR) : null;
+    const blockId = startBlock.getAttribute(BLOCK_ATTR);
 
     const rect = range.getBoundingClientRect();
 
-    const refBlock = block ?? startBlock;
+    const refBlock = startBlock;
     const refText = refBlock.textContent ?? '';
     const startHint = offsetWithinBlock(
         refBlock,
         range.startContainer,
         range.startOffset,
     );
+    const endBlockText = endBlock.textContent ?? '';
 
     const endHint = sameBlock
         ? offsetWithinBlock(refBlock, range.endContainer, range.endOffset)
@@ -150,10 +151,17 @@ export function captureSelection(
         Math.max(0, safeStart - PREFIX_SUFFIX_LEN),
         safeStart,
     );
-    const suffix = refText.slice(safeEnd, safeEnd + PREFIX_SUFFIX_LEN);
+    const endOffset = sameBlock
+        ? safeEnd
+        : offsetWithinBlock(endBlock, range.endContainer, range.endOffset);
+    const safeEndOffset = endOffset < 0 ? 0 : endOffset;
+    const suffix = sameBlock
+        ? refText.slice(safeEnd, safeEnd + PREFIX_SUFFIX_LEN)
+        : endBlockText.slice(safeEndOffset, safeEndOffset + PREFIX_SUFFIX_LEN);
 
     return {
         blockId,
+        crossesBlocks: !sameBlock,
         quote,
         prefix,
         suffix,
