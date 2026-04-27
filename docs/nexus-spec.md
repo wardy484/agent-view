@@ -243,6 +243,19 @@
 - **REQ-M10-009** The full local gate (`php artisan test`, `vendor/bin/pint --dirty --format agent`, `pnpm lint`, `pnpm type-check`, `php artisan spec:check`) passes on a fresh Linux Sail bootstrap. CI itself is unchanged (still uses GH Actions service containers, faster than `docker compose up` in CI). This REQ proves the Sail dev path matches CI's expectations rather than introducing a new CI matrix.
 - **REQ-M10-010** `AGENTS.md` (= `CLAUDE.md`) gains a "Linux dev (Sail)" section written for both humans and AI agents. It covers: Docker prerequisites, the host services stack lifecycle (start, stop, health-check command, where its `compose.yaml` lives), the unchanged `./scripts/worktree-bootstrap.sh <branch>` command, a "Sail command equivalents" cheat-sheet showing every artisan/composer/pnpm invocation prefixed with `./vendor/bin/sail` on Linux, the platform-detection idiom (`[ "$(uname -s)" = "Linux" ]`) so agents know which path they're on, and the `.polyscope/preview-port` contract from REQ-M10-008. The existing "Command Cheat Sheet" section is extended with the Sail equivalents inline. Two new entries land in the "Never Do" list: (a) "Never `docker compose down` the host services stack — it is shared across every worktree on this host" and (b) "Never assume Herd; detect the platform first." The "Always Ask Before Coding" list gets a new item: "Will this work on both Herd (Mac) and Sail (Linux) paths?"
 
+## M11 — Project View Hierarchy
+
+> Workbenches are already projects and snapshots are already child views. M11
+> makes that hierarchy visible in the UI without changing the database model,
+> MCP input contract, sharing semantics, or existing snapshot URLs. The
+> dashboard becomes a project entrypoint; a project detail page lists its
+> views; the snapshot chrome points back to that project.
+
+- **REQ-M11-001** Dashboard workbench rows navigate to the workbench's project detail page instead of jumping directly to the latest snapshot. The existing recents rail remains a shortcut surface for opening individual snapshots.
+- **REQ-M11-002** Route `GET /workbenches/{workbench:slug}` renders a project detail Inertia page for the signed-in owner only. The page receives `workbench` plus `views`, where each view is one snapshot in the workbench ordered by latest revision activity desc and includes slug, title, current revision, view_type, last_activity_at, last_activity_human, visibility, active_share_count, has_link_share, and open_comment_count.
+- **REQ-M11-003** The project detail page header uses existing workbench fields as the project context and deliberately does not introduce repo metadata, manual project settings, or manual view creation. Empty projects show a small empty state linking to the existing Agent Activity placeholder.
+- **REQ-M11-004** Snapshot page chrome makes the hierarchy explicit by linking its breadcrumb back to the project detail route and labelling the current snapshot as the selected view. Existing snapshot URLs, version switching, comments, sharing, and fullscreen behaviour remain unchanged.
+
 ---
 
 ## Requirement ID Rules
