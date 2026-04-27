@@ -3,12 +3,14 @@ import { wayfinder } from '@laravel/vite-plugin-wayfinder';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import laravel from 'laravel-vite-plugin';
+import { existsSync } from 'node:fs';
 import { defineConfig, loadEnv } from 'vite';
 
 const usesSailForArtisan =
     process.platform === 'linux' &&
     process.env.CI !== 'true' &&
-    process.env.GITHUB_ACTIONS !== 'true';
+    process.env.GITHUB_ACTIONS !== 'true' &&
+    existsSync('./vendor/bin/sail');
 
 const wayfinderCommand = usesSailForArtisan
     ? './vendor/bin/sail artisan wayfinder:generate'
