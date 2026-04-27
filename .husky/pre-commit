@@ -1,0 +1,49 @@
+#!/usr/bin/env sh
+
+# Catch PHP style drift before it reaches CI. This mirrors the Pint check in
+# the lint/static-analysis workflow, but only runs when PHP files are staged.
+
+set -e
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+if echo "$staged_files" | grep -q '\.php$'; then
+    echo "[pre-commit] running Pint against staged PHP changes..."
+
+    if [ -x ./vendor/bin/pint ]; then
+        ./vendor/bin/pint --dirty --test
+    elif [ -x ./vendor/bin/sail ]; then
+        ./vendor/bin/sail bin pint --dirty --test
+    else
+        echo "[pre-commit] Pint is unavailable. Install Composer dependencies first." >&2
+        exit 1
+    fi
+fi
+
+if echo "$staged_files" | grep -Eq '\.(js|jsx|ts|tsx)$'; then
+    echo "[pre-commit] generating Wayfinder modules before ESLint..."
+
+    if [ -f ./vendor/autoload.php ]; then
+        php artisan wayfinder:generate --with-form
+    elif [ -x ./vendor/bin/sail ]; then
+        ./vendor/bin/sail artisan wayfinder:generate --with-form
+    else
+        echo "[pre-commit] Wayfinder generation is unavailable. Install Composer dependencies first." >&2
+        exit 1
+    fi
+
+    echo "[pre-commit] running ESLint, Prettier, and TypeScript checks against staged JS/TS changes..."
+
+    if command -v pnpm >/dev/null 2>&1; then
+        pnpm lint:check
+        pnpm format:check
+        pnpm types:check
+    elif command -v corepack >/dev/null 2>&1; then
+        corepack pnpm lint:check
+        corepack pnpm format:check
+        corepack pnpm types:check
+    else
+        echo "[pre-commit] pnpm is unavailable. Install Node dependencies first." >&2
+        exit 1
+    fi
+fi

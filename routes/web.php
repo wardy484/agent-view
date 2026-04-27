@@ -12,6 +12,7 @@ use App\Http\Controllers\Snapshots\CommentReplyController;
 use App\Http\Controllers\Snapshots\CommentStatusController;
 use App\Http\Controllers\Snapshots\SnapshotSidebarController;
 use App\Http\Controllers\SnapshotShareController;
+use App\Http\Controllers\WorkbenchController;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -33,6 +34,7 @@ Route::inertia('acceptable-use', 'legal/acceptable-use')->name('legal.acceptable
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'show'])->name('dashboard');
+    Route::get('/workbenches/{workbench:slug}', [WorkbenchController::class, 'show'])->name('workbench.show');
 });
 
 // Workbench snapshot page — renders the snapshot via the appropriate view

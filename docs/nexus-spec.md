@@ -283,6 +283,19 @@
 - **REQ-M11-015** `tests/Browser/Snapshot/ReportCommentsTest.php` starts on the seeded `ui-baseline-report` snapshot, selects text in a markdown block, opens the comment composer, submits a comment body, asserts a new `snapshot_comments` row exists and the thread renders, replies to the comment as a second user, asserts the reply is visible, resolves the comment via the resolve control, asserts the thread's `status` is now `resolved`, and asserts no JavaScript errors.
 - **REQ-M11-016** `.github/workflows/ui-baseline.yml` defines a `ui-baseline` job that runs `php artisan test` filtered to the `Browser` testsuite, sharded across multiple runners via Pest's `--shard=N/T` flag and a GitHub Actions matrix (specific N is a tuning knob, not a contract — `--parallel`/paratest is deliberately not used because Pest 4 rejects the `--runner=…` flag paratest injects), caching the Playwright browser binaries between runs. The job blocks merge on failure, runs on `pull_request` and `push` to `main`. The existing `quality-gate` job continues to skip browser tests so it stays fast.
 
+## M12 — Project View Hierarchy
+
+> Workbenches are already projects and snapshots are already child views. M12
+> makes that hierarchy visible in the UI without changing the database model,
+> MCP input contract, sharing semantics, or existing snapshot URLs. The
+> dashboard becomes a project entrypoint; a project detail page lists its
+> views; the snapshot chrome points back to that project.
+
+- **REQ-M12-001** Dashboard workbench rows navigate to the workbench's project detail page instead of jumping directly to the latest snapshot. The existing recents rail remains a shortcut surface for opening individual snapshots.
+- **REQ-M12-002** Route `GET /workbenches/{workbench:slug}` renders a project detail Inertia page for the signed-in owner only. The page receives `workbench` plus `views`, where each view is one snapshot in the workbench ordered by latest revision activity desc and includes slug, title, current revision, view_type, last_activity_at, last_activity_human, visibility, active_share_count, has_link_share, and open_comment_count.
+- **REQ-M12-003** The project detail page header uses existing workbench fields as the project context and deliberately does not introduce repo metadata, manual project settings, or manual view creation. Empty projects show a small empty state linking to the existing Agent Activity placeholder.
+- **REQ-M12-004** Snapshot page chrome makes the hierarchy explicit by linking its breadcrumb back to the project detail route and labelling the current snapshot as the selected view. Existing snapshot URLs, version switching, comments, sharing, and fullscreen behaviour remain unchanged.
+
 ---
 
 ## Requirement ID Rules

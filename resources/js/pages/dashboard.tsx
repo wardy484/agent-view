@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import { edit as editTokens } from '@/routes/tokens';
-import { agentActivity } from '@/routes/workbench';
+import { show as showWorkbench } from '@/routes/workbench';
 import { show as showSnapshot } from '@/routes/workbench/snapshot';
 
 type Zone = 'deck' | 'table' | 'kanban' | 'flow' | 'narrative';
@@ -66,14 +66,7 @@ const zoneForView = (view: ViewType): Zone => {
 };
 
 const workbenchHref = (w: WorkbenchEntry): string => {
-    if (w.snapshot_count > 0 && w.latest_snapshot_slug) {
-        return showSnapshot({
-            workbench: w.slug,
-            snapshot: w.latest_snapshot_slug,
-        }).url;
-    }
-
-    return agentActivity({ workbench: w.slug }).url;
+    return showWorkbench({ workbench: w.slug }).url;
 };
 
 const SECTION_LABEL_CLASSES =
@@ -224,7 +217,7 @@ export default function Dashboard({
                         <section className="flex flex-col gap-4">
                             <SectionHeader
                                 title="Workbenches"
-                                helper="sorted by last activity"
+                                helper="open a project to browse its views"
                             />
                             <Card className="gap-0 overflow-hidden p-0">
                                 <ul className="divide-y">

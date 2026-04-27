@@ -26,6 +26,7 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -40,6 +41,7 @@ import { useRevisionBanner } from '@/hooks/use-revision-banner';
 import { useSidebarPolling } from '@/hooks/use-sidebar-polling';
 import AppLayout from '@/layouts/app-layout';
 import { cn } from '@/lib/utils';
+import { show as showWorkbench } from '@/routes/workbench';
 
 type Workbench = {
     slug: string;
@@ -465,7 +467,13 @@ function SnapshotBody({
                         <BreadcrumbSeparator />
                         <BreadcrumbItem>
                             <BreadcrumbLink asChild>
-                                <Link href={`/workbenches/${workbench.slug}`}>
+                                <Link
+                                    href={
+                                        showWorkbench({
+                                            workbench: workbench.slug,
+                                        }).url
+                                    }
+                                >
                                     {workbench.name}
                                 </Link>
                             </BreadcrumbLink>
@@ -478,9 +486,12 @@ function SnapshotBody({
                 </Breadcrumb>
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col gap-1">
-                        <h1 className="text-3xl font-semibold tracking-tight">
-                            {heading}
-                        </h1>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <h1 className="text-3xl font-semibold tracking-tight">
+                                {heading}
+                            </h1>
+                            <Badge variant="secondary">View</Badge>
+                        </div>
                         <p className="text-sm text-muted-foreground">
                             {subtitle}
                         </p>
