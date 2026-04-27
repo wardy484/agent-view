@@ -52,7 +52,9 @@ const viewLabel = (viewType: string | null): string => {
 
 function ViewBadges({ view }: { view: ViewEntry }) {
     const hasShares =
-        view.has_link_share || view.active_share_count > 0 || view.visibility === 'shared';
+        view.has_link_share ||
+        view.active_share_count > 0 ||
+        view.visibility === 'shared';
 
     return (
         <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +93,9 @@ function EmptyProject({ workbench }: { workbench: Workbench }) {
             </CardHeader>
             <CardContent>
                 <Button asChild>
-                    <Link href={agentActivity({ workbench: workbench.slug }).url}>
+                    <Link
+                        href={agentActivity({ workbench: workbench.slug }).url}
+                    >
                         <Bot className="size-4" />
                         Open Agent Activity
                     </Link>
@@ -101,7 +105,13 @@ function EmptyProject({ workbench }: { workbench: Workbench }) {
     );
 }
 
-function ViewRow({ workbench, view }: { workbench: Workbench; view: ViewEntry }) {
+function ViewRow({
+    workbench,
+    view,
+}: {
+    workbench: Workbench;
+    view: ViewEntry;
+}) {
     const href = showSnapshot({
         workbench: workbench.slug,
         snapshot: view.slug,
@@ -160,7 +170,7 @@ export default function WorkbenchPage({ workbench, views }: Props) {
             <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
                 <section className="flex flex-col gap-4">
                     <div className="flex items-baseline justify-between gap-3">
-                        <h2 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        <h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
                             Views
                         </h2>
                         <span className="text-xs text-muted-foreground">
