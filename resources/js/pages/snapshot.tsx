@@ -26,6 +26,7 @@ import { TableView } from '@/components/nexus/table-view';
 import type { TableViewPayload } from '@/components/nexus/table-view';
 import { VersionSwitcher } from '@/components/nexus/version-switcher';
 import type { SnapshotVersionSummary } from '@/components/nexus/version-switcher';
+import { Badge } from '@/components/ui/badge';
 import {
     Breadcrumb,
     BreadcrumbItem,
@@ -34,7 +35,6 @@ import {
     BreadcrumbPage,
     BreadcrumbSeparator,
 } from '@/components/ui/breadcrumb';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { usePinToLatest } from '@/hooks/use-pin-to-latest';
 import { useRevisionBanner } from '@/hooks/use-revision-banner';
