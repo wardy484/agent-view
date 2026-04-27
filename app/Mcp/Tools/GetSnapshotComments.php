@@ -14,6 +14,7 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\ResponseFactory;
@@ -52,7 +53,7 @@ class GetSnapshotComments extends Tool
 
     private function execute(Request $request): ResponseFactory|Response
     {
-        $snapshotId = (int) $request->get('snapshot_id');
+        $snapshotIdentifier = trim((string) $request->get('snapshot_id'));
         $status = (string) ($request->get('status') ?? 'open');
         $includeResolvedSinceRaw = $request->get('include_resolved_since');
 
@@ -65,12 +66,10 @@ class GetSnapshotComments extends Tool
             ));
         }
 
-        $snapshot = Snapshot::query()
-            ->with('workbench', 'currentVersion')
-            ->find($snapshotId);
+        $snapshot = $this->resolveSnapshot($snapshotIdentifier);
 
         if ($snapshot === null) {
-            return Response::error(sprintf('Snapshot %d not found.', $snapshotId));
+            return Response::error(sprintf('Snapshot "%s" not found.', $snapshotIdentifier));
         }
 
         /** @var User|null $caller */
@@ -139,8 +138,8 @@ class GetSnapshotComments extends Tool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'snapshot_id' => $schema->integer()
-                ->description('ID of the snapshot whose comments should be returned.')
+            'snapshot_id' => $schema->string()
+                ->description('ID, slug, or workbench snapshot URL whose comments should be returned.')
                 ->required(),
 
             'status' => $schema->string()
@@ -149,5 +148,69 @@ class GetSnapshotComments extends Tool
             'include_resolved_since' => $schema->string()
                 ->description('ISO 8601 timestamp; when supplied with status=open, also returns comments resolved after this time.'),
         ];
+    }
+
+    private function resolveSnapshot(string $identifier): ?Snapshot
+    {
+        if ($identifier === '') {
+            return null;
+        }
+
+        $routeParts = $this->snapshotRouteParts($identifier);
+
+        if ($routeParts !== null) {
+            return Snapshot::query()
+                ->with('workbench', 'currentVersion')
+                ->where('slug', $routeParts['snapshot'])
+                ->whereHas('workbench', fn ($query) => $query->where('slug', $routeParts['workbench']))
+                ->first();
+        }
+
+        return Snapshot::query()
+            ->with('workbench', 'currentVersion')
+            ->where(function ($query) use ($identifier): void {
+                $query->where('slug', $identifier);
+
+                if (ctype_digit($identifier)) {
+                    $query->orWhere('id', (int) $identifier);
+                }
+            })
+            ->first();
+    }
+
+    /**
+     * @return array{workbench: string, snapshot: string}|null
+     */
+    private function snapshotRouteParts(string $identifier): ?array
+    {
+        $path = parse_url($identifier, PHP_URL_PATH);
+
+        if (! is_string($path)) {
+            $path = $identifier;
+        }
+
+        $segments = collect(explode('/', trim($path, '/')))
+            ->filter(fn (string $segment): bool => $segment !== '')
+            ->values();
+
+        $workbenchesIndex = $segments->search('workbenches');
+        $snapshotsIndex = $segments->search('snapshots');
+
+        if (! is_int($workbenchesIndex) || ! is_int($snapshotsIndex)) {
+            return null;
+        }
+
+        $workbench = $segments->get($workbenchesIndex + 1);
+        $snapshot = $segments->get($snapshotsIndex + 1);
+
+        if (! is_string($workbench) || ! is_string($snapshot)) {
+            return null;
+        }
+
+        if ($workbench === '' || $snapshot === '' || Str::contains($snapshot, '?')) {
+            return null;
+        }
+
+        return ['workbench' => $workbench, 'snapshot' => $snapshot];
     }
 }
