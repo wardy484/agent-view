@@ -112,14 +112,16 @@ it('REQ-M6-023: pill source clears selection on window scroll', function (): voi
         ->toContain('onClose');
 });
 
-it('REQ-M6-023: pill source disables Comment and Suggest when selection crosses blocks', function (): void {
+it('REQ-M6-023: pill source allows Comment and disables mutating actions when selection crosses blocks', function (): void {
     $path = resource_path('js/components/nexus/comment-selection-pill.tsx');
     $source = (string) file_get_contents($path);
 
     expect($source)
         ->toContain('crossesBlocks')
-        ->toContain('blockId === null')
-        ->toContain('Selection must stay within one block.');
+        ->toContain('selection?.crossesBlocks')
+        ->toContain('disabled={readOnly}')
+        ->toContain('disabled={crossesBlocks || readOnly}')
+        ->toContain('Suggestions and deletion must stay within one block.');
 });
 
 it('REQ-M6-023: pill click handlers call captureSelection at click time', function (): void {

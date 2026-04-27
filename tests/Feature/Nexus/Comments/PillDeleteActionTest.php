@@ -16,8 +16,9 @@ uses(RefreshDatabase::class);
 /**
  * REQ-M6-031: the floating pill grows a fourth icon-only Delete action
  * (Trash2) that fires off a `kind = suggestion` POST with `proposed_text = ''`
- * (empty string represents deletion of the selected text). Cross-block and
- * read-only restrictions match Comment + Suggest.
+ * (empty string represents deletion of the selected text). Cross-block
+ * selections disable Delete because the acceptance path still replaces text
+ * inside one source markdown block.
  */
 it('REQ-M6-031: comment-selection-pill ships a Delete button with the Trash2 icon', function (): void {
     $path = resource_path('js/components/nexus/comment-selection-pill.tsx');

@@ -30,12 +30,14 @@ final class AnchorResolver
             : [];
 
         $block = null;
-        foreach ($blocks as $candidate) {
+        $blockIndex = null;
+        foreach ($blocks as $index => $candidate) {
             if (! is_array($candidate)) {
                 continue;
             }
             if (($candidate['id'] ?? null) === $c->block_id) {
                 $block = $candidate;
+                $blockIndex = $index;
                 break;
             }
         }
@@ -70,7 +72,7 @@ final class AnchorResolver
         $occurrences = self::findAllOccurrences($body, $quote);
 
         if ($occurrences === []) {
-            return ResolvedAnchor::stale('quote not found');
+            return self::resolveAcrossMarkdownBlocks($c, $blocks, (int) $blockIndex, $body, $quote);
         }
 
         if (count($occurrences) === 1) {
@@ -115,6 +117,69 @@ final class AnchorResolver
         }
 
         return ResolvedAnchor::stale('quote ambiguous after disambiguation');
+    }
+
+    /**
+     * Resolve a read-only comment anchor whose selected quote begins in the
+     * anchor block and continues through later markdown blocks.
+     *
+     * @param  list<mixed>  $blocks
+     */
+    private static function resolveAcrossMarkdownBlocks(
+        Comment $comment,
+        array $blocks,
+        int $startBlockIndex,
+        string $startBody,
+        string $quote,
+    ): ResolvedAnchor {
+        $startHint = $comment->anchor_start_hint;
+
+        if ($startHint === null || $startHint < 0 || $startHint > strlen($startBody)) {
+            return ResolvedAnchor::stale('quote not found');
+        }
+
+        $remaining = $quote;
+        $cursor = $startHint;
+
+        for ($index = $startBlockIndex; $index < count($blocks); $index++) {
+            $candidate = $blocks[$index] ?? null;
+
+            if (! is_array($candidate) || ($candidate['type'] ?? null) === 'embed') {
+                return ResolvedAnchor::stale('quote crosses non-markdown block');
+            }
+
+            $body = (string) ($candidate['body'] ?? '');
+            $bodyRemainder = substr($body, $cursor);
+            $matched = self::commonPrefixLength($remaining, $bodyRemainder);
+
+            if ($matched === 0 && $remaining !== '') {
+                return ResolvedAnchor::stale('quote not found');
+            }
+
+            $remaining = substr($remaining, $matched);
+
+            if ($remaining === '') {
+                return ResolvedAnchor::open($comment->block_id, $startHint, $startHint + strlen($quote));
+            }
+
+            $remaining = ltrim($remaining, "\r\n");
+            $cursor = 0;
+        }
+
+        return ResolvedAnchor::stale('quote not found');
+    }
+
+    private static function commonPrefixLength(string $left, string $right): int
+    {
+        $max = min(strlen($left), strlen($right));
+
+        for ($i = 0; $i < $max; $i++) {
+            if ($left[$i] !== $right[$i]) {
+                return $i;
+            }
+        }
+
+        return $max;
     }
 
     /**

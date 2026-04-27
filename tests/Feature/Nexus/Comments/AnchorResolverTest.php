@@ -187,6 +187,39 @@ it('REQ-M6-004: returns stale when the quote no longer occurs in the body', func
         ->and($resolved->reason)->toBe('quote not found');
 });
 
+it('REQ-M6-004: resolves a read-only comment quote across adjacent markdown blocks', function () {
+    $firstBlockId = (string) Str::uuid();
+    $secondBlockId = (string) Str::uuid();
+    $owner = User::factory()->create();
+    $workbench = Workbench::factory()->create(['owner_user_id' => $owner->id]);
+    $snapshot = Snapshot::factory()->for($workbench)->create();
+
+    $version = SnapshotVersioning::append(
+        snapshot: $snapshot,
+        viewType: 'report',
+        dataPayload: ['blocks' => [
+            ['id' => $firstBlockId, 'type' => 'markdown', 'body' => 'First block tail'],
+            ['id' => $secondBlockId, 'type' => 'markdown', 'body' => 'Second block head'],
+        ]],
+    );
+
+    $comment = makeAnchorComment($version, $firstBlockId, [
+        'kind' => 'comment',
+        'anchor_quote' => "block tail\nSecond block",
+        'anchor_prefix' => 'First ',
+        'anchor_suffix' => ' head',
+        'anchor_start_hint' => 6,
+        'anchor_end_hint' => 29,
+    ]);
+
+    $resolved = AnchorResolver::resolve($comment, $version);
+
+    expect($resolved->status)->toBe('open')
+        ->and($resolved->blockId)->toBe($firstBlockId)
+        ->and($resolved->start)->toBe(6)
+        ->and($resolved->end)->toBe(6 + strlen("block tail\nSecond block"));
+});
+
 it('REQ-M6-004: returns stale when the snapshot version is not a report', function () {
     $owner = User::factory()->create();
     $workbench = Workbench::factory()->create(['owner_user_id' => $owner->id]);
