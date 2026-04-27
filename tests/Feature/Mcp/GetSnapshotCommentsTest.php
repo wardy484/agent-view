@@ -84,6 +84,40 @@ it('REQ-M6-009: returns open comments by default for a snapshot the caller can v
         });
 });
 
+it('REQ-M6-009: resolves comments when snapshot_id is a workbench snapshot URL', function (): void {
+    $owner = User::factory()->create();
+    $workbench = Workbench::factory()->create([
+        'owner_user_id' => $owner->id,
+        'slug' => 'tutora-pr-10181-qualification-plan-review',
+    ]);
+    $base = makeReportSnapshot($owner);
+    $base['snapshot']->forceFill([
+        'workbench_id' => $workbench->id,
+        'slug' => '01KQ6DHBJXXF8MDKGSAHTPQES5',
+    ])->save();
+
+    Comment::factory()->for($base['snapshot'])->create([
+        'block_id' => $base['block_id'],
+        'created_on_version_id' => $base['version']->id,
+        'author_user_id' => $owner->id,
+        'body' => 'prod URL comment',
+        'anchor_quote' => 'Anchor target paragraph.',
+        'status' => CommentStatus::Open->value,
+    ]);
+
+    Sanctum::actingAs($owner);
+
+    NexusServer::tool(GetSnapshotComments::class, [
+        'snapshot_id' => 'https://nexus-ui-production-w1o1a4.laravel.cloud/workbenches/tutora-pr-10181-qualification-plan-review/snapshots/01KQ6DHBJXXF8MDKGSAHTPQES5',
+    ])->assertOk()
+        ->assertStructuredContent(function (AssertableJson $json) use ($base): void {
+            $json->where('snapshot_id', $base['snapshot']->id)
+                ->has('comments', 1)
+                ->where('comments.0.body', 'prod URL comment')
+                ->etc();
+        });
+});
+
 it('REQ-M6-009: status=all returns every non-deleted comment regardless of state', function (): void {
     $base = makeReportSnapshot();
 
