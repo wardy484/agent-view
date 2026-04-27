@@ -113,7 +113,16 @@ PYENV
 
 install_deps() {
     if [[ ! -d vendor ]]; then
-        composer install
+        if [[ "$PLATFORM" == "Linux" ]]; then
+            docker run --rm \
+                -u "$(id -u):$(id -g)" \
+                -v "$PWD:/app" \
+                -w /app \
+                composer:2 \
+                install
+        else
+            composer install
+        fi
     fi
     if [[ ! -d node_modules ]]; then
         if command -v pnpm >/dev/null; then pnpm install; else npm install; fi
@@ -124,7 +133,15 @@ generate_app_key_if_missing() {
     if grep -qE '^APP_KEY=base64:' .env; then
         echo "--> APP_KEY already set"
     else
-        php artisan key:generate --ansi
+        artisan key:generate --ansi
+    fi
+}
+
+artisan() {
+    if [[ "$PLATFORM" == "Linux" ]]; then
+        ./vendor/bin/sail artisan "$@"
+    else
+        php artisan "$@"
     fi
 }
 
@@ -180,13 +197,13 @@ linux_ensure_host_services() {
 linux_ensure_db() {
     local exists
     exists="$(docker compose -f "$HOST_SERVICES_COMPOSE" exec -T pgsql \
-        psql -U nexus -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" || true)"
+        psql -U nexus -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" || true)"
     if [[ "$exists" == "1" ]]; then
         echo "--> database $DB_NAME already exists in shared Postgres"
     else
         echo "--> creating database $DB_NAME in shared Postgres"
         docker compose -f "$HOST_SERVICES_COMPOSE" exec -T pgsql \
-            createdb -U nexus "$DB_NAME"
+            createdb -U nexus -w "$DB_NAME"
     fi
 }
 
@@ -214,6 +231,16 @@ linux_write_env() {
     write_env_var REDIS_PREFIX "nexus:$SLUG:"
     write_env_var VITE_PORT "$VITE_PORT"
     write_env_var VITE_HOST "$(linux_host_gateway)"
+    write_env_var FORWARD_DB_PORT "$((app_port + 10000))"
+    write_env_var FORWARD_REDIS_PORT "$((app_port + 20000))"
+    write_env_var APP_USER "$(id -u)"
+    write_env_var WWWUSER "$(id -u)"
+    write_env_var WWWGROUP "$(id -g)"
+    if [[ "$(id -u)" == "0" ]]; then
+        write_env_var SUPERVISOR_PHP_USER "root"
+    else
+        write_env_var SUPERVISOR_PHP_USER "sail"
+    fi
 }
 
 linux_sail_up() {
@@ -262,13 +289,12 @@ case "${PLATFORM}" in
 esac
 
 install_deps
-generate_app_key_if_missing
-php artisan migrate --force
-php artisan db:seed --force
-
 if [[ "$PLATFORM" == "Linux" ]]; then
     linux_sail_up
 fi
+generate_app_key_if_missing
+artisan migrate --force
+artisan db:seed --force
 
 start_vite_dev
 
@@ -280,7 +306,12 @@ echo ""
 echo "Next:"
 echo "  cd $WORKTREE_PATH"
 case "$PLATFORM" in
-    Darwin) echo "  open https://$SLUG.test" ;;
-    Linux)  echo "  open http://localhost:${APP_PORT_VALUE:-?}" ;;
+    Darwin)
+        echo "  open https://$SLUG.test"
+        echo "  php artisan spec:check --next"
+        ;;
+    Linux)
+        echo "  open http://localhost:${APP_PORT_VALUE:-?}"
+        echo "  ./vendor/bin/sail artisan spec:check --next"
+        ;;
 esac
-echo "  php artisan spec:check --next"

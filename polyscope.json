@@ -2,13 +2,10 @@
   "scripts": {
     "setup": "./scripts/polyscope-setup.sh {{folder}}",
     "run": [
-      { "label": "Dev Server", "command": "pnpm dev", "autostart": true, "runMode": "replace" },
-      { "label": "Tests", "command": "php artisan test --compact" },
-      { "label": "Pint", "command": "./vendor/bin/pint --dirty --format agent" },
-      { "label": "Spec check", "command": "php artisan spec:check --next" }
+      { "label": "Dev Server", "command": "sh -lc 'set -a; . ./.env; set +a; corepack pnpm dev --host 0.0.0.0 --port \"$VITE_PORT\" --strictPort'", "autostart": false, "runMode": "replace" },
+      { "label": "Tests", "command": "./vendor/bin/sail artisan test --compact" },
+      { "label": "Pint", "command": "./vendor/bin/sail bin pint --dirty --format agent" },
+      { "label": "Spec check", "command": "./vendor/bin/sail artisan spec:check --next" }
     ]
-  },
-  "preview": {
-    "url": "https://{{folder}}.test"
   }
 }
