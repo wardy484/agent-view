@@ -1,0 +1,25 @@
+#!/usr/bin/env sh
+
+# Catch PHP style drift before it reaches CI. This mirrors the Pint check in
+# the lint/static-analysis workflow, but only runs when PHP files are staged.
+
+set -e
+
+if ! git diff --cached --name-only --diff-filter=ACMR | grep -q '\.php$'; then
+    exit 0
+fi
+
+echo "[pre-commit] running Pint against staged PHP changes..."
+
+if [ -x ./vendor/bin/pint ]; then
+    ./vendor/bin/pint --dirty --test
+    exit 0
+fi
+
+if [ -x ./vendor/bin/sail ]; then
+    ./vendor/bin/sail bin pint --dirty --test
+    exit 0
+fi
+
+echo "[pre-commit] Pint is unavailable. Install Composer dependencies first." >&2
+exit 1
