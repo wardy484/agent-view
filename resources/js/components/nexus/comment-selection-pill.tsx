@@ -103,8 +103,7 @@ const VIEWPORT_PADDING = 8;
 const LG_BREAKPOINT_PX = 1024;
 const COMPOSER_FALLBACK_WIDTH = 320;
 
-const CROSS_BLOCK_HINT =
-    'Suggestions and deletion must stay within one block.';
+const CROSS_BLOCK_HINT = 'Suggestions and deletion must stay within one block.';
 const READ_ONLY_HINT = 'Read-only — switch to the latest revision to comment.';
 
 export function CommentSelectionPill({

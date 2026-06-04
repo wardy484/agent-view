@@ -591,7 +591,11 @@ function findCrossBlockAnchorRange(
         }
     }
 
-    return rangeFromTextNodes(textNodes, chosen, chosen + normalizedQuote.length);
+    return rangeFromTextNodes(
+        textNodes,
+        chosen,
+        chosen + normalizedQuote.length,
+    );
 }
 
 function collectTextNodesFromBlock(
